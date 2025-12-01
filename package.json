@@ -1,0 +1,44 @@
+{
+  "name": "poly-wynn",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "build": "rm -rf dist && node build.js",
+    "start": "npm run build && pm2 start ecosystem.config.js",
+    "polyWynn": "npm run build && node dist/index.js runPolyWynn",
+    "redeem": "npm run build  && node dist/index.js redeem",
+    "stop": "pm2 stop all && pm2 delete all",
+    "clean": "rm output/*"
+  },
+  "dependencies": {
+    "@ethersproject/contracts": "^5.8.0",
+    "@ethersproject/providers": "^5.8.0",
+    "@ethersproject/units": "^5.8.0",
+    "@ethersproject/wallet": "^5.8.0",
+    "@polymarket/builder-relayer-client": "^0.0.7",
+    "@polymarket/clob-client": "^4.22.8",
+    "axios": "^1.7.7",
+    "co": "^4.6.0",
+    "danfojs": "^1.2.0",
+    "json5": "^2.2.3",
+    "type-fest": "^4.31.0",
+    "viem": "^2.40.3",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.25.7",
+    "@babel/core": "^7.25.7",
+    "@babel/node": "^7.25.7",
+    "@babel/preset-env": "^7.25.7",
+    "@types/node": "^22.7.4",
+    "@types/ws": "^8.18.1",
+    "@zerollup/ts-transform-paths": "^1.7.18",
+    "esbuild": "^0.24.0",
+    "esbuild-plugin-alias": "^0.2.1",
+    "prettier": "^3.3.3",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.6.2"
+  }
+}
