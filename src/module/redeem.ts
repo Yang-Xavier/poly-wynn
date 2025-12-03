@@ -14,7 +14,7 @@ import {
 import { privateKeyToAccount, sign } from "viem/accounts";
 import { polygon } from "viem/chains";
 import {logInfo} from "./logger";
-import { getGlobalConfig } from "@utils/config";
+import { getGlobalConfig, getKeyConfig } from "@utils/config";
 
 // CTF 合约的 redeemPositions ABI
 const ctfRedeemAbi = parseAbi([
@@ -32,7 +32,6 @@ const safeAbi = parseAbi([
 ]);
 
 export type RedeemConfig = {
-    chainId: number;
     privKey: string;
     rpcUrl: string;
     ctf: string; // CTF 合约地址
@@ -47,16 +46,15 @@ export type RedeemConfig = {
 class Redeem {
     private static instance: Redeem | null = null;
     private config: RedeemConfig | null = null;
-    private inited: boolean = false;
 
     /**
      * 私有构造函数，确保单例模式
      */
     private constructor() {
         const globalConfig = getGlobalConfig();
+        const keyConfig = getKeyConfig();
         this.config = {
-            chainId: globalConfig.chainId,
-            privKey: globalConfig.account.privKey,
+            privKey: keyConfig.privKey,
             rpcUrl: globalConfig.redeemConfig.rpcUrl,
             ctf: globalConfig.redeemConfig.ctf,
             safeWallet: globalConfig.account.funderAddress,
@@ -88,9 +86,6 @@ class Redeem {
         conditionId: string,
         indexSets: bigint[] = [BigInt(1), BigInt(2)],
     ) {
-        if (!this.inited || !this.config) {
-            throw new Error("Redeem配置未初始化，请先调用 init()");
-        }
 
         // 创建账户和客户端
         const account = privateKeyToAccount(this.config.privKey as Hex);
@@ -165,7 +160,7 @@ class Redeem {
             authorizationList: [],
         });
 
-        logInfo(`[Redeem] ✅ 签名者 ${account.address} 是Safe的所有者`);
+        logInfo(`[Redeem] 签名者 ${account.address} 是Safe的所有者`);
         logInfo(`[Redeem] Safe阈值: ${threshold.toString()} (需要 ${threshold.toString()} 个签名)`);
 
         if (threshold > 1n) {

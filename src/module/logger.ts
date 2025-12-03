@@ -250,9 +250,9 @@ export class Logger {
   /**
    * 自定义日志方法（用于扩展的日志类型）
    */
-  customLog(type: LogType, level: LogLevel, message: string, data?: any, enableConsole:boolean): void {
+  customLog(type: LogType, level: LogLevel, message: string, data?: any, enableConsole?:boolean): void {
     this.addLogType(type); // 确保类型已添加
-    this.log(level, type, message, data);
+    this.log(level, type, message, data, enableConsole);
   }
 
   /**
@@ -272,7 +272,7 @@ export class Logger {
 export const getLoggerModule = () => Logger.getInstance();
 // 导出便捷方法
 export const logInfo = (message: string, data?: any) => getLoggerModule().info(message, data);
-export const logData = (message: string, data?: any) => getLoggerModule().customLog('data', LogLevel.INFO, message, data, true);;
+export const logData = (message: string, data?: any) => getLoggerModule().customLog('data', LogLevel.INFO, message, data, false);;
 export const logError = (message: string, data?: any) => getLoggerModule().error(message, data);
 export const logDebug = (message: string, data?: any) => getLoggerModule().debug(message, data);
 export const logWarn = (message: string, data?: any) => getLoggerModule().warn(message, data);

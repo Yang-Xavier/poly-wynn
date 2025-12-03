@@ -42,6 +42,7 @@ class PolyLiveDataClient {
     private ws: WebSocket | null = null;
     private url: string = 'wss://ws-live-data.polymarket.com/';
     private isConnected: boolean = false;
+    private isManualDisconnect: boolean = false; // 标记是否是主动断开
     private reconnectAttempts: number = 0;
     private maxReconnectAttempts: number = 5;
     private reconnectDelay: number = 3000; // 3秒
@@ -61,8 +62,8 @@ class PolyLiveDataClient {
      */
     constructor() {
         const globalConfig = getGlobalConfig();
-        this.url = globalConfig.polyData.liveDataUrl;
-        this.maxCacheSize = globalConfig.polyData.maxCacheSize;
+        this.url = globalConfig.ws.liveDataUrl;
+        this.maxCacheSize = globalConfig.ws.maxCacheSize;
     }
     
     /**
@@ -82,6 +83,7 @@ class PolyLiveDataClient {
                 this.ws.on('open', () => {
                     logInfo('[PolyLiveData] WebSocket 连接已建立');
                     this.isConnected = true;
+                    this.isManualDisconnect = false; // 重置主动断开标志
                     this.reconnectAttempts = 0;
                     
                     // 连接成功后，重新订阅之前的订阅
@@ -109,8 +111,12 @@ class PolyLiveDataClient {
                     this.isConnected = false;
                     this.ws = null;
                     
-                    // 尝试重连
-                    this.attemptReconnect();
+                    // 只有在非主动断开的情况下才尝试重连
+                    if (!this.isManualDisconnect) {
+                        this.attemptReconnect();
+                    } else {
+                        logInfo('[PolyLiveData] 主动断开连接，不进行重连');
+                    }
                 });
                 
             } catch (error) {
@@ -128,12 +134,12 @@ class PolyLiveDataClient {
             const message = JSON.parse(data.toString());
             
             if (message.topic === 'crypto_prices_chainlink') {
-                logData(`[PolyLiveData] 收到消息, price: ${message.payload.value}`);
+                logData(`[PolyLiveData] crypto_prices_chainlink, price: ${message.payload.value}, symbol: ${message.payload.symbol}`);
                 this.cacheData(message);
                 this.onWatchPriceChangeCb?.(Number(message.payload.value));
             }
         } catch (error) {
-            logInfo('[PolyLiveData] 解析消息失败:', error);
+            logInfo(`[PolyLiveData] 解析消息失败: ${error}`, data.toString());
         }
     }
     
@@ -299,6 +305,10 @@ class PolyLiveDataClient {
      * 关闭连接
      */
     disconnect(): void {
+        if(!this.isConnected) {
+            return
+        }
+        this.isManualDisconnect = true; // 标记为主动断开
         if (this.ws) {
             this.ws.close();
             this.ws = null;

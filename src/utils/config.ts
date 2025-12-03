@@ -8,3 +8,10 @@ export function getGlobalConfig() {
     const config = require('../config.json');
     return config;
 }
+
+export function getKeyConfig() {
+    // 从json文件中读取config
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const config = require('../keyConfig.json');
+    return config;
+}

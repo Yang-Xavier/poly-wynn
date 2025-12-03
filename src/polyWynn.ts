@@ -10,12 +10,11 @@ import {
     getMarketSlug15Min,
     runFnDelay,
     distanceToNextInterval,
-    waitFor
+    omit,
+    calcPriceRange
 } from "./utils/tools";
 import {
-    findChance,
-    findChanceByWatchOrderbook,
-    monitorPositionLoss,
+    findChanceByWatchPrice,
     monitorPriceChange
 } from './utils/strategy';
 import { getRedeemModule } from "./module/redeem";
@@ -28,7 +27,6 @@ import { getPriceToBeat } from "@utils/polymarketApi";
 
 
 const init = async () => {
-    const globalConfig = getGlobalConfig();
     const clobModule = getClobModule();
 
     try {
@@ -58,12 +56,12 @@ export const runPolyWynn = async () => {
 
             logInfo(`获取市场数据...`);
             const market = await getGammaDataModule().getMarketBySlug(marketSlug);
-            const priceToBeat = await getPriceToBeat(globalConfig.marketTag, market.eventStartTime);
-            logInfo(`价格 to beat: ${priceToBeat}`);
+            const priceToBeat = await getPriceToBeat(globalConfig.marketTag, market.eventStartTime, market.endDate);
+            logInfo(`对赌价格: ${priceToBeat}, market: ${marketSlug}`);
 
-            logInfo(`订阅Crypto价格: ${globalConfig.polyData.cryptoPriceTag}`);
+            logInfo(`订阅Crypto价格: ${globalConfig.marketTag}/usd`);
             await polyLiveDataClient.connect();
-            await polyLiveDataClient.subscribeCryptoPrices(globalConfig.polyData.cryptoPriceTag);
+            await polyLiveDataClient.subscribeCryptoPrices(`${globalConfig.marketTag}/usd`);
 
 
             logInfo(`订阅市场数据: ${market.clobTokenIds}`);
@@ -71,34 +69,66 @@ export const runPolyWynn = async () => {
             await polyMarketDataClient.subscribeMarket(JSON.parse(market.clobTokenIds) as string[]);
 
             const watchingOrderbookTimeout = distanceToNextInterval(slugIntervalTimestamp);
-            logInfo(`find chance by watching orderbook, priceToBeat: ${priceToBeat}, timeout: ${watchingOrderbookTimeout}`);
-            const tokenChanceDetails = await findChanceByWatchOrderbook(market, priceToBeat, watchingOrderbookTimeout);
+            const { id } = market;
+            logInfo(`查询是否存在订单，获取持仓订单: ${id}`);
+            const openOrders = await getClobModule().getOpenOrders(id);
+            const { upRange, downRange } = calcPriceRange(priceToBeat, globalConfig.stratgegy.diffBeatPriceFactor);
 
-            if (tokenChanceDetails) {
-                logInfo(`找到机会: ${tokenChanceDetails.outcome}, bestAsk: ${tokenChanceDetails.bestAsk}, priceToBeat: ${priceToBeat}`);
-                let buyResult: PolymarketOrderResult | null = null;
+            let tokenChanceDetails: any = null;
+
+            if (!openOrders || openOrders.length <= 0) {
+                logInfo(`没有持仓订单`);
+                logInfo(`🔍监控价格, 寻找机会... priceToBeat: ${priceToBeat}, timeout: ${watchingOrderbookTimeout}`);
+                logInfo(`监控价格范围: ${upRange.join(' ~ ')} //  ${downRange.join(' ~ ')}`);
+                tokenChanceDetails = await findChanceByWatchPrice(market, priceToBeat, watchingOrderbookTimeout, slugIntervalTimestamp);
+            }
+
+            if (tokenChanceDetails || openOrders?.length > 0) {
+                logInfo(`找到机会`, omit(tokenChanceDetails, ['orderbookSummary']));
+                let boughtOrder: PolymarketOrderResult | null = null;
                 try {
-                    buyResult = await buy({
-                        amount: globalConfig.positionAmount,
-                        tokenId: tokenChanceDetails.tokenId
-                    });
-                    logInfo(`购买结果: ${JSON.stringify(buyResult)}`);
+                    if (openOrders?.length > 0) {
+                        logInfo(`已存在持仓订单, 跳过购买`, openOrders);
+                        boughtOrder = openOrders[0];
+                    } else {
+                        logInfo(`准备购买...`, {
+                            amount: globalConfig.positionAmount,
+                            tokenId: tokenChanceDetails.tokenId,
+                            cryptoPrice: tokenChanceDetails.cryptoPrice
+                        });
+
+                        boughtOrder = await buy({
+                            amount: globalConfig.positionAmount,
+                            tokenId: tokenChanceDetails.tokenId
+                        });
+
+                        logInfo(`完成购买`, boughtOrder);
+
+                        if (boughtOrder && boughtOrder.status === 'MATCHED') {
+                            logTrade('buy', boughtOrder);
+                        }
+                    }
                 } catch (error) {
                     logError(`购买失败: ${error}`);
                 }
 
-                if (buyResult && buyResult.status === 'MATCHED') {
-                    logTrade('buy', buyResult);
+                if (boughtOrder && boughtOrder.status === 'MATCHED') {
                     const watchingPriceChangeTimeout = distanceToNextInterval(slugIntervalTimestamp);
-                    logInfo(`监控价格变化, priceToBeat: ${priceToBeat}, outcome: ${tokenChanceDetails.outcome}, timeout: ${watchingPriceChangeTimeout}`);
+                    logInfo(`监控价格变化, priceToBeat: ${priceToBeat}, currentPrice: ${tokenChanceDetails.cryptoPrice}, outcome: ${tokenChanceDetails.outcome}, timeout: ${watchingPriceChangeTimeout}`);
                     const action = await monitorPriceChange(priceToBeat, tokenChanceDetails.outcome, watchingPriceChangeTimeout);
-                    logInfo(`监控仓位结果: ${action}`);
+                    const currentPrice = polyLiveDataClient.getLatestCryptoPricesFromChainLink();
+                    logInfo(`👀监控仓位结果: ${action}, currentPrice: ${currentPrice}`);
+
+                    logInfo(`断开与PolyLiveData的连接`);
+                    await polyLiveDataClient.disconnect();
+                    logInfo(`断开与PolyMarketData的连接`);
+                    await polyMarketDataClient.disconnect();
 
                     if (action === TOKEN_ACTION_ENUM.sell) {
                         try {
                             const {
                                 size_matched: boughtAmount
-                            } = buyResult;
+                            } = boughtOrder;
 
                             const sellResult = await sell({
                                 amount: Number(boughtAmount),
@@ -115,15 +145,15 @@ export const runPolyWynn = async () => {
                             logError(`卖出失败: ${error}`);
                         }
                     } else {
-                        logInfo('等待赎回...');
+                        logInfo(`等待赎回...${globalConfig.redeemConfig.delyRedeem / 1000}s`);
                         await runFnDelay(async () => {
                             try {
-                                const { market: conditionId } = buyResult;
+                                const { market: conditionId } = boughtOrder;
                                 const redeemModule = getRedeemModule();
                                 const { success } = await redeemModule.redeemViaAAWallet(conditionId);
                                 if (success) {
                                     logInfo('赎回成功');
-                                    logTrade('redeem', buyResult);
+                                    logTrade('redeem', boughtOrder);
                                 } else {
                                     logInfo('赎回失败');
                                 }
@@ -134,15 +164,13 @@ export const runPolyWynn = async () => {
                         }, globalConfig.redeemConfig.delyRedeem)
                     }
                 }
-
-            } else {
-                logInfo(`未找到机会`);
             }
-
-            logInfo(`断开与PolyLiveData的连接`);
-            await polyLiveDataClient.disconnect();
-            logInfo(`断开与PolyMarketData的连接`);
-            await polyMarketDataClient.disconnect();
         }
+        
+        logInfo(`确认断开连接...`);
+        logInfo(`断开与PolyLiveData的连接`);
+        await polyLiveDataClient.disconnect();
+        logInfo(`断开与PolyMarketData的连接`);
+        await polyMarketDataClient.disconnect();
     })
 }

@@ -5,8 +5,8 @@ import { ClobClient, OrderType, Side } from "@polymarket/clob-client";
 import { Wallet } from "@ethersproject/wallet";
 import { awaitAxiosDataTo } from "../utils/awaitTo";
 import Proxy from "@utils/Proxy";
-import {logInfo} from "./logger";
-import { getGlobalConfig } from "@utils/config";
+import { logInfo } from "./logger";
+import { getGlobalConfig, getKeyConfig } from "@utils/config";
 
 // 订单簿价格档位
 interface OrderLevel {
@@ -78,7 +78,7 @@ class Clob {
   /**
    * 私有构造函数，确保单例模式
    */
-  private constructor() {}
+  private constructor() { }
 
   /**
    * 获取 Clob 单例实例
@@ -94,13 +94,17 @@ class Clob {
   /**
    * 获取 ClobClient 凭证
    * @param host CLOB 主机地址
-   * @param chainId 链ID
    * @param privKey 钱包私钥
    * @returns ClobClient 凭证
    */
-  private async getClobClientCreds({host, chainId, privKey}: {host: string, chainId: number, privKey: string}) {
+  private async getClobClientCreds() {
+    const { clobHost } = getGlobalConfig();
+    const { clobCreds, privKey } = getKeyConfig();
+    if (clobCreds) {
+      return clobCreds
+    }
     const signer = new Wallet(privKey);
-    const creds = await new ClobClient(host, chainId, signer).deriveApiKey(1);
+    const creds = await new ClobClient(clobHost, 137, signer).deriveApiKey(1);
     return creds;
   }
 
@@ -111,17 +115,18 @@ class Clob {
     }
 
     const globalConfig = getGlobalConfig();
-    const { clobHost: host, chainId, account } = globalConfig;
-    const { funderAddress, privKey } = account;
+    const keyConfig = getKeyConfig();
+    const { clobHost: host, account } = globalConfig;
+    const { funderAddress } = account;
     const signatureType = 2;
 
-    const signer = new Wallet(privKey);
-    const creds = await this.getClobClientCreds({ host, chainId, privKey });
+    const signer = new Wallet(keyConfig.privKey);
+    const creds = await this.getClobClientCreds();
 
     this.clobApiBase = host;
     this.clobClient = new ClobClient(
       host,
-      chainId,
+      137,
       signer,
       creds,
       signatureType,
@@ -155,6 +160,7 @@ class Clob {
     if (!this.inited) {
       throw new Error('ClobClient not initialized. Please call init() first.');
     }
+    logInfo(`💰下单...`, { tokenID, side, amount, tickSize, negRisk, orderType })
     try {
       const resp = await this.clobClient!.createAndPostMarketOrder(
         {
@@ -168,6 +174,7 @@ class Clob {
         { tickSize: tickSize as any, negRisk },
         orderType as any
       );
+      logInfo(`💰下单完成...`, { resp })
       return resp;
     } catch (err) {
       logInfo('placeOrder error:', err);
@@ -188,9 +195,9 @@ class Clob {
     if (!this.inited) {
       throw new Error('ClobClient not initialized. Please call init() first.');
     }
-    if(orderId) {
+    if (orderId) {
       let resp;
-      while(!resp) {
+      while (!resp) {
         try {
           resp = await this.clobClient!.getOrder(orderId);
           return resp;
@@ -200,7 +207,7 @@ class Clob {
       }
 
     }
-    
+
   }
 
   /**
@@ -219,7 +226,7 @@ class Clob {
     }));
 
     if (error) {
-      logInfo('Failed to get order, token id:', tokenId);
+      logInfo('Failed to get orderbook summary, token id:', tokenId);
       return null;
     }
 
@@ -251,8 +258,14 @@ class Clob {
     if (!this.inited) {
       throw new Error('ClobClient not initialized. Please call init() first.');
     }
-    const resp = await this.clobClient!.getOpenOrders({market: marketId});
-    return resp;
+    try {
+      const resp = await this.clobClient!.getOpenOrders({ market: marketId });
+      return resp;
+    } catch (e) {
+      logInfo(`getOpenOrders error, ${e}`);
+      return []
+    }
+
   }
 }
 

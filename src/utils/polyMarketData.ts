@@ -4,7 +4,10 @@
  */
 
 import { getGlobalConfig } from '@utils/config';
+import { getClobModule } from 'src/module/clob';
+import { logData, logError, logInfo } from 'src/module/logger';
 import WebSocket from 'ws';
+import { pick } from './tools';
 
 // 订阅请求接口
 interface MarketSubscriptionRequest {
@@ -43,6 +46,7 @@ class PolyMarketDataClient {
     private ws: WebSocket | null = null;
     private url: string;
     private isConnected: boolean = false;
+    private isManualDisconnect: boolean = false; // 标记是否是主动断开
     private reconnectAttempts: number = 0;
     private maxReconnectAttempts: number = 5;
     private reconnectDelay: number = 3000; // 3秒
@@ -59,8 +63,8 @@ class PolyMarketDataClient {
 
     constructor() {
         const globalConfig = getGlobalConfig();
-        this.url = globalConfig.polyData.marketDataUrl;
-        this.maxCacheSize = globalConfig.polyData.maxCacheSize;
+        this.url = globalConfig.ws.marketDataUrl;
+        this.maxCacheSize = globalConfig.ws.maxCacheSize;
     }
     
     /**
@@ -78,8 +82,9 @@ class PolyMarketDataClient {
                 this.ws = new WebSocket(this.url);
                 
                 this.ws.on('open', () => {
-                    console.log('[PolyMarketData] WebSocket 连接已建立');
+                    logInfo('[PolyMarketData] WebSocket 连接已建立');
                     this.isConnected = true;
+                    this.isManualDisconnect = false; // 重置主动断开标志
                     this.reconnectAttempts = 0;
                     
                     // 连接成功后，重新订阅之前的订阅
@@ -95,24 +100,28 @@ class PolyMarketDataClient {
                 });
                 
                 this.ws.on('error', (error: Error) => {
-                    console.error('[PolyMarketData] WebSocket 错误:', error);
+                    logInfo('[PolyMarketData] WebSocket 错误:', error);
                     this.isConnected = false;
                     if (this.reconnectAttempts === 0) {
                         reject(error);
                     }
                 });
-                
+
                 this.ws.on('close', (code: number, reason: Buffer) => {
-                    console.log(`[PolyMarketData] WebSocket 连接已关闭: ${code} - ${reason.toString()}`);
+                    logInfo(`[PolyMarketData] WebSocket 连接已关闭: ${code} - ${reason.toString()}`);
                     this.isConnected = false;
                     this.ws = null;
                     
-                    // 尝试重连
-                    this.attemptReconnect();
+                    // 只有在非主动断开的情况下才尝试重连
+                    if (!this.isManualDisconnect) {
+                        this.attemptReconnect();
+                    } else {
+                        logInfo('[PolyMarketData] 主动断开连接，不进行重连');
+                    }
                 });
                 
             } catch (error) {
-                console.error('[PolyMarketData] 连接失败:', error);
+                logError('[PolyMarketData] 连接失败:', error);
                 reject(error);
             }
         });
@@ -131,11 +140,13 @@ class PolyMarketDataClient {
             const message = JSON.parse(data.toString()) as MarketPushData;
             
             if(message.event_type === 'book') {
+                const { asset_id, asks, bids } = message;
                 this.cacheData(message);
                 this.onWatchOrderBookPriceChangeCb?.(message);
+                logData(`[PolyMarketData] asset_id: ${asset_id}, bestAsks: ${asks?.length > 0 ? asks[asks.length-1].price : 'N/A'}, bestBids: ${bids?.length > 0 ? bids[bids.length-1].price : 'N/A'}`);
             }
         } catch (error) {
-            console.error('[PolyMarketData] 解析消息失败:', error);
+            logInfo('[PolyMarketData] 解析消息失败:', error);
         }
     }
     
@@ -161,13 +172,13 @@ class PolyMarketDataClient {
      */
     private sendSubscription(subscription: MarketSubscriptionRequest): void {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-            console.warn('[PolyMarketData] WebSocket 未连接，无法发送订阅');
+            logInfo('[PolyMarketData] WebSocket 未连接，无法发送订阅');
             return;
         }
         
         const message = JSON.stringify(subscription);
         this.ws.send(message);
-        console.log('[PolyMarketData] 发送订阅请求:', message);
+        logInfo('[PolyMarketData] 发送订阅请求:', message);
     }
     
     /**
@@ -175,16 +186,16 @@ class PolyMarketDataClient {
      */
     private attemptReconnect(): void {
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-            console.error('[PolyMarketData] 达到最大重连次数，停止重连');
+            logInfo('[PolyMarketData] 达到最大重连次数，停止重连');
             return;
         }
         
         this.reconnectAttempts++;
-        console.log(`[PolyMarketData] ${this.reconnectDelay / 1000}秒后尝试重连 (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
+        logInfo(`[PolyMarketData] ${this.reconnectDelay / 1000}秒后尝试重连 (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
         
         setTimeout(() => {
             this.connect().catch((error) => {
-                console.error('[PolyMarketData] 重连失败:', error);
+                logInfo('[PolyMarketData] 重连失败:', error);
             });
         }, this.reconnectDelay);
     }
@@ -195,7 +206,7 @@ class PolyMarketDataClient {
      */
     subscribeMarket(assetIds: string[]): void {
         if (!Array.isArray(assetIds) || assetIds.length === 0) {
-            console.warn('[PolyMarketData] 资产ID列表为空，无法订阅');
+            logInfo('[PolyMarketData] 资产ID列表为空，无法订阅');
             return;
         }
         
@@ -211,7 +222,7 @@ class PolyMarketDataClient {
         if (this.isConnected && this.ws?.readyState === WebSocket.OPEN) {
             this.sendSubscription(subscription);
         } else {
-            console.warn('[PolyMarketData] WebSocket 未连接，订阅将在连接建立后自动发送');
+            logInfo('[PolyMarketData] WebSocket 未连接，订阅将在连接建立后自动发送');
         }
     }
     
@@ -259,6 +270,10 @@ class PolyMarketDataClient {
      * 关闭连接
      */
     disconnect(): void {
+        if(!this.isConnected) {
+            return
+        }
+        this.isManualDisconnect = true; // 标记为主动断开
         if (this.ws) {
             this.ws.close();
             this.ws = null;
@@ -267,7 +282,7 @@ class PolyMarketDataClient {
         this.clearCache();
         this.subscribedAssetIds = [];
         this.onWatchOrderBookPriceChangeCb = () => {};
-        console.log('[PolyMarketData] WebSocket 连接已断开');
+        logInfo('[PolyMarketData] WebSocket 连接已断开');
     }
 
 
@@ -275,9 +290,11 @@ class PolyMarketDataClient {
         this.onWatchOrderBookPriceChangeCb = callback;
     }
 
-    getLatestPriceChangeByAssetId(assetId: string): MarketPushData | null {
-        if (this.cache.size === 0) {
-            return null;
+    async getLatestPriceChangeByAssetId(assetId: string): Promise<MarketPushData | null> {
+        if (this.cache.size === 0 || !this.cache.get(assetId)) {
+            logInfo(`[PolyMarketData] No data found in cache for assetId: ${assetId}, getting from clob...`);
+            const data = await getClobModule().getOrderBookSummary(assetId)
+            return pick(data, ['bids', 'asks', 'market', 'asset_id', 'timestamp']) as any as  MarketPushData;
         }
         return this.cache.get(assetId)![this.cache.get(assetId)!.length - 1].data;
     }

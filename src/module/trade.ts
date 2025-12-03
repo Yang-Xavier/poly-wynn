@@ -1,6 +1,5 @@
 import { OrderType, Side } from "@polymarket/clob-client";
-import { getClobModule,  OrderBookSummary, PolymarketOrderResult } from "./clob";
-import { waitFor } from "@utils/tools";
+import { getClobModule,  PolymarketOrderResult } from "./clob";
 import { logInfo } from "./logger";
 
 export const buy = async ({
@@ -13,12 +12,14 @@ export const buy = async ({
 ): Promise<PolymarketOrderResult | null> => {
     let result: PolymarketOrderResult | null = null;
     const clobModule = getClobModule();
+    logInfo(`💰准备购买...`)
     const { orderID } = await clobModule.postMarketOrder({
         tokenID: tokenId,
         amount,
         side: Side.BUY,
         orderType: OrderType.FAK
     });
+    logInfo(`💰购买完成...`, { orderID })
     if (orderID) {
         result = await clobModule.getOrder({
             orderId: orderID
