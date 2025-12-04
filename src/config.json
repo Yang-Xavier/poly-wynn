@@ -1,21 +1,35 @@
 {
     "marketTag": "eth",
-    "positionAmount": 20,
-    "stratgegy": {
-        "startBefore": 300000,
-        "findingChangeInterval": 1000,
-        "diffBeatPriceFactor": [0.003, 0.0001],
-        "bestAskThreshold": 0.6
-    },
     "clobHost": "https://clob.polymarket.com",
     "gammaHost": "https://gamma-api.polymarket.com",
     "dataHost": "https://data-api.polymarket.com",
     "polymarketHost": "https://polymarket.com",
+    "ws": {
+        "liveDataUrl": "wss://ws-live-data.polymarket.com/",
+        "marketDataUrl": "wss://ws-subscriptions-clob.polymarket.com/ws/market",
+        "maxCacheSize": 1000
+    },
+
     "account": {
         "walletAddress": "0xf7bd414150ebe4d9215bb220db47447ab3f7bbe0",
         "funderAddress": "0xe10c61be54E4c25FB744113cbbaFF28123f5a107",
-        "privKey": "0xc703281d81ae7feef4df388ea66f3562a7dd4bff96bd1909b112359235266571"
+        "balanceTokenAddress": "0x2791bca1f2de4661ed88a30c99a7a9449aa84174"
     },
+
+    "stratgegy": {
+        "startBefore": 300000,
+        "findingChangeInterval": 1000,
+        "diffBeatPriceFactor": [0.005, 0.00001],
+        "attenuationFactor": [2, 0.8],
+        "bestAskThreshold": 0.8,
+        "buyingRetryCount": 5,
+        "buyingAmountFactor": 0.2,
+        "buyingMaxAmount": 100,
+        "confidenceThreshold": 0.2,
+        "limitBuyCount": 2,
+        "breakProbabilityThreshold": 0.5
+    },
+
     "redeemConfig": {
         "relayerUrl": "https: //relayer-v2.polymarket.com/",
         "ctf": "0x4d97dcd97ec945f40cf65f87097ace5ea0476045",
@@ -24,12 +38,8 @@
         "rpcUrl": "https://polygon-rpc.com",
         "delyRedeem": 60000
     },
+
     "logger": {
         "logDir": "./logs"
-    },
-    "ws": {
-        "liveDataUrl": "wss://ws-live-data.polymarket.com/",
-        "marketDataUrl": "wss://ws-subscriptions-clob.polymarket.com/ws/market",
-        "maxCacheSize": 1000
     }
 }

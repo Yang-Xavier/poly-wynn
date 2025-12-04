@@ -160,7 +160,7 @@ class Clob {
     if (!this.inited) {
       throw new Error('ClobClient not initialized. Please call init() first.');
     }
-    logInfo(`💰下单...`, { tokenID, side, amount, tickSize, negRisk, orderType })
+    logInfo(`下单...`, { tokenID, side, amount, tickSize, negRisk, orderType })
     try {
       const resp = await this.clobClient!.createAndPostMarketOrder(
         {
@@ -174,7 +174,7 @@ class Clob {
         { tickSize: tickSize as any, negRisk },
         orderType as any
       );
-      logInfo(`💰下单完成...`, { resp })
+      logInfo(`下单完成...`, { resp })
       return resp;
     } catch (err) {
       logInfo('placeOrder error:', err);
@@ -195,9 +195,8 @@ class Clob {
     if (!this.inited) {
       throw new Error('ClobClient not initialized. Please call init() first.');
     }
-    if (orderId) {
       let resp;
-      while (!resp) {
+      while (!resp && orderId) {
         try {
           resp = await this.clobClient!.getOrder(orderId);
           return resp;
@@ -205,9 +204,6 @@ class Clob {
           logInfo('getOrder error:', err);
         }
       }
-
-    }
-
   }
 
   /**
@@ -251,15 +247,16 @@ class Clob {
 
   /**
    * 获取指定市场的未完成订单
-   * @param marketId 市场ID
+   * @param conditionId
    * @returns 未完成订单列表
    */
-  public async getOpenOrders(marketId: string) {
+  public async getOpenOrders(conditionId: string) {
     if (!this.inited) {
       throw new Error('ClobClient not initialized. Please call init() first.');
     }
     try {
-      const resp = await this.clobClient!.getOpenOrders({ market: marketId });
+      const resp = await this.clobClient!.getOpenOrders({ market: conditionId });
+      console.log({resp})
       return resp;
     } catch (e) {
       logInfo(`getOpenOrders error, ${e}`);
