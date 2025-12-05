@@ -5,7 +5,7 @@ import { PolymarketOrderResult } from './clob';
 import { getGlobalConfig } from '@utils/config';
 
 // 定义基础日志类型
-export type BaseLogType = 'info' | 'trade' | 'error' | 'debug' | 'data';
+export type BaseLogType = 'info' | 'trade' | 'error' | 'debug' | 'data' | 'price';
 
 // 定义日志类型，支持扩展
 // 要添加新的日志类型，只需在联合类型中添加新的字符串字面量
@@ -282,4 +282,5 @@ export const logError = (message: string, data?: any) => getLoggerModule().error
 export const logDebug = (message: string, data?: any) => getLoggerModule().debug(message, data);
 export const logWarn = (message: string, data?: any) => getLoggerModule().warn(message, data);
 export const logTrade = (type: 'buy' | 'sell' | 'redeem' | 'lost' | 'balance', orderResult: PolymarketOrderResult) => getLoggerModule().trade(type, orderResult);
+export const logPriceData = (price: number, symbol: string, timestamp: number) => getLoggerModule().customLog('price', LogLevel.INFO, `symbol: ${symbol}, price: ${price}, timestamp: ${timestamp}`, null, false);
 export const setTraceId = (traceId: string) => getLoggerModule().setTraceId(traceId);

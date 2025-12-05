@@ -1,7 +1,9 @@
 import { awaitAxiosDataTo } from '../utils/awaitTo';
 import proxy from '@utils/Proxy';
-import {logInfo} from '../module/logger';
+import { logInfo } from '../module/logger';
 import { getGlobalConfig } from '@utils/config';
+import { OpenOrdersResponse } from '@polymarket/clob-client';
+import { PolymarketOrderResult } from './clob';
 
 
 
@@ -71,9 +73,9 @@ class GammaData {
      * 私有构造函数，确保单例模式
      */
     private constructor() {
-    const globalConfig = getGlobalConfig();
-    this.gammaApiHost = globalConfig.gammaHost;
-    this.dataApiHost = globalConfig.dataHost;
+        const globalConfig = getGlobalConfig();
+        this.gammaApiHost = globalConfig.gammaHost;
+        this.dataApiHost = globalConfig.dataHost;
     }
 
     /**
@@ -96,7 +98,6 @@ class GammaData {
         const url = `${this.gammaApiHost}/markets/slug/${slug}`;
         const [error, data] = await awaitAxiosDataTo(proxy.get(url));
         if (error) {
-            console.error(error);
             return null;
         }
 
@@ -113,11 +114,11 @@ class GammaData {
         const outcomes = JSON.parse(market.outcomes) as string[] || [];
         return [
             {
-                id: clobTokenIds[0], 
+                id: clobTokenIds[0],
                 outcome: outcomes[0]
-            }, 
+            },
             {
-                id: clobTokenIds[1], 
+                id: clobTokenIds[1],
                 outcome: outcomes[1]
             }
         ]
@@ -130,7 +131,7 @@ class GammaData {
      */
     public async getCurrentPositions(params: GetPositionsParams): Promise<Position[]> {
         const url = `${this.dataApiHost}/positions`;
-        
+
         // 构建查询参数
         const queryParams: any = {
             user: params.user,
@@ -185,12 +186,36 @@ class GammaData {
         return data as Position[];
     }
 
+    public async getUserpostionByMarketAsOrder(market: string, user: string): Promise<PolymarketOrderResult[]> {
+        const positions = await this.getCurrentPositions({ user: user, market: [market], limit: 1000 });
+
+        return positions.map(position => {
+            return {
+                id: "",
+                status: 'MATCHED',
+                owner: position.proxyWallet,
+                maker_address: position.proxyWallet,
+                market: position.conditionId,
+                asset_id: position.asset,
+                side: "",
+                original_size: position.size.toString(),
+                size_matched: position.size.toString(),
+                price: position.avgPrice.toString(),
+                outcome: position.outcome,
+                expiration: "",
+                order_type: "",
+                associate_trades: [],
+                created_at: 0,
+            }
+        });
+    }
+
     /**
      * 获取可赎回的仓位
      * @param params 查询参数
      * @returns 可赎回的仓位数组
      */
-    public async getRedeemablePositions(params: { funderAddress: string}): Promise<Position[]> {
+    public async getRedeemablePositions(params: { funderAddress: string }): Promise<Position[]> {
         const positions = await this.getCurrentPositions({ user: params.funderAddress, redeemable: true, limit: 1000 });
         return positions.filter(position => position.redeemable && position.percentRealizedPnl > 0);
     }

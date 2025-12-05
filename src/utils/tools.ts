@@ -48,7 +48,8 @@ export const getAsksDepth = (orderbookSummary: OrderBookSummary) => {
 
 export enum TOKEN_ACTION_ENUM {
     sell = 'sell',
-    won = "won"
+    won = "won",
+    hold = "hold"
 };
 
 export const runIntervalFn = (
@@ -85,7 +86,7 @@ export const runFnDelay = async (fn: () => Promise<void>, delay: number) => {
 }
 
 export const waitFor = async (ms: number) => {
-    await new Promise(resolve => setTimeout(resolve, ms));
+    await new Promise(resolve => setTimeout(resolve, ms>0?ms:0));
 }
 
 export const omit = (obj: any, keys: string[]) => {

@@ -17,9 +17,10 @@
     },
 
     "stratgegy": {
+        "startCollectDataBefore": 600000,
         "startBefore": 300000,
         "findingChangeInterval": 1000,
-        "diffBeatPriceFactor": [0.005, 0.00001],
+        "diffBeatPriceFactor": [0.002, 0.00001],
         "attenuationFactor": [2, 0.8],
         "bestAskThreshold": 0.8,
         "buyingRetryCount": 5,
@@ -27,7 +28,7 @@
         "buyingMaxAmount": 100,
         "confidenceThreshold": 0.2,
         "limitBuyCount": 2,
-        "breakProbabilityThreshold": 0.5
+        "breakProbabilityThreshold": 0.8
     },
 
     "redeemConfig": {
@@ -36,7 +37,7 @@
         "negRiskAdapter": "0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296",
         "usdc": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
         "rpcUrl": "https://polygon-rpc.com",
-        "delyRedeem": 60000
+        "delyRedeem": 180000
     },
 
     "logger": {

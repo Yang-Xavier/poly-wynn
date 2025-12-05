@@ -7,7 +7,7 @@ import { TOKEN_ACTION_ENUM, distanceToNextInterval } from "./tools";
 import { getGlobalConfig } from "./config";
 import { polyLiveDataClient } from "./polyLiveData";
 import { OUTCOMES_ENUM } from "./constans";
-import { calcBreakoutProbability, calcBreakoutProbabilityFromTicks, calcDiffBeatPrice, calcTrend } from "./calc";
+import { analyzeLastPeriodDecision, analyzePositionExitDecision, calcBreakoutProbabilityFromTicks, calcDiffBeatPrice } from "./calc";
 
 
 
@@ -33,32 +33,28 @@ export const findChanceByWatchPrice = async (market: MarketResponse, priceToBeat
             polyLiveDataClient.onWatchPriceChange(async (currentPrice, historyPriceList) => {
                 if (!resolved) {
                     const distance = distanceToNextInterval(slugIntervalTimestamp);
-                    if(distance<=0) {
+                    if (distance <= 0) {
                         resolved = true;
                         resolve(null);
                     }
-                    
-                    const { isDiffEnough, outcome, diffRatio, timeBasedRatio } = calcDiffBeatPrice(currentPrice.value, priceToBeat, globalConfig.stratgegy.diffBeatPriceFactor, distance);
-                    const breakoutProbability = calcBreakoutProbabilityFromTicks(historyPriceList.slice(0, 30), distance, priceToBeat);
-                    const { upBreakProbability, downBreakProbability } = breakoutProbability;
-                    logData(`[价格检查] breakoutProbability: ${JSON.stringify({outcome, isDiffEnough,  diffRatio, timeBasedRatio, upBreakProbability, downBreakProbability})}`);
 
+                    const diffBeatPriceResult = calcDiffBeatPrice(currentPrice.value, priceToBeat, globalConfig.stratgegy.diffBeatPriceFactor, distance);
+                    const { isDiffEnough, outcome, diffRatio, timeBasedRatio } = diffBeatPriceResult;
+                    logData(`[买入前价格检查] <diffBeatPriceResult>: ${JSON.stringify(diffBeatPriceResult)}`);
                     if (isDiffEnough) {
+                        const analyzeResult = analyzeLastPeriodDecision({ ticks: historyPriceList, timeToExpiryMs: distance, priceToBeat: priceToBeat });
+                        const { recommendation, } = analyzeResult;
 
-                      if(outcome === OUTCOMES_ENUM.Up && downBreakProbability >= globalConfig.stratgegy.breakProbabilityThreshold) {
-                        // 存在翻盘可能
-                        return
-                      }
-                      if(outcome === OUTCOMES_ENUM.Down && upBreakProbability >= globalConfig.stratgegy.breakProbabilityThreshold) {
-                        // 存在翻盘可能
-                        return
-                      }
+                        logData(`[买入前价格检查] <analyzeResult>: ${JSON.stringify(analyzeResult)}`);
+                        if (recommendation === null || recommendation != outcome) {
+                            return
+                        }
 
                         const data = await polyMarketDataClient.getLatestPriceChangeByAssetId(outcomes[outcome])
-                        if(data) {
+                        if (data) {
                             const { asks } = data;
                             const bestAsk = asks[asks.length - 1]?.price;
-    
+
                             if (bestAsk && parseFloat(bestAsk) > globalConfig.stratgegy.bestAskThreshold) {
                                 resolved = true;
                                 resolve({
@@ -69,12 +65,10 @@ export const findChanceByWatchPrice = async (market: MarketResponse, priceToBeat
                                     cryptoPrice: currentPrice,
                                     priceToBeat,
                                     diffRatio,
-                                    timeBasedRatio,
-                                    upBreakProbability, 
-                                    downBreakProbability
+                                    timeBasedRatio
                                 });
                             } else {
-                                logInfo(`No best ask enough, bestAsk: ${bestAsk}, priceToBeat: ${priceToBeat}, cryptoPrice: ${currentPrice}, diffRatio: ${diffRatio}, timeBasedRatio: ${timeBasedRatio}`);
+                                logInfo(`No best ask enough, bestAsk: ${bestAsk}, priceToBeat: ${priceToBeat}, cryptoPrice: ${currentPrice.value}, diffRatio: ${diffRatio}, timeBasedRatio: ${timeBasedRatio}`);
                             }
                         } else {
                             logInfo(`No data found for assetId: ${outcomes[outcome]}`);
@@ -89,38 +83,31 @@ export const findChanceByWatchPrice = async (market: MarketResponse, priceToBeat
             resolve(null);
         }
 
-    }), timeout)
+    }), timeout > 0 ? timeout : 0)
 }
 
-export const monitorPriceChange = async (priceToBeat: number, outcome: string, timeout: number, slugIntervalTimestamp: number) => {
-    const globalConfig = getGlobalConfig();
+export const monitorPriceChange = async (priceToBeat: number, outcome: OUTCOMES_ENUM, timeout: number, slugIntervalTimestamp: number) => {
     const result = await race(new Promise(resolve => {
+        let resolved = false;
         polyLiveDataClient.onWatchPriceChange((currentPrice, historyPriceList) => {
-
-          
+            if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) {
+                return
+            }
+            const distance = distanceToNextInterval(slugIntervalTimestamp);
             const currentOutCome = currentPrice.value - priceToBeat >= 0 ? OUTCOMES_ENUM.Up : OUTCOMES_ENUM.Down;
-            if(currentOutCome !== outcome) {
-                const distance = distanceToNextInterval(slugIntervalTimestamp);
-                const breakoutProbability = calcBreakoutProbabilityFromTicks(historyPriceList.slice(0, 30), distance, priceToBeat);
-                const { upBreakProbability, downBreakProbability } = breakoutProbability;
-                logData(`[价格检查] breakoutProbability: ${JSON.stringify(breakoutProbability)}`);
-                
-                if(currentOutCome === OUTCOMES_ENUM.Up && downBreakProbability >= globalConfig.stratgegy.breakProbabilityThreshold) {
-                  // 存在翻盘可能
-                  return
-                }
-                if(currentOutCome === OUTCOMES_ENUM.Down && upBreakProbability >= globalConfig.stratgegy.breakProbabilityThreshold) {
-                  // 存在翻盘可能
-                  return
-                }
-                resolve(TOKEN_ACTION_ENUM.sell)
+            const analyzeResult = analyzePositionExitDecision({ ticks: historyPriceList, timeToExpiryMs: distance, priceToBeat: priceToBeat, positionOutcome: outcome });
+            if (currentOutCome !== outcome) {
+                logData(`[买入后价格检查(方向相反)] <analyzeResult>: ${JSON.stringify(analyzeResult)}`);
+                resolve(analyzeResult.action)
+            } else {
+                logData(`[买入后价格检查(方向一致)] <analyzeResult>: ${JSON.stringify(analyzeResult)}`);
             }
         })
-    }), timeout);
+    }), timeout > 0 ? timeout : 0);
 
     if (result) {
         return result;
     }
 
-    return TOKEN_ACTION_ENUM.won;
+    return TOKEN_ACTION_ENUM.hold;
 }

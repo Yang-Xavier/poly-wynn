@@ -1,5 +1,6 @@
 import { getGlobalConfig } from "./config";
 import { OUTCOMES_ENUM } from "./constans";
+import { TOKEN_ACTION_ENUM } from "./tools";
 
 
 /**
@@ -301,8 +302,10 @@ export function calcTrend(prices: {value: number, timestamp: number}[]): TrendRe
     let upCount = 0;
     let downCount = 0;
     for (let i = 1; i < n; i++) {
-        if (prices[i] > prices[i - 1]) upCount++;
-        else if (prices[i] < prices[i - 1]) downCount++;
+        const prev = prices[i - 1].value;
+        const curr = prices[i].value;
+        if (curr > prev) upCount++;
+        else if (curr < prev) downCount++;
     }
     const steps = n - 1;
     const stepScore = steps > 0 ? (upCount - downCount) / steps : 0; // [-1, 1]
@@ -399,3 +402,348 @@ export const calcDiffBeatPrice = (price: string | number, priceToBeat: string | 
         outcome: Number(price) > Number(priceToBeat) ? OUTCOMES_ENUM.Up : OUTCOMES_ENUM.Down
     };
 }  
+
+/**
+ * 最后阶段（例如还剩 5 分钟）决策输入参数
+ * - ticks: 当前这一局内的历史价格 tick（建议至少覆盖最近 8~10 分钟）
+ * - timeToExpiryMs: 距离本局结束还剩的毫秒数
+ * - priceToBeat: 本局开局价（到期时价格相对它的高/低决定输赢）
+ * - upPayout/downPayout: 下注成功时的赔率（如 1.9 表示押 1 赢 0.9，拿回 1.9）
+ */
+export interface LastPeriodDecisionInput {
+    ticks: PriceTickPoint[];
+    timeToExpiryMs: number;
+    priceToBeat: number;
+    upPayout?: number;
+    downPayout?: number;
+}
+
+/**
+ * 决策过程中的一些可调阈值
+ * - minEdge: 估计胜率相对盈亏平衡胜率的最小优势（比如 0.05 代表至少高 5%）
+ * - minProbability: 建议下注时，方向的最小胜率（比如至少 0.55）
+ * - minProbabilityGap: 两个方向胜率的最小差值（例如 0.05）
+ * - strongProbabilityGap: 若概率优势达到这个值，可以在趋势不明显时也建议下注
+ */
+export interface LastPeriodDecisionThresholds {
+    minEdge?: number;
+    minProbability?: number;
+    minProbabilityGap?: number;
+    strongProbabilityGap?: number;
+}
+
+/**
+ * 最后阶段决策结果
+ * - recommendation: 建议押 Up、Down，或 null 表示不建议下注
+ * - reason: 简要原因标签（便于上层记录日志或调参）
+ * - upWinProbability/downWinProbability: 基于 GBM 模型估计的终值胜率
+ * - fairUpProbability/fairDownProbability: 根据赔率算出的盈亏平衡胜率
+ * - edgeUp/edgeDown: 相对于盈亏平衡胜率的优势（>0 代表有正期望）
+ * - trend: 基于整段 prices 估计出的趋势信息
+ */
+export interface LastPeriodDecisionResult {
+    recommendation: OUTCOMES_ENUM | null;
+    reason: string;
+    upWinProbability: number;
+    downWinProbability: number;
+    fairUpProbability: number;
+    fairDownProbability: number;
+    edgeUp: number;
+    edgeDown: number;
+    trend: TrendResult;
+}
+
+/**
+ * 在最后一段时间内（例如最后 5 分钟），
+ * 基于：
+ *   - GBM 终值概率（calcBreakoutProbabilityFromTicks）
+ *   - 赔率（upPayout / downPayout）
+ *   - 趋势信息（calcTrend）
+ * 给出一个「是否下注 / 下注 Up 还是 Down」的建议。
+ *
+ * 注意：
+ * - 这里只做纯「统计 + 简单风控阈值」的计算，不涉及具体下单逻辑和金额控制。
+ * - 上层可以根据返回的 reason / edge / trend 再叠加自己的风控规则。
+ */
+export const analyzeLastPeriodDecision = (
+    input: LastPeriodDecisionInput,
+    thresholds: LastPeriodDecisionThresholds = {
+        minEdge: 0.1,
+        minProbability: 0.90,
+        minProbabilityGap: 0.60,
+        strongProbabilityGap: 0.80,
+    }
+): LastPeriodDecisionResult => {
+    const { ticks, timeToExpiryMs, priceToBeat } = input;
+    const globalConfig = getGlobalConfig();
+
+    // 1. 先用 GBM 模型估计终值高/低于 priceToBeat 的概率
+    const breakout = calcBreakoutProbabilityFromTicks(
+        ticks,
+        timeToExpiryMs,
+        priceToBeat
+    );
+    const { upBreakProbability, downBreakProbability } = breakout;
+
+    // 2. 计算趋势信息（只使用 value 和时间）
+    const trendTicks = ticks.map((t) => ({
+        value: t.value,
+        timestamp: toMs(t.timestamp),
+    }));
+    const trend = calcTrend(trendTicks);
+
+    // 3. 根据赔率计算「盈亏平衡胜率」
+    const defaultOdds = globalConfig?.stratgegy?.binaryOdds ?? 1.9; // 若配置中没有，则默认 1.9
+    const upPayout = input.upPayout ?? defaultOdds;
+    const downPayout = input.downPayout ?? defaultOdds;
+
+    const fairUpProbability =
+        upPayout > 1 ? 1 / upPayout : 0.5; // 赔率无效时退化为 0.5
+    const fairDownProbability =
+        downPayout > 1 ? 1 / downPayout : 0.5;
+
+    const edgeUp = upBreakProbability - fairUpProbability;
+    const edgeDown = downBreakProbability - fairDownProbability;
+
+    // 4. 各种阈值设定（可通过 thresholds 或 config.json 调整）
+    const minEdge = thresholds.minEdge ?? 0.05; // 至少有 5% 的正期望优势
+    const minProbability = thresholds.minProbability ?? 0.55; // 胜率至少 55%
+    const minProbabilityGap = thresholds.minProbabilityGap ?? 0.05; // 胜率差至少 5%
+    const strongProbabilityGap =
+        thresholds.strongProbabilityGap ?? 0.15; // 差 15% 以上视为强烈信号
+
+    const trendThreshold =
+        globalConfig?.stratgegy?.confidenceThreshold ?? 0.2;
+
+    // 5. 基于概率和趋势综合给出建议
+    let recommendation: OUTCOMES_ENUM | null = null;
+    let reason = "no_clear_edge";
+
+    // 5.1 概率更大的一方
+    const probDirection =
+        upBreakProbability >= downBreakProbability
+            ? OUTCOMES_ENUM.Up
+            : OUTCOMES_ENUM.Down;
+    const probValue =
+        probDirection === OUTCOMES_ENUM.Up
+            ? upBreakProbability
+            : downBreakProbability;
+    const otherProbValue =
+        probDirection === OUTCOMES_ENUM.Up
+            ? downBreakProbability
+            : upBreakProbability;
+    const probGap = probValue - otherProbValue;
+
+    const meetsProbLevel = probValue >= minProbability;
+    const meetsGap = probGap >= minProbabilityGap;
+
+    const edgeValue =
+        probDirection === OUTCOMES_ENUM.Up ? edgeUp : edgeDown;
+    const meetsEdge = edgeValue >= minEdge;
+
+    const trendAligns =
+        trend.direction === probDirection &&
+        trend.confidence >= trendThreshold;
+
+    if (meetsProbLevel && meetsGap && meetsEdge) {
+        if (trendAligns || probGap >= strongProbabilityGap) {
+            recommendation = probDirection;
+            reason = trendAligns
+                ? "probability_and_trend_align"
+                : "probability_strong_edge";
+        } else {
+            reason = "probability_edge_but_trend_weak";
+        }
+    }
+
+    return {
+        recommendation,
+        reason,
+        upWinProbability: upBreakProbability,
+        downWinProbability: downBreakProbability,
+        fairUpProbability,
+        fairDownProbability,
+        edgeUp,
+        edgeDown,
+        trend,
+    };
+};
+
+/**
+ * 持仓管理：在已经买入之后，根据当前价格变化 & 剩余时间，
+ * 决策是继续持有（hold）还是卖出（sell）。
+ *
+ * 设计目标：
+ * - 复用 GBM 终值概率（calcBreakoutProbabilityFromTicks）
+ * - 复用趋势分析（calcTrend）
+ * - 让上层只需要传入：
+ *   - 当前这一局的历史 tick
+ *   - 剩余时间
+ *   - 本局开局价（priceToBeat）
+ *   - 当前持仓方向（positionOutcome：当时买的是 Up 还是 Down）
+ *
+ * 决策逻辑（与现有 monitorPriceChange 保持一致、但抽象成通用函数）：
+ * - 若当前价格方向与持仓方向一致（in the money）：
+ *   => 默认继续持有（action = "hold"）
+ * - 若当前价格方向与持仓方向相反（out of the money）：
+ *   => 计算「未来反转回到持仓方向」的概率：
+ *      - 若 positionOutcome 为 Up，则用 upWinProbability = P(S_T >= priceToBeat)
+ *      - 若 positionOutcome 为 Down，则用 downWinProbability = P(S_T <= priceToBeat)
+ *   => 若这个反转胜率 >= holdProbabilityThreshold（默认为 config.stratgegy.breakProbabilityThreshold）：
+ *      => 认为“存在翻盘可能”，继续持有（hold）
+ *      否则 => 建议卖出（sell）
+ */
+export interface PositionExitDecisionInput {
+    ticks: PriceTickPoint[];
+    timeToExpiryMs: number;
+    priceToBeat: number;
+    positionOutcome: OUTCOMES_ENUM.Up | OUTCOMES_ENUM.Down;
+}
+
+export interface PositionExitDecisionThresholds {
+    /**
+     * 若当前价格方向与持仓方向相反，
+     * 持有的最低「翻盘胜率」阈值。
+     * 默认为 config.stratgegy.breakProbabilityThreshold（例如 0.8）
+     */
+    holdProbabilityThreshold?: number;
+}
+
+export interface PositionExitDecisionResult {
+    action: TOKEN_ACTION_ENUM;
+    reason: string;
+    positionOutcome: OUTCOMES_ENUM;
+    currentOutcome: OUTCOMES_ENUM;
+    /**
+     * 基于 GBM 模型的终值概率：
+     * - upWinProbability = P(S_T >= priceToBeat)
+     * - downWinProbability = P(S_T <= priceToBeat)
+     */
+    upWinProbability: number;
+    downWinProbability: number;
+    /**
+     * positionOutcome 的胜率（若押 Up 则为 upWinProbability，押 Down 则为 downWinProbability）
+     */
+    winningProbability: number;
+    losingProbability: number;
+    stepsAhead: number;
+    trend: TrendResult;
+}
+
+export const analyzePositionExitDecision = (
+    input: PositionExitDecisionInput,
+    thresholds: PositionExitDecisionThresholds = {}
+): PositionExitDecisionResult => {
+    const { ticks, timeToExpiryMs, priceToBeat, positionOutcome } = input;
+    const globalConfig = getGlobalConfig();
+
+    // 安全兜底：数据不足时直接建议持有，避免频繁抖动
+    if (!ticks || ticks.length < 2 || timeToExpiryMs <= 0 || priceToBeat <= 0) {
+        return {
+            action: TOKEN_ACTION_ENUM.hold,
+            reason: "insufficient_data",
+            positionOutcome,
+            currentOutcome: positionOutcome,
+            upWinProbability: 0.5,
+            downWinProbability: 0.5,
+            winningProbability: 0.5,
+            losingProbability: 0.5,
+            stepsAhead: 0,
+            trend: {
+                direction: positionOutcome,
+                upProbability: 0.5,
+                downProbability: 0.5,
+                confidence: 0,
+            },
+        };
+    }
+
+    const lastTick = ticks[ticks.length - 1];
+    const lastPrice = lastTick.value;
+    const currentOutcome =
+        lastPrice >= priceToBeat ? OUTCOMES_ENUM.Up : OUTCOMES_ENUM.Down;
+
+    // 1. 当前价格方向若与持仓方向一致 => 直接建议继续持有
+    if (currentOutcome === positionOutcome) {
+        const breakout = calcBreakoutProbabilityFromTicks(
+            ticks,
+            timeToExpiryMs,
+            priceToBeat
+        );
+        const trendTicks = ticks.map((t) => ({
+            value: t.value,
+            timestamp: toMs(t.timestamp),
+        }));
+
+        const trend = calcTrend(trendTicks);
+
+        const upWinProbability = breakout.upBreakProbability;
+        const downWinProbability = breakout.downBreakProbability;
+        const winningProbability =
+            positionOutcome === OUTCOMES_ENUM.Up
+                ? upWinProbability
+                : downWinProbability;
+        const losingProbability = 1 - winningProbability;
+
+        return {
+            action: TOKEN_ACTION_ENUM.hold,
+            reason: "in_favor_currently",
+            positionOutcome,
+            currentOutcome,
+            upWinProbability,
+            downWinProbability,
+            winningProbability,
+            losingProbability,
+            stepsAhead: breakout.stepsAhead,
+            trend,
+        };
+    }
+
+    // 2. 当前价格方向与持仓方向相反 => 判断“翻盘胜率”是否足够高
+    const breakout = calcBreakoutProbabilityFromTicks(
+        ticks,
+        timeToExpiryMs,
+        priceToBeat
+    );
+    const { upBreakProbability, downBreakProbability, stepsAhead } = breakout;
+
+    const trendTicks = ticks.map((t) => ({
+        value: t.value,
+        timestamp: toMs(t.timestamp),
+    }));
+    const trend = calcTrend(trendTicks);
+
+    const upWinProbability = upBreakProbability;
+    const downWinProbability = downBreakProbability;
+    const winningProbability =
+        positionOutcome === OUTCOMES_ENUM.Up
+            ? upWinProbability
+            : downWinProbability;
+    const losingProbability = 1 - winningProbability;
+
+    const defaultHoldThreshold =
+        globalConfig?.stratgegy?.breakProbabilityThreshold ?? 0.8;
+    const holdProbabilityThreshold =
+        thresholds.holdProbabilityThreshold ?? defaultHoldThreshold;
+
+    let action: TOKEN_ACTION_ENUM = TOKEN_ACTION_ENUM.sell;
+    let reason = "low_flip_probability";
+
+    if (winningProbability >= holdProbabilityThreshold) {
+        action = TOKEN_ACTION_ENUM.hold;
+        reason = "high_flip_probability";
+    }
+
+    return {
+        action,
+        reason,
+        positionOutcome,
+        currentOutcome,
+        upWinProbability,
+        downWinProbability,
+        winningProbability,
+        losingProbability,
+        stepsAhead,
+        trend,
+    };
+};

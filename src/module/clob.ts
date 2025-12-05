@@ -217,16 +217,37 @@ class Clob {
       throw new Error('ClobClient not initialized. Please call init() first.');
     }
     const url = `${this.clobApiBase}/book`;
-    const [error, data] = await awaitAxiosDataTo(Proxy.get(url, {
-      params: { token_id: tokenId }
-    }));
+    const maxRetries = 3;
+    const retryDelayMs = 500;
+    let lastError: any = null;
 
-    if (error) {
-      logInfo('Failed to get orderbook summary, token id:', tokenId);
-      return null;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const [error, data] = await awaitAxiosDataTo<OrderBookSummary>(
+        Proxy.get(url, {
+          params: { token_id: tokenId }
+        })
+      );
+
+      if (!error && data) {
+        return data;
+      }
+
+      lastError = error;
+      logInfo(
+        `Failed to get orderbook summary, token id: ${tokenId}, attempt ${attempt}/${maxRetries}`,
+        error
+      );
+
+      if (attempt < maxRetries) {
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+      }
     }
 
-    return data as OrderBookSummary;
+    logInfo(
+      `Failed to get orderbook summary after ${maxRetries} attempts, token id: ${tokenId}`,
+      lastError
+    );
+    return null;
   }
 
   /**

@@ -5,7 +5,7 @@
 
 import WebSocket from 'ws';
 import { getGlobalConfig } from './config';
-import { logData, logInfo } from '../module/logger';
+import { logData, logInfo, logPriceData } from '../module/logger';
 
 // 订阅信息接口
 interface Subscription {
@@ -139,15 +139,17 @@ class PolyLiveDataClient {
      */
     private handleMessage(data: WebSocket.Data): void {
         try {
-            const message = JSON.parse(data.toString());
+            if(data.toString()) {
+                const message = JSON.parse(data.toString());
 
-            if (message.topic === 'crypto_prices_chainlink') {
-                logData(`[PolyLiveData] crypto_prices_chainlink, price: ${message.payload.value}, symbol: ${message.payload.symbol}`);
-                this.cacheData(message);
-                this.onWatchPriceChangeCb?.({ 
-                    value: Number(message.payload.value), 
-                    timestamp: Number(message.payload.timestamp) 
-                }, this.getHistoryPriceList(message.topic));
+                if (message.topic === 'crypto_prices_chainlink') {
+                    logPriceData(message.payload.value, message.payload.symbol, message.payload.timestamp);
+                    this.cacheData(message);
+                    this.onWatchPriceChangeCb?.({ 
+                        value: Number(message.payload.value), 
+                        timestamp: Number(message.payload.timestamp) 
+                    }, this.getHistoryPriceList(message.topic));
+                }
             }
         } catch (error) {
             logInfo(`[PolyLiveData] 解析消息失败: ${error}`, data.toString());

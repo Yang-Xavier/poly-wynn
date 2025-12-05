@@ -25,8 +25,8 @@ import { logInfo } from '../module/logger';
 // );
 
 export class Proxy {
-  private maxRetryCount = 3;
-  private retryDelay = 300; // 300ms
+  private maxRetryCount = 5;
+  private retryDelay = 1000; // 300ms
 
   constructor(maxRetryCount = 3, retryDelay = 1000) {
     this.maxRetryCount = maxRetryCount;
