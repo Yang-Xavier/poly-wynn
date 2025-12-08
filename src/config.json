@@ -20,15 +20,24 @@
         "startCollectDataBefore": 600000,
         "startBefore": 300000,
         "findingChangeInterval": 1000,
-        "diffBeatPriceFactor": [0.002, 0.00001],
+        "diffBeatPriceFactor": [0.002, 0.0001],
         "attenuationFactor": [2, 0.8],
-        "bestAskThreshold": 0.8,
         "buyingRetryCount": 5,
+        "buyingMaxSplit": 3,
         "buyingAmountFactor": 0.2,
         "buyingMaxAmount": 100,
         "confidenceThreshold": 0.2,
-        "limitBuyCount": 2,
-        "breakProbabilityThreshold": 0.8
+        "limitBuyCount": 1,
+        "breakProbabilityThreshold": 0.9,
+        "sellProbabilityThreshold": 0.5,
+
+        "bestAskThreshold": 0.95,
+        "tailSweepConfig": {
+            "minWinProbability": 0.95,
+            "minEdge": -1,
+            "maxFlipRisk": 0.1,
+            "riskAversion": 2
+        }
     },
 
     "redeemConfig": {

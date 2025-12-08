@@ -2,7 +2,7 @@ import {
     getClobModule,
     PolymarketOrderResult,
 } from "./module/clob";
-import { buy, sell } from "./module/trade";
+import { buyEnough, mustSell, sellExpired30MinPostions } from "./module/trade";
 import {
     runIntervalFn,
     TOKEN_ACTION_ENUM,
@@ -23,7 +23,7 @@ import { logError, logInfo, logTrade, setTraceId } from "./module/logger";
 import { getGlobalConfig } from "@utils/config";
 import { polyLiveDataClient } from "@utils/polyLiveData";
 import { polyMarketDataClient } from "./utils/polyMarketData";
-import { getGammaDataModule } from "./module/gammaData";
+import { getGammaDataModule, MarketResponse } from "./module/gammaData";
 import { getPriceToBeat } from "@utils/polymarketApi";
 import { getAccountBalance, logAccountBalance } from "@utils/account";
 import { OUTCOMES_ENUM } from "@utils/constans";
@@ -34,7 +34,7 @@ const init = async () => {
     try {
         await clobModule.init()
     } catch (e) {
-        logInfo('clob initial failed!', e)
+        logInfo(`clob initial failed! ${e}`)
     }
 }
 
@@ -44,7 +44,7 @@ export const runPolyWynn = async () => {
     const globalConfig = getGlobalConfig();
 
     runIntervalFn(async () => {
-        let buyCount = 0
+        let buyCount = 0;
         const slugIntervalTimestamp = get15MinIntervalTimestamp();
         const marketSlug = getMarketSlug15Min(globalConfig.marketTag, slugIntervalTimestamp);
         setTraceId(`${marketSlug}`);
@@ -57,6 +57,7 @@ export const runPolyWynn = async () => {
 
             logInfo(`获取市场数据...`);
             const market = await getGammaDataModule().getMarketBySlug(marketSlug);
+            logInfo(`获取对赌价格...`);
             const priceToBeat = await getPriceToBeat(globalConfig.marketTag, market.eventStartTime, market.endDate);
             logInfo(`对赌价格: ${priceToBeat}, market: ${marketSlug}`);
 
@@ -109,20 +110,20 @@ export const runPolyWynn = async () => {
                     }
 
                     if (tokenChanceDetails) {
-                        logInfo(`找到机会`, omit(tokenChanceDetails, ['orderbookSummary']));
+                        logInfo(`💡找到机会`, omit(tokenChanceDetails, ['orderbookSummary']));
                         logInfo(`准备购买...`, {
                             amount: positionAmount,
                             tokenId: tokenChanceDetails.tokenId,
                             cryptoPrice: tokenChanceDetails.cryptoPrice.value
                         });
                         try {
-                            boughtOrder = await buy({
+                            boughtOrder = await buyEnough({
                                 amount: positionAmount,
                                 tokenId: tokenChanceDetails.tokenId,
-                                retryCount: globalConfig.stratgegy.buyingRetryCount
+                                slugIntervalTimestamp
+                                
                             });
                             logInfo(`完成购买`, boughtOrder);
-                            boughtOrder && boughtOrder?.status === 'MATCHED' && buyCount++;
                         } catch (error) {
                             logError(`购买失败: ${error}`);
                         }
@@ -131,12 +132,17 @@ export const runPolyWynn = async () => {
                     }
 
                     if (boughtOrder && boughtOrder.status === 'MATCHED') {
+                        buyCount+=1;
                         // 购买成功
-                        logTrade('buy', boughtOrder);
+                        if(tokenChanceDetails) {
+                            logTrade('buy', boughtOrder);
+                        }
                         const watchingPriceChangeTimeout = distanceToNextInterval(slugIntervalTimestamp);
-                        const action = await monitorPriceChange(priceToBeat, boughtOrder.outcome as OUTCOMES_ENUM, watchingPriceChangeTimeout, slugIntervalTimestamp);
-                        const currentPrice = polyLiveDataClient.getLatestCryptoPricesFromChainLink();
-                        logInfo(`👀监控仓位结果: ${action}, priceToBeat: ${priceToBeat},currentPrice: ${currentPrice}, outcome: ${boughtOrder.outcome}, timeout: ${watchingPriceChangeTimeout}`);
+                        let currentPrice = polyLiveDataClient.getLatestCryptoPricesFromChainLink();
+                        logInfo(`👀监控仓位... priceToBeat: ${priceToBeat}, currentPrice: ${currentPrice}, outcome: ${boughtOrder.outcome}, timeout: ${watchingPriceChangeTimeout}`);
+                        const action = await monitorPriceChange(market, priceToBeat, boughtOrder.outcome as OUTCOMES_ENUM, watchingPriceChangeTimeout, slugIntervalTimestamp);
+                        currentPrice = polyLiveDataClient.getLatestCryptoPricesFromChainLink();
+                        logInfo(`🤔监控仓位结果: ${action}, priceToBeat: ${priceToBeat}, currentPrice: ${currentPrice}, outcome: ${boughtOrder.outcome}`);
 
                         if (action === TOKEN_ACTION_ENUM.sell) {
                             try {
@@ -144,10 +150,10 @@ export const runPolyWynn = async () => {
                                     size_matched: boughtAmount
                                 } = boughtOrder;
 
-                                const sellResult = await sell({
+                                const sellResult = await mustSell({
                                     amount: Number(boughtAmount),
                                     tokenId: boughtOrder.asset_id,
-                                    mustSellInTheIvervalTimpstamp: slugIntervalTimestamp
+                                    slugIntervalTimestamp
                                 });
                                 if (sellResult) {
                                     logInfo(`卖出成功: ${JSON.stringify(sellResult)}`)
@@ -165,7 +171,7 @@ export const runPolyWynn = async () => {
                         }
                     }
 
-                    if (buyCount >= globalConfig.stratgegy.limitBuyCount) {
+                    if (buyCount >= globalConfig.stratgegy.limitBuyCount && !redeemOrder) {
                         logInfo(`购买次数超过限制(${globalConfig.stratgegy.limitBuyCount})次, 跳过本局购买,等待下一轮开始...`);
                         await waitFor(distanceToNextInterval(slugIntervalTimestamp));
                     }
@@ -185,37 +191,42 @@ export const runPolyWynn = async () => {
                 logInfo(`等待验证结果并赎回...${globalConfig.redeemConfig.delyRedeem / 1000}s`);
                 await waitFor(globalConfig.redeemConfig.delyRedeem);
                 try {
-                    logInfo("验证结果...")
-                    const finalMarket = await getGammaDataModule().getMarketBySlug(marketSlug);
-                    const { outcomes, outcomePrices } = finalMarket;
+                    logInfo("验证结果...");
+                    let finalMarket: MarketResponse | null = null;
+                    let maxRequestCount = 10;
+                    while(!(finalMarket = await getGammaDataModule().getMarketBySlug(marketSlug)).closed && maxRequestCount > 0) {
+                        await waitFor(10000);
+                        maxRequestCount--;
+                    }
+                    const { outcomes, outcomePrices, closed } = finalMarket;
                     const finalOutcomes = JSON.parse(outcomes) as string[];
                     const finalOutcomePrices = JSON.parse(outcomePrices).map(Number) as number[];
                     const outcomePrice = Math.max(...finalOutcomePrices);
                     const finalOutcome = finalOutcomes[finalOutcomePrices.findIndex(item => Number(item) === outcomePrice)];
-                    logInfo(`对赌结果: ${redeemOrder.outcome === finalOutcome ? "🎉Won" : "💩Lost"}, 市场最终结果: ${finalOutcome}`);
-                    if (finalOutcome === redeemOrder.outcome) {
-                        const redeemModule = getRedeemModule();
-                        const { success } = await redeemModule.redeemViaAAWallet(redeemOrder.market);
-                        if (success) {
-                            logInfo('赎回成功');
-                            logTrade('redeem', redeemOrder);
-                        } else {
-                            logInfo('赎回失败');
-                        }
+                    if(closed) {
+                        logInfo(`对赌结果: ${redeemOrder.outcome === finalOutcome ? "🎉Won" : "💩Lost"}, 市场最终结果: ${finalOutcome}`);
+                        logTrade(redeemOrder.outcome === finalOutcome ? "won" : "lost", redeemOrder);
                     } else {
-                        logTrade('lost', redeemOrder);
+                        logInfo(`市场未关闭, 对赌结果不准确, 继续执行赎回...`);
                     }
+                    
+                    const redeemModule = getRedeemModule();
+                    await redeemModule.redeemAll(globalConfig.account.funderAddress);
+
+                    logInfo(`判断是否需要卖出过期仓位, 回收资金...`);
+                    await sellExpired30MinPostions();
+
                 } catch (error) {
-                    logInfo('赎回失败', error);
+                    logError(`赎回失败: ${error}`);
                 }
             }
 
-            await waitFor(30 * 1000)
+            await waitFor(60 * 1000)
             await logAccountBalance();
 
             logInfo(`本局结束...`);
         } catch (e) {
-            logInfo(`${e}`);
+            logInfo(`策略执行失败: ${e}`);
         }
     })
 }

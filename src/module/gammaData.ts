@@ -4,6 +4,7 @@ import { logInfo } from '../module/logger';
 import { getGlobalConfig } from '@utils/config';
 import { OpenOrdersResponse } from '@polymarket/clob-client';
 import { PolymarketOrderResult } from './clob';
+import { parseEventSlug } from '@utils/tools';
 
 
 
@@ -188,7 +189,6 @@ class GammaData {
 
     public async getUserpostionByMarketAsOrder(market: string, user: string): Promise<PolymarketOrderResult[]> {
         const positions = await this.getCurrentPositions({ user: user, market: [market], limit: 1000 });
-
         return positions.map(position => {
             return {
                 id: "",
@@ -210,6 +210,7 @@ class GammaData {
         });
     }
 
+
     /**
      * 获取可赎回的仓位
      * @param params 查询参数
@@ -217,7 +218,22 @@ class GammaData {
      */
     public async getRedeemablePositions(params: { funderAddress: string }): Promise<Position[]> {
         const positions = await this.getCurrentPositions({ user: params.funderAddress, redeemable: true, limit: 1000 });
-        return positions.filter(position => position.redeemable && position.percentRealizedPnl > 0);
+        return positions.filter(position => position.redeemable && position.currentValue > 0);
+    }
+
+
+    public async getExpired30MinPositions(params: { funderAddress: string}): Promise<Position[]> {
+        const positions = await this.getCurrentPositions({ user: params.funderAddress, limit: 1000 });
+        return positions.filter(position => {
+            if (position.percentRealizedPnl <= 0) return false;
+            const parsed = parseEventSlug(position.eventSlug);
+            const timestamp = Number(parsed.timestamp);
+            // If parse fails, ignore (filter out)
+            if (isNaN(timestamp)) return false;
+            // timestamp is assumed to be in seconds, Date.now() in ms
+            const timeDiff = Date.now() - timestamp * 1000;
+            return timeDiff >= 30 * 60 * 1000; // 半小时
+        });
     }
 }
 

@@ -187,15 +187,16 @@ export class Logger {
   /**
    * Trade类型日志
    */
-  trade(type: 'buy' | 'sell' | 'redeem' | 'lost' | 'balance', orderResult: PolymarketOrderResult): void {
+  trade(type: 'buy' | 'sell' | 'redeem' | 'lost' | 'balance' | 'won', orderResult: PolymarketOrderResult): void {
     const {  price, outcome, size_matched, balance } = orderResult as any;
     const totalPriceAmount = Number(size_matched) * Number(price);
     const label = {
       buy: '✅',
       sell: '❌',
-      redeem: '🎉',
+      redeem: '👍🏻',
       lost: '💸',
-      balance: '💰'
+      balance: '💰',
+      won: '🎉'
     }
     if(type === 'redeem') {
       this.log(LogLevel.INFO, 'trade', `${label[type]}[${type}], outcome: ${outcome}, amount: ${size_matched}`);
@@ -281,6 +282,6 @@ export const logData = (message: string, data?: any) => getLoggerModule().custom
 export const logError = (message: string, data?: any) => getLoggerModule().error(message, data);
 export const logDebug = (message: string, data?: any) => getLoggerModule().debug(message, data);
 export const logWarn = (message: string, data?: any) => getLoggerModule().warn(message, data);
-export const logTrade = (type: 'buy' | 'sell' | 'redeem' | 'lost' | 'balance', orderResult: PolymarketOrderResult) => getLoggerModule().trade(type, orderResult);
+export const logTrade = (type: 'buy' | 'sell' | 'redeem' | 'lost' | 'balance' | 'won', orderResult: PolymarketOrderResult) => getLoggerModule().trade(type, orderResult);
 export const logPriceData = (price: number, symbol: string, timestamp: number) => getLoggerModule().customLog('price', LogLevel.INFO, `symbol: ${symbol}, price: ${price}, timestamp: ${timestamp}`, null, false);
 export const setTraceId = (traceId: string) => getLoggerModule().setTraceId(traceId);

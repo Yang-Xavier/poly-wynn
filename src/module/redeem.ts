@@ -13,8 +13,9 @@ import {
 } from "viem";
 import { privateKeyToAccount, sign } from "viem/accounts";
 import { polygon } from "viem/chains";
-import {logInfo} from "./logger";
+import {logError, logInfo} from "./logger";
 import { getGlobalConfig, getKeyConfig } from "@utils/config";
+import { getGammaDataModule } from "./gammaData";
 
 // CTF 合约的 redeemPositions ABI
 const ctfRedeemAbi = parseAbi([
@@ -104,10 +105,10 @@ class Redeem {
         const usdcAddress = this.config.usdc as Address;
 
         logInfo(`[Redeem] 开始通过AA钱包执行Redeem操作...`);
-        logInfo(`[Redeem] Safe钱包地址: ${safeWalletAddress}`);
-        logInfo(`[Redeem] CTF合约地址: ${ctfAddress}`);
-        logInfo(`[Redeem] ConditionId: ${conditionId}`);
-        logInfo(`[Redeem] IndexSets: ${indexSets.map(i => i.toString()).join(", ")}`);
+        console.log(`[Redeem] Safe钱包地址: ${safeWalletAddress}`);
+        console.log(`[Redeem] CTF合约地址: ${ctfAddress}`);
+        console.log(`[Redeem] ConditionId: ${conditionId}`);
+        console.log(`[Redeem] IndexSets: ${indexSets.map(i => i.toString()).join(", ")}`);
 
         // 1. 编码CTF合约的redeemPositions调用数据
         const redeemData = encodeFunctionData({
@@ -116,7 +117,7 @@ class Redeem {
             args: [usdcAddress, zeroHash, conditionId as Hex, indexSets],
         });
 
-        logInfo(`[Redeem] 已编码Redeem数据: ${redeemData}`);
+        console.log(`[Redeem] 已编码Redeem数据: ${redeemData}`);
 
         // 2. 获取Safe的当前nonce
         const nonce = await publicClient.readContract({
@@ -126,7 +127,7 @@ class Redeem {
             authorizationList: [],
         });
 
-        logInfo(`[Redeem] Safe当前nonce: ${nonce.toString()}`);
+        console.log(`[Redeem] Safe当前nonce: ${nonce.toString()}`);
 
         // 2.5. 验证签名者是否是Safe的所有者
         const isOwner = await publicClient.readContract({
@@ -160,8 +161,8 @@ class Redeem {
             authorizationList: [],
         });
 
-        logInfo(`[Redeem] 签名者 ${account.address} 是Safe的所有者`);
-        logInfo(`[Redeem] Safe阈值: ${threshold.toString()} (需要 ${threshold.toString()} 个签名)`);
+        console.log(`[Redeem] 签名者 ${account.address} 是Safe的所有者`);
+        console.log(`[Redeem] Safe阈值: ${threshold.toString()} (需要 ${threshold.toString()} 个签名)`);
 
         if (threshold > 1n) {
             throw new Error(
@@ -201,7 +202,7 @@ class Redeem {
             authorizationList: [],
         });
 
-        logInfo(`[Redeem] 交易哈希: ${txHash}`);
+        console.log(`[Redeem] 交易哈希: ${txHash}`);
 
         // 5. 签名交易哈希
         const signatureObj = await sign({
@@ -226,17 +227,17 @@ class Redeem {
             pad(toHex(v), { size: 1 }),
         ]) as Hex;
 
-        logInfo(`[Redeem] 签名: ${signature}`);
-        logInfo(`[Redeem] 签名长度: ${(signature.length - 2) / 2} 字节 (应该是65字节)`);
-        logInfo(`[Redeem] 签名r: ${signatureObj.r}`);
-        logInfo(`[Redeem] 签名s: ${signatureObj.s}`);
-        logInfo(`[Redeem] 签名v: ${v.toString()}`);
+        console.log(`[Redeem] 签名: ${signature}`);
+        console.log(`[Redeem] 签名长度: ${(signature.length - 2) / 2} 字节 (应该是65字节)`);
+        console.log(`[Redeem] 签名r: ${signatureObj.r}`);
+        console.log(`[Redeem] 签名s: ${signatureObj.s}`);
+        console.log(`[Redeem] 签名v: ${v.toString()}`);
 
         // 6. 执行交易
         // signature格式：r(32字节) + s(32字节) + v(1字节) = 65字节
-        logInfo(`[Redeem] 准备执行交易...`);
-        logInfo(`[Redeem] 目标地址: ${to}`);
-        logInfo(`[Redeem] 数据长度: ${data.length} 字符`);
+        console.log(`[Redeem] 准备执行交易...`);
+        console.log(`[Redeem] 目标地址: ${to}`);
+        console.log(`[Redeem] 数据长度: ${data.length} 字符`);
         
         let hash: Hex;
         try {
@@ -263,7 +264,7 @@ class Redeem {
             logInfo(`[Redeem] 交易已提交，交易哈希: ${hash}`);
         } catch (error: any) {
             console.error(`❌ 执行交易时出错:`);
-            console.error(`错误信息: ${error.message}`);
+            console.error(`错误信息: ${error}`);
             if (error.message?.includes('GS026')) {
                 console.error(`\nGS026 错误通常表示签名验证失败。可能的原因：`);
                 console.error(`1. 签名者地址 ${account.address} 不是Safe的所有者`);
@@ -293,6 +294,28 @@ class Redeem {
             hash,
             receipt,
         };
+    }
+
+
+    public async redeemAll(funderAddress: string) {
+        const positions = await getGammaDataModule().getRedeemablePositions({ funderAddress });
+
+        try {
+            logInfo(`[Redeem] 有 ${positions.length} 个仓位, 等待赎回...`);
+            for (let i = 0; i < positions.length; i++) {
+                const position = positions[i];
+                logInfo(`[Redeem] 开始赎回第${i + 1}个仓位: ${position.conditionId}`);
+                const result = await this.redeemViaAAWallet(position.conditionId);
+                if (result.success) {
+                    logInfo(`[Redeem] 赎回成功: ${position.conditionId}`);
+                } else {
+                    logInfo(`[Redeem] 赎回失败: ${position.conditionId}`);
+                }
+            }
+        } catch (error) {
+            logError(`[Redeem] 赎回失败: ${error}`);
+        }
+        logInfo(`[Redeem] 赎回完成`);
     }
 }
 

@@ -137,6 +137,46 @@ class Clob {
     this.inited = true;
   }
 
+  public async postOrder({
+    tokenID,
+    side,
+    price,
+    size,
+    tickSize = '0.01',
+    negRisk = false,
+    orderType = OrderType.FAK,
+  }: {
+    tokenID: string;
+    side: Side;
+    price: number;
+    size: number;
+    tickSize?: string;
+    negRisk?: boolean;
+    orderType?: OrderType;
+  }) {
+    if (!this.inited) {
+      throw new Error('ClobClient not initialized. Please call init() first.');
+    }
+    logInfo(`下单...`, { tokenID, side, size, tickSize, negRisk, orderType })
+    try {
+      const resp = await this.clobClient!.createAndPostOrder(
+        {
+          tokenID,
+          side,
+          price: Number(price),
+          size: Number(size),
+        },
+        { tickSize: tickSize as any, negRisk },
+        orderType as any
+      );
+      logInfo(`下单完成...`, { resp })
+      return resp;
+    } catch (err) {
+      logInfo(`placeOrder error: ${err}`);
+      return {};
+    }
+  }
+
 
   /**
    * 下单接口
@@ -177,8 +217,8 @@ class Clob {
       logInfo(`下单完成...`, { resp })
       return resp;
     } catch (err) {
-      logInfo('placeOrder error:', err);
-      throw err;
+      logInfo(`placeOrder error: ${err}`);
+      return {};
     }
   }
 
@@ -201,7 +241,7 @@ class Clob {
           resp = await this.clobClient!.getOrder(orderId);
           return resp;
         } catch (err) {
-          logInfo('getOrder error:', err);
+          logInfo(`getOrder error: ${err}`);
         }
       }
   }

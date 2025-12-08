@@ -103,3 +103,8 @@ export const calcPriceRange = (priceToBeat: number, range: number[]) => {
     const downRange = [(1-maxRatio)*priceToBeat, (1-minRatio)*priceToBeat] as [number, number];
     return { upRange, downRange };
 }
+
+export const parseEventSlug = (eventSlug: string) => {
+    const [tag, outcome, interval, timestamp] = eventSlug.split('-');
+    return { tag, outcome, interval, timestamp};
+}

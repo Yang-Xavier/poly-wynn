@@ -34,14 +34,6 @@ function parseArgs(): CommandArgs {
     const command = args[0] as Command;
     const parsedArgs: CommandArgs = { command };
 
-    // redeem 命令：第二个参数作为 position 参数传入的 conditionId
-    if (command === "redeem") {
-        if (args.length < 2) {
-            throw new Error("redeem 命令需要提供 conditionId 参数，例如: node bootstrap.js redeem <conditionId>");
-        }
-        parsedArgs.conditionId = args[1];
-        return parsedArgs;
-    }
 
     // 其他命令如果将来需要，可继续使用 --key=value 或 --key value 的形式解析
     for (let i = 1; i < args.length; i++) {
@@ -77,7 +69,7 @@ async function main(): Promise<void> {
                 await runPolyWynn();
                 break;
             case "redeem":
-                await redeem(args.conditionId);
+                await redeem();
                 break;
             case "debug":
                 await debug();

@@ -121,7 +121,7 @@ class PolyMarketDataClient {
                 });
                 
             } catch (error) {
-                logError('[PolyMarketData] 连接失败:', error);
+                logError(`[PolyMarketData] 连接失败: ${error}`);
                 reject(error);
             }
         });
@@ -146,7 +146,7 @@ class PolyMarketDataClient {
                 logData(`[PolyMarketData] asset_id: ${asset_id}, bestAsks: ${asks?.length > 0 ? asks[asks.length-1].price : 'N/A'}, bestBids: ${bids?.length > 0 ? bids[bids.length-1].price : 'N/A'}`);
             }
         } catch (error) {
-            logInfo('[PolyMarketData] 解析消息失败:', error);
+            logInfo(`[PolyMarketData] 解析消息失败: ${error} data: ${data.toString()}`);
         }
     }
     
@@ -297,6 +297,13 @@ class PolyMarketDataClient {
             return pick(data, ['bids', 'asks', 'market', 'asset_id', 'timestamp']) as any as  MarketPushData;
         }
         return this.cache.get(assetId)![this.cache.get(assetId)!.length - 1].data;
+    }
+    getBestAskByAssetId(assetId: string): number | null {
+        if (this.cache.size === 0 || !this.cache.get(assetId)) {
+            return null;
+        }
+        const orderbookSummary = this.cache.get(assetId)![this.cache.get(assetId)!.length - 1].data;
+        return Number(orderbookSummary.asks[orderbookSummary.asks.length - 1]?.price);
     }
 }
 

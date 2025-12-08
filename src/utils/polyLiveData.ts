@@ -120,7 +120,7 @@ class PolyLiveDataClient {
                 });
 
             } catch (error) {
-                logInfo('[PolyLiveData] 连接失败:', error);
+                logInfo(`[PolyLiveData] 连接失败: ${error}`);
                 reject(error);
             }
         });
@@ -152,7 +152,7 @@ class PolyLiveDataClient {
                 }
             }
         } catch (error) {
-            logInfo(`[PolyLiveData] 解析消息失败: ${error}`, data.toString());
+            logInfo(`[PolyLiveData] 解析消息失败: ${error} data: ${data.toString()}`);
         }
     }
 

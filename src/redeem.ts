@@ -1,6 +1,8 @@
+import { getGlobalConfig } from "@utils/config";
 import { getRedeemModule } from "./module/redeem";
 
-export const redeem = async (conditionId: string) => {
+export const redeem = async () => {
+    const globalConfig = getGlobalConfig();
     const redeemModule = getRedeemModule();
-    await redeemModule.redeemViaAAWallet(conditionId);
+    await redeemModule.redeemAll(globalConfig.account.funderAddress);
 }

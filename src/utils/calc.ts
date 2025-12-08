@@ -722,7 +722,7 @@ export const analyzePositionExitDecision = (
     const losingProbability = 1 - winningProbability;
 
     const defaultHoldThreshold =
-        globalConfig?.stratgegy?.breakProbabilityThreshold ?? 0.8;
+        globalConfig?.stratgegy?.breakProbabilityThreshold ?? 0.9;
     const holdProbabilityThreshold =
         thresholds.holdProbabilityThreshold ?? defaultHoldThreshold;
 
