@@ -5,6 +5,9 @@ module.exports = {
       script: 'npm',
       args: 'run start:polywynn',
       cwd: __dirname,
+      env: {
+        LOGGER_DISABLE_CONSOLE: 'true',
+      },
       out_file: './logs/pm2-start-out.log',
       error_file: './logs/pm2-start-error.log',
     },

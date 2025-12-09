@@ -54,10 +54,15 @@ export class Logger {
   private fileStreams: Map<LogType, fs.WriteStream> = new Map();
   private traceId: string | undefined;
   private currentDate: string = ''; // 当前日期文件夹名称
+  private disableConsole: boolean = false; // 是否禁用控制台输出
 
   private constructor() {
     const globalConfig = getGlobalConfig();
     this.config = { ...DEFAULT_CONFIG, ...globalConfig.logger};
+
+    // 通过环境变量控制是否关闭 console 输出
+    // 当 LOGGER_DISABLE_CONSOLE 为 'true' 时，不再往控制台输出日志
+    this.disableConsole = process.env.LOGGER_DISABLE_CONSOLE === 'true';
 
     // 确保日志目录存在
     if (!fs.existsSync(this.config.logDir)) {
@@ -165,7 +170,7 @@ export class Logger {
     const formattedMessage = this.config.logFormat(level, type, message, this.traceId, data);
 
     // 输出到控制台
-    if (enableConsole) {
+    if (enableConsole && !this.disableConsole) {
       if (level === LogLevel.ERROR) {
         console.error(formattedMessage);
       } else {
