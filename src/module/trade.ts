@@ -38,9 +38,8 @@ export const buy = async ({
                     orderId: orderID
                 });
             }
-            if(result) {
-                return result;
-            }
+            logInfo(`购买结果: ${JSON.stringify(result || {})}`);
+            return result;
         } catch (e) {
             logInfo(`购买失败...${e}`)
         }
@@ -71,6 +70,7 @@ export const buyEnough = async ({
             retryCount: globalConfig.stratgegy.buyingRetryCount,
             slugIntervalTimestamp
         });
+        return buyResult;
 
         if (buyResult) {
             buyResults.push(buyResult);
