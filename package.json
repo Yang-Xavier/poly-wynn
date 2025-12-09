@@ -6,11 +6,12 @@
   "scripts": {
     "build": "rm -rf dist && node build.js",
     "start": "pm2 start ecosystem.config.js",
+    "stop": "pm2 stop all && pm2 delete all",
+    "restart": "pm2 kill && npm run start",
     "start:polywynn": "bun run src/index.ts redeem && bun run src/index.ts runPolyWynn",
     "polyWynn": "npm run build && node dist/index.js runPolyWynn",
     "redeem": "npm run build && node dist/index.js redeem",
     "debug": "npm run build  && node dist/index.js debug",
-    "stop": "pm2 stop all && pm2 delete all",
     "logs:server": "bun serve-logs.js"
   },
   "dependencies": {
