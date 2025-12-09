@@ -64,6 +64,7 @@ export const buyEnough = async ({
     let remainAmount = amount;
 
     while (buyCount > 0 && distanceToNextInterval(slugIntervalTimestamp) > 0) {
+        buyCount--;
         const buyResult = await buy({
             tokenId,
             amount: remainAmount,
@@ -75,14 +76,10 @@ export const buyEnough = async ({
             buyResults.push(buyResult);
             remainAmount = remainAmount - (Number(buyResult?.size_matched) * Number(buyResult?.price));
         }
-
-        buyCount--;
-        if (remainAmount > 2) {
-            logInfo(`✅分批购买中...第 ${globalConfig.stratgegy.buyingMaxSplit - buyCount} 笔购买完成, 本次购买: ${Number(buyResult?.size_matched) * Number(buyResult?.price)}, 购买额度: ${remainAmount}/${amount}`, buyResult);
-        } else {
+        logInfo(`第 ${globalConfig.stratgegy.buyingMaxSplit - buyCount} / ${globalConfig.stratgegy.buyingMaxSplit} 笔购买完成, 本次购买: ${Number(buyResult?.size_matched) * Number(buyResult?.price)}, 购买额度: ${remainAmount}/${amount}`, buyResult);
+        if (remainAmount <= 1 ) {
             break;
         }
-
     }
 
     const totalSizeMatched = buyResults.reduce((acc, curr) => acc + Number(curr.size_matched), 0);
