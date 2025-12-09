@@ -79,7 +79,7 @@ export const runPolyWynn = async () => {
             const { formatted: balance } = await getAccountBalance(globalConfig.account.funderAddress, globalConfig.account.balanceTokenAddress);
             positionAmount = Math.min(globalConfig.stratgegy.buyingMaxAmount, Number(balance) * globalConfig.stratgegy.buyingAmountFactor);
             logInfo(`💰账户余额: ${balance}, 购买金额: ${positionAmount}`);
-            
+
             logInfo(`订阅市场数据: ${market.clobTokenIds}`);
             await polyMarketDataClient.connect();
             await polyMarketDataClient.subscribeMarket(JSON.parse(market.clobTokenIds) as string[]);
@@ -123,7 +123,7 @@ export const runPolyWynn = async () => {
                                 amount: positionAmount,
                                 tokenId: tokenChanceDetails.tokenId,
                                 slugIntervalTimestamp
-                                
+
                             });
                             logInfo(`完成购买`, boughtOrder);
                         } catch (error) {
@@ -131,12 +131,13 @@ export const runPolyWynn = async () => {
                         }
                     } else if (!boughtOrder) {
                         logInfo(`🈚️没有找到机会, 跳过本局购买,等待下一轮开始...`);
+                        logTrade('skip');
                     }
 
                     if (boughtOrder && boughtOrder.status === 'MATCHED') {
-                        buyCount+=1;
+                        buyCount += 1;
                         // 购买成功
-                        if(tokenChanceDetails) {
+                        if (tokenChanceDetails) {
                             logTrade('buy', boughtOrder);
                         }
                         const watchingPriceChangeTimeout = distanceToNextInterval(slugIntervalTimestamp);
@@ -178,7 +179,7 @@ export const runPolyWynn = async () => {
                         await waitFor(distanceToNextInterval(slugIntervalTimestamp));
                     }
                 } catch (error) {
-                    logError(`策略执行失败: ${error}`);
+                    logError(`策略执行失败: ${typeof error === 'object' ? JSON.stringify(error) : error}`);
                 }
 
             }
@@ -196,7 +197,7 @@ export const runPolyWynn = async () => {
                     logInfo("验证结果...");
                     let finalMarket: MarketResponse | null = null;
                     let maxRequestCount = 10;
-                    while(!(finalMarket = await getGammaDataModule().getMarketBySlug(marketSlug)).closed && maxRequestCount > 0) {
+                    while (!(finalMarket = await getGammaDataModule().getMarketBySlug(marketSlug)).closed && maxRequestCount > 0) {
                         await waitFor(10000);
                         maxRequestCount--;
                     }
@@ -205,13 +206,13 @@ export const runPolyWynn = async () => {
                     const finalOutcomePrices = JSON.parse(outcomePrices).map(Number) as number[];
                     const outcomePrice = Math.max(...finalOutcomePrices);
                     const finalOutcome = finalOutcomes[finalOutcomePrices.findIndex(item => Number(item) === outcomePrice)];
-                    if(closed) {
+                    if (closed) {
                         logInfo(`对赌结果: ${redeemOrder.outcome === finalOutcome ? "🎉Won" : "💩Lost"}, 市场最终结果: ${finalOutcome}`);
                         logTrade(redeemOrder.outcome === finalOutcome ? "won" : "lost", redeemOrder);
                     } else {
                         logInfo(`市场未关闭, 对赌结果不准确, 继续执行赎回...`);
                     }
-                    
+
                     const redeemModule = getRedeemModule();
                     await redeemModule.redeemAll(globalConfig.account.funderAddress);
 
