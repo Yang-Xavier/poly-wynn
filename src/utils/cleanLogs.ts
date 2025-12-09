@@ -1,7 +1,12 @@
 import fs from 'fs';
 import path from 'path';
 
-const LOGS_DIR = path.join(__dirname, 'logs');
+import { getGlobalConfig } from './config';
+
+const config = getGlobalConfig();
+const LOGS_DIR = path.isAbsolute(config.logger.logDir)
+  ? config.logger.logDir
+  : path.join(process.cwd(), config.logger.logDir);
 
 // 计算一天前的 00:00 作为阈值（保留今天和昨天的日志）
 function getThresholdDate(): Date {
