@@ -135,6 +135,7 @@ export const runPolyWynn = async () => {
                     } else if (!boughtOrder) {
                         logInfo(`🈚️没有找到机会, 跳过本局购买,等待下一轮开始...`);
                         logTrade('skip');
+                        await waitFor(distanceToNextInterval(slugIntervalTimestamp));
                     }
 
                     if (boughtOrder && boughtOrder.status === 'MATCHED') {
