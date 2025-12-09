@@ -3,11 +3,11 @@ const path = require('path');
 
 const LOGS_DIR = path.join(__dirname, 'logs');
 
-// 计算两天前的 00:00 作为阈值（保留今天和昨天的日志）
+// 计算一天前的 00:00 作为阈值（保留今天和昨天的日志）
 function getThresholdDate() {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - 2);
+  d.setDate(d.getDate() - 1);
   return d;
 }
 
@@ -60,20 +60,32 @@ async function cleanOldLogs() {
     }
 
     if (targets.length === 0) {
-      console.log('[clean-logs] 没有需要删除的旧日志目录。');
+      console.log('[clean-logs] 没有需要清理的旧日志目录。');
       return;
     }
 
-    console.log('[clean-logs] 即将删除以下日志目录（早于两天前）：');
+    console.log('[clean-logs] 即将在以下日期目录中清理旧日志文件（早于一天前，保留 trade.log）：');
     for (const t of targets) {
       console.log('  -', t.name);
     }
 
     for (const t of targets) {
-      await removeDir(t.fullPath);
+      const files = await fs.promises.readdir(t.fullPath, { withFileTypes: true });
+      for (const f of files) {
+        // 只删除普通文件，且文件名不是 trade.log
+        if (f.isFile && typeof f.isFile === 'function' ? f.isFile() : f.isFile) {
+          if (f.name === 'trade.log') continue;
+          const fullFilePath = path.join(t.fullPath, f.name);
+          try {
+            await fs.promises.unlink(fullFilePath);
+          } catch (e) {
+            console.error('[clean-logs] 删除文件失败：', fullFilePath, e);
+          }
+        }
+      }
     }
 
-    console.log('[clean-logs] 日志清理完成。');
+    console.log('[clean-logs] 日志文件清理完成（trade.log 已保留）。');
   } catch (err) {
     console.error('[clean-logs] 日志清理出错：', err);
     process.exitCode = 1;
@@ -81,5 +93,3 @@ async function cleanOldLogs() {
 }
 
 cleanOldLogs();
-
-

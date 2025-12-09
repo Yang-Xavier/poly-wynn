@@ -9,6 +9,7 @@ import { polyLiveDataClient } from "./polyLiveData";
 import { OUTCOMES_ENUM } from "./constans";
 import { analyzePositionExitDecision, calcDiffBeatPrice } from "./calc";
 import { decideTailSweep } from "./decision";
+import { makeTradingDecision } from "./desion2";
 
 
 
@@ -44,35 +45,43 @@ export const findChanceByWatchPrice = async (market: MarketResponse, priceToBeat
                             resolved = true;
                             resolve(null);
                         }
-    
-                        const diffBeatPriceResult = calcDiffBeatPrice(currentPrice.value, priceToBeat, globalConfig.stratgegy.diffBeatPriceFactor, distance);
-                        const { isDiffEnough, outcome, diffRatio, timeBasedRatio } = diffBeatPriceResult;
-                        logData(`[买入前价格检查] <diffBeatPriceResult>: ${JSON.stringify(diffBeatPriceResult)}`);
-                        if (isDiffEnough) {
-                            const upBestAsk = polyMarketDataClient.getBestAskByAssetId(outcomes[OUTCOMES_ENUM.Up]);
-                            const downBestAsk = polyMarketDataClient.getBestAskByAssetId(outcomes[OUTCOMES_ENUM.Down]);
-                            const tailSweepResult = decideTailSweep(
-                                { ticks: historyPriceList, intervalStartPrice: priceToBeat, timeToExpiryMs: distance, upBestAsk, downBestAsk },
-                                globalConfig.stratgegy.tailSweepConfig
-                            );
-                            logData(`[--扫尾盘数据策略数据--] <tailSweepResult>: ${JSON.stringify(tailSweepResult)}`);
-                            if (tailSweepResult.shouldBet && upBestAsk && downBestAsk && tailSweepResult.impliedProbability >= globalConfig.stratgegy.bestAskThreshold) {
-                                resolved = true;
-                                resolve({
-                                    tokenId: outcomes[outcome],
-                                    bestAsk: tailSweepResult.side === OUTCOMES_ENUM.Up ? upBestAsk : downBestAsk,
-                                    outcome: tailSweepResult.side,
-                                    orderbookSummary: null,
-                                    cryptoPrice: currentPrice,
-                                    priceToBeat,
-                                    diffRatio,
-                                    timeBasedRatio
-                                });
-                            }
+
+                        // const diffBeatPriceResult = calcDiffBeatPrice(currentPrice.value, priceToBeat, globalConfig.stratgegy.diffBeatPriceFactor, distance);
+
+                        const upBestAsk = polyMarketDataClient.getBestAskByAssetId(outcomes[OUTCOMES_ENUM.Up]);
+                        const downBestAsk = polyMarketDataClient.getBestAskByAssetId(outcomes[OUTCOMES_ENUM.Down]);
+                        const tailSweepResult = decideTailSweep(
+                            { ticks: historyPriceList, intervalStartPrice: priceToBeat, timeToExpiryMs: distance, upBestAsk, downBestAsk },
+                            globalConfig.stratgegy.tailSweepConfig
+                        );
+                        // const tradingDecision = makeTradingDecision({
+                        //     priceData: historyPriceList,
+                        //     expiryTime: distance,
+                        //     upBestAsk,
+                        //     downBestAsk,
+                        //     targetPrice: priceToBeat
+                        // });
+
+                        // logData(`[--扫尾盘数据策略数据--1--] <diffBeatPriceResult>: ${JSON.stringify(diffBeatPriceResult)}`);
+                        logData(`[--扫尾盘数据策略数据--2--] <tailSweepResult>: ${JSON.stringify(tailSweepResult)}`);
+                        // logData(`[--扫尾盘数据策略数据--3--] <tradingDecision>: ${JSON.stringify(tradingDecision)}`);
+
+
+
+                        if (tailSweepResult.shouldBet && upBestAsk && downBestAsk && tailSweepResult.impliedProbability >= globalConfig.stratgegy.bestAskThreshold) {
+                            resolved = true;
+                            resolve({
+                                tokenId: outcomes[tailSweepResult.side],
+                                bestAsk: tailSweepResult.side === OUTCOMES_ENUM.Up ? upBestAsk : downBestAsk,
+                                outcome: tailSweepResult.side,
+                                cryptoPrice: currentPrice,
+                                priceToBeat,
+                            });
                         }
+
                     }
-                } catch(e) {}
-                
+                } catch (e) { }
+
             })
         } catch (e) {
             logInfo(`findChanceByWatchPrice failed! ${e}`);

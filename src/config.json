@@ -18,9 +18,9 @@
 
     "stratgegy": {
         "startCollectDataBefore": 600000,
-        "startBefore": 300000,
+        "startBefore": 180000,
         "findingChangeInterval": 1000,
-        "diffBeatPriceFactor": [0.002, 0.0001],
+        "diffBeatPriceFactor": [0.003, 0.0005],
         "attenuationFactor": [2, 0.8],
         "buyingRetryCount": 5,
         "buyingMaxSplit": 3,
@@ -33,7 +33,7 @@
 
         "bestAskThreshold": 0.95,
         "tailSweepConfig": {
-            "minWinProbability": 0.95,
+            "minWinProbability": 0.99,
             "minEdge": -1,
             "maxFlipRisk": 0.1,
             "riskAversion": 2

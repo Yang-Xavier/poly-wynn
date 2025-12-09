@@ -5,9 +5,9 @@
   "main": "index.js",
   "scripts": {
     "build": "rm -rf dist && node build.js",
-    "start": "npm run build && pm2 start ecosystem.config.js",
+    "start": "bun run src/index.ts redeem && bun run src/index.ts runPolyWynn",
     "polyWynn": "npm run build && node dist/index.js runPolyWynn",
-    "redeem": "npm run build  && node dist/index.js redeem",
+    "redeem": "npm run build && node dist/index.js redeem",
     "debug": "npm run build  && node dist/index.js debug",
     "stop": "pm2 stop all && pm2 delete all",
     "clean": "rm output/*",

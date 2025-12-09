@@ -51,17 +51,6 @@ export const runPolyWynn = async () => {
 
         let positionAmount = globalConfig.stratgegy.buyingMaxAmount / 2;
         try {
-            const { formatted: balance } = await getAccountBalance(globalConfig.account.funderAddress, globalConfig.account.balanceTokenAddress);
-            positionAmount = Math.min(globalConfig.stratgegy.buyingMaxAmount, Number(balance) * globalConfig.stratgegy.buyingAmountFactor);
-            logInfo(`💰账户余额: ${balance}, 购买金额: ${positionAmount}`);
-
-            logInfo(`获取市场数据...`);
-            const market = await getGammaDataModule().getMarketBySlug(marketSlug);
-            logInfo(`获取对赌价格...`);
-            const priceToBeat = await getPriceToBeat(globalConfig.marketTag, market.eventStartTime, market.endDate);
-            logInfo(`对赌价格: ${priceToBeat}, market: ${marketSlug}`);
-
-
             if (distanceToNextInterval(slugIntervalTimestamp) > globalConfig.stratgegy.startCollectDataBefore) {
                 logInfo(`距离开始采集数据还剩: ${(distanceToNextInterval(slugIntervalTimestamp) - globalConfig.stratgegy.startCollectDataBefore) / 1000}s`)
                 const waitTime = distanceToNextInterval(slugIntervalTimestamp) - globalConfig.stratgegy.startCollectDataBefore;
@@ -72,15 +61,28 @@ export const runPolyWynn = async () => {
             await polyLiveDataClient.connect();
             await polyLiveDataClient.subscribeCryptoPrices(`${globalConfig.marketTag}/usd`);
 
-            logInfo(`订阅市场数据: ${market.clobTokenIds}`);
-            await polyMarketDataClient.connect();
-            await polyMarketDataClient.subscribeMarket(JSON.parse(market.clobTokenIds) as string[]);
-
             const toStartTime = distanceToNextInterval(slugIntervalTimestamp) - globalConfig.stratgegy.startBefore;
             if (toStartTime > 0) {
                 logInfo(`距离开始策略还剩: ${(toStartTime) / 1000}s`)
                 await waitFor(toStartTime);
             }
+
+            logInfo(`==========策略开始========== 市场链接< https://polymarket.com/event/${marketSlug} >`);
+
+            logInfo(`获取市场数据...`);
+            const market = await getGammaDataModule().getMarketBySlug(marketSlug);
+
+            logInfo(`获取对赌价格...`);
+            const priceToBeat = await getPriceToBeat(globalConfig.marketTag, market.eventStartTime, market.endDate);
+            logInfo(`对赌价格: ${priceToBeat}, market: ${marketSlug}`);
+
+            const { formatted: balance } = await getAccountBalance(globalConfig.account.funderAddress, globalConfig.account.balanceTokenAddress);
+            positionAmount = Math.min(globalConfig.stratgegy.buyingMaxAmount, Number(balance) * globalConfig.stratgegy.buyingAmountFactor);
+            logInfo(`💰账户余额: ${balance}, 购买金额: ${positionAmount}`);
+            
+            logInfo(`订阅市场数据: ${market.clobTokenIds}`);
+            await polyMarketDataClient.connect();
+            await polyMarketDataClient.subscribeMarket(JSON.parse(market.clobTokenIds) as string[]);
 
             logInfo(`查询是否存在订单，获取持仓订单: ${market.conditionId}`);
             const openOrders = await getGammaDataModule().getUserpostionByMarketAsOrder(market.conditionId, globalConfig.account.funderAddress);

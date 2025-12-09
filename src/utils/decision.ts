@@ -219,10 +219,11 @@ export const decideTailSweep = (
 
   // 默认参赛参数（偏保守）
   const config: TailSweepConfig = {
-    minWinProbability: cfg?.minWinProbability ?? 0.75,
-    minEdge: cfg?.minEdge ?? 0.05,
-    maxFlipRisk: cfg?.maxFlipRisk ?? 0.20,
-    riskAversion: cfg?.riskAversion ?? 0.5,
+    // 更保守：宁可少做单，也尽量避免亏损
+    minWinProbability: cfg?.minWinProbability ?? 0.82, // 原 0.75
+    minEdge: cfg?.minEdge ?? 0.08,                     // 原 0.05
+    maxFlipRisk: cfg?.maxFlipRisk ?? 0.15,             // 原 0.20
+    riskAversion: cfg?.riskAversion ?? 0.8,            // 原 0.5
   };
 
   // 基本兜底：数据不足时不建议下注
