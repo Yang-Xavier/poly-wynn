@@ -27,6 +27,7 @@ import { getGammaDataModule, MarketResponse } from "./module/gammaData";
 import { getPriceToBeat } from "@utils/polymarketApi";
 import { getAccountBalance, logAccountBalance } from "@utils/account";
 import { OUTCOMES_ENUM } from "@utils/constans";
+import { cleanOldLogs } from "@utils/cleanLogs";
 
 
 const init = async () => {
@@ -42,8 +43,10 @@ const init = async () => {
 export const runPolyWynn = async () => {
     await init();
     const globalConfig = getGlobalConfig();
-
+    
     runIntervalFn(async () => {
+        await cleanOldLogs();
+        
         let buyCount = 0;
         const slugIntervalTimestamp = get15MinIntervalTimestamp();
         const marketSlug = getMarketSlug15Min(globalConfig.marketTag, slugIntervalTimestamp);

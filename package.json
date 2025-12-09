@@ -5,13 +5,13 @@
   "main": "index.js",
   "scripts": {
     "build": "rm -rf dist && node build.js",
-    "start": "bun run src/index.ts redeem && bun run src/index.ts runPolyWynn",
+    "start": "pm2 start ecosystem.config.js",
+    "start:polywynn": "bun run src/index.ts redeem && bun run src/index.ts runPolyWynn",
     "polyWynn": "npm run build && node dist/index.js runPolyWynn",
     "redeem": "npm run build && node dist/index.js redeem",
     "debug": "npm run build  && node dist/index.js debug",
     "stop": "pm2 stop all && pm2 delete all",
-    "clean": "rm output/*",
-    "clean:logs": "node clean-logs.js"
+    "logs:server": "bun serve-logs.js"
   },
   "dependencies": {
     "@ethersproject/contracts": "^5.8.0",
