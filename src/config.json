@@ -47,7 +47,7 @@
         "usdc": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
         "rpcUrl": "https://polygon-rpc.com",
         "delyRedeem": 120000,
-        "delyLogBalance": 120000
+        "delyLogBalance": 180000
     },
 
     "logger": {
