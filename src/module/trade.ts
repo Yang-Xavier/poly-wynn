@@ -38,6 +38,9 @@ export const buy = async ({
                     orderId: orderID
                 });
             }
+            if(result) {
+                return result;
+            }
         } catch (e) {
             logInfo(`购买失败...${e}`)
         }
