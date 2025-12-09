@@ -188,7 +188,7 @@ export class Logger {
    * Trade类型日志
    */
   trade(type: 'buy' | 'sell' | 'redeem' | 'lost' | 'balance' | 'won' | 'skip', orderResult: PolymarketOrderResult): void {
-    const {  price, outcome, size_matched, balance } = orderResult as any;
+    const {  price, outcome, size_matched, balance } = orderResult || {} as any;
     const totalPriceAmount = Number(size_matched) * Number(price);
     const label = {
       buy: '✅',
