@@ -21,7 +21,7 @@ export const distanceToNextInterval = (intervalTimestamp: number) => {
     const interval = 15 * 60 * 1000;
     const nextIntervalStart = intervalTimestamp * 1000 + interval;
     const msUntilNextInterval = nextIntervalStart - now;
-    return msUntilNextInterval;
+    return Math.max(msUntilNextInterval, 0);
 }
 
 export const isLessThan5Minutes = (msUntilNextInterval: number) => {

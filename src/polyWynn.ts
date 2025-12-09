@@ -83,12 +83,9 @@ export const runPolyWynn = async () => {
             positionAmount = Math.min(globalConfig.stratgegy.buyingMaxAmount, Number(balance) * globalConfig.stratgegy.buyingAmountFactor);
             logInfo(`💰账户余额: ${balance}, 购买金额: ${positionAmount}`);
 
-            logInfo(`订阅市场数据: ${market.clobTokenIds}`);
+            logInfo(`订阅市场订单簿数据: ${market.clobTokenIds}`);
             await polyMarketDataClient.connect();
             await polyMarketDataClient.subscribeMarket(JSON.parse(market.clobTokenIds) as string[]);
-
-            logInfo(`查询是否存在订单，获取持仓订单: ${market.conditionId}`);
-            const openOrders = await getGammaDataModule().getUserpostionByMarketAsOrder(market.conditionId, globalConfig.account.funderAddress);
 
             logInfo(`开始执行策略...`);
             let restartTimes = 0;
@@ -101,6 +98,9 @@ export const runPolyWynn = async () => {
 
                     const watchingOrderbookTimeout = distanceToNextInterval(slugIntervalTimestamp);
                     const { upRange, downRange } = calcPriceRange(priceToBeat, globalConfig.stratgegy.diffBeatPriceFactor);
+                    
+                    logInfo(`查询是否存在订单，获取持仓订单: ${market.conditionId}`);
+                    const openOrders = await getGammaDataModule().getUserpostionByMarketAsOrder(market.conditionId, globalConfig.account.funderAddress);
 
                     let tokenChanceDetails: any = null;
                     let boughtOrder: PolymarketOrderResult | null = openOrders?.length > 0 ? openOrders[0] : null;
@@ -185,6 +185,7 @@ export const runPolyWynn = async () => {
                 } catch (error) {
                     logError(`策略执行失败: ${typeof error === 'object' ? JSON.stringify(error) : error}`);
                 }
+                restartTimes++;
 
             }
 
