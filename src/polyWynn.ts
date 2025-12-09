@@ -228,7 +228,7 @@ export const runPolyWynn = async () => {
                 }
             }
 
-            await waitFor(60 * 1000)
+            await waitFor(globalConfig.redeemConfig.delyLogBalance)
             await logAccountBalance();
 
             logInfo(`本局结束...`);

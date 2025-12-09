@@ -46,7 +46,8 @@
         "negRiskAdapter": "0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296",
         "usdc": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
         "rpcUrl": "https://polygon-rpc.com",
-        "delyRedeem": 180000
+        "delyRedeem": 120000,
+        "delyLogBalance": 120000
     },
 
     "logger": {
