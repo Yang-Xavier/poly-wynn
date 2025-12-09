@@ -1,7 +1,7 @@
 import { OrderType, Side } from "@polymarket/clob-client";
 import { getClobModule, PolymarketOrderResult } from "./clob";
 import { logError, logInfo } from "./logger";
-import { distanceToNextInterval } from "@utils/tools";
+import { distanceToNextInterval, waitFor } from "@utils/tools";
 import { getGlobalConfig } from "@utils/config";
 import { getGammaDataModule } from "./gammaData";
 
@@ -33,13 +33,13 @@ export const buy = async ({
                 orderType: OrderType.FAK
             });
             if (orderID) {
+                await waitFor(1000);
                 logInfo(`购买完成...`, { orderID })
                 result = await clobModule.getOrder({
                     orderId: orderID
                 });
             }
             logInfo(`购买结果: ${JSON.stringify(result || {})}`);
-            return result;
         } catch (e) {
             logInfo(`购买失败...${e}`)
         }
@@ -70,7 +70,6 @@ export const buyEnough = async ({
             retryCount: globalConfig.stratgegy.buyingRetryCount,
             slugIntervalTimestamp
         });
-        return buyResult;
 
         if (buyResult) {
             buyResults.push(buyResult);
@@ -124,6 +123,7 @@ export const mustSell = async ({
                 orderType: OrderType.FAK
             });
             if (orderID) {
+                await waitFor(1000);
                 result = await clobModule.getOrder({
                     orderId: orderID
                 });

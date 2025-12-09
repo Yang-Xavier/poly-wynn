@@ -7,7 +7,6 @@ import { awaitAxiosDataTo } from "../utils/awaitTo";
 import Proxy from "@utils/Proxy";
 import { logInfo } from "./logger";
 import { getGlobalConfig, getKeyConfig } from "@utils/config";
-import { waitFor } from "@utils/tools";
 
 // 订单簿价格档位
 interface OrderLevel {
@@ -240,7 +239,6 @@ class Clob {
       while (!resp && orderId) {
         try {
           resp = await this.clobClient!.getOrder(orderId);
-          await waitFor(200)
           return resp;
         } catch (err) {
           logInfo(`getOrder error: ${err}`);
