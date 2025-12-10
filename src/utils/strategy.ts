@@ -103,9 +103,9 @@ export const monitorPriceChange = async (market: MarketResponse, priceToBeat: nu
                 return
             }
             const assetId = outcomes[outcome];
-            if(data.asset_id === assetId) {
-                const bestAsk = data.asks[data.asks.length - 1].price;
-                if(bestAsk && bestAsk <globalConfig.stratgegy.sellProbabilityThreshold) {
+            if (data.asset_id === assetId) {
+                const bestAsk = data.asks[data.asks.length - 1]?.price;
+                if (bestAsk && parseFloat(bestAsk) < globalConfig.stratgegy.sellProbabilityThreshold) {
                     logData(`[买入后概率检查(低于阈值)] outcoum: ${outcome}, priceToBeat: ${priceToBeat}, bestAsk: ${bestAsk}, assetId: ${assetId}`);
                     resolved = true;
                     resolve(TOKEN_ACTION_ENUM.sell);
