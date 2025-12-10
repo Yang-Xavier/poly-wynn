@@ -17,7 +17,7 @@ module.exports = {
       args: 'run logs:server',
       cwd: __dirname,
       env: {
-        PORT: 8090,
+        PORT: 80,
       },
       out_file: './logs/pm2-logs-server-out.log',
       error_file: './logs/pm2-logs-server-error.log',
