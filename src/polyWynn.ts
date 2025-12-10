@@ -176,6 +176,7 @@ export const runPolyWynn = async () => {
                             await logAccountBalance();
                         } else {
                             redeemOrder = boughtOrder
+                            await waitFor(distanceToNextInterval(slugIntervalTimestamp));
                         }
                     }
 
