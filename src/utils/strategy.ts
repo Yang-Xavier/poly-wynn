@@ -7,9 +7,8 @@ import { TOKEN_ACTION_ENUM, distanceToNextInterval } from "./tools";
 import { getGlobalConfig } from "./config";
 import { polyLiveDataClient } from "./polyLiveData";
 import { OUTCOMES_ENUM } from "./constans";
-import { analyzePositionExitDecision, calcDiffBeatPrice } from "./calc";
 import { decideTailSweep } from "./decision";
-import { makeTradingDecision } from "./desion2";
+import { MarketPushData } from "./polyMarketData";
 
 
 
@@ -98,6 +97,24 @@ export const monitorPriceChange = async (market: MarketResponse, priceToBeat: nu
 
     const result = await race(new Promise(resolve => {
         let resolved = false;
+
+        polyMarketDataClient.onWatchOrderBookPriceChange((data: MarketPushData) => {
+            if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) {
+                return
+            }
+            const assetId = outcomes[outcome];
+            if(data.asset_id === assetId) {
+                const bestAsk = data.asks[data.asks.length - 1].price;
+                if(bestAsk && bestAsk <globalConfig.stratgegy.sellProbabilityThreshold) {
+                    logData(`[买入后概率检查(低于阈值)] outcoum: ${outcome}, priceToBeat: ${priceToBeat}, bestAsk: ${bestAsk}, assetId: ${assetId}`);
+                    resolved = true;
+                    resolve(TOKEN_ACTION_ENUM.sell);
+                } else {
+                    logData(`[买入后概率检查(高于阈值)] outcoum: ${outcome}, priceToBeat: ${priceToBeat}, bestAsk: ${bestAsk}, assetId: ${assetId}`);
+                }
+            }
+        })
+
         polyLiveDataClient.onWatchPriceChange((currentPrice, historyPriceList) => {
             if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) {
                 return

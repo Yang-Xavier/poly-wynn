@@ -29,8 +29,8 @@
         "confidenceThreshold": 0.2,
         "limitBuyCount": 1,
         "breakProbabilityThreshold": 0.9,
+        
         "sellProbabilityThreshold": 0.5,
-
         "bestAskThreshold": 0.95,
         "tailSweepConfig": {
             "minWinProbability": 0.99,

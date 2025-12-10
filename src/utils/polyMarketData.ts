@@ -16,7 +16,7 @@ interface MarketSubscriptionRequest {
 }
 
 // 推送数据接口
-interface MarketPushData {
+export interface MarketPushData {
     market: string;
     asset_id: string;
     bids: {
