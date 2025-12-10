@@ -113,17 +113,14 @@ export const mustSell = async ({
         logInfo(`尝试卖出, 第 ${++count} 次...`)
         try {
             const clobModule = getClobModule();
-            const { orderID } = await clobModule.postMarketOrder({
+            const resp = await clobModule.postMarketOrder({
                 tokenID: tokenId,
                 amount,
                 side: Side.SELL,
                 orderType: OrderType.FAK
             });
-            if (orderID) {
-                await waitFor(1000);
-                result = await clobModule.getOrder({
-                    orderId: orderID
-                });
+            if (resp.orderID) {
+                result = resp;
             }
         } catch (e) {
             logInfo(`sell failed! ${e}`)
