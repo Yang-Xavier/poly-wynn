@@ -19,7 +19,7 @@ import {
     monitorPriceChange
 } from './utils/strategy';
 import { getRedeemModule } from "./module/redeem";
-import { logError, logInfo, logTrade, setTraceId } from "./module/logger";
+import { getLoggerModule, logError, logInfo, LogLevel, logTrade, setTraceId } from "./module/logger";
 import { getGlobalConfig } from "@utils/config";
 import { polyLiveDataClient } from "@utils/polyLiveData";
 import { polyMarketDataClient } from "./utils/polyMarketData";
@@ -82,6 +82,7 @@ export const runPolyWynn = async () => {
             const { formatted: balance } = await getAccountBalance(globalConfig.account.funderAddress, globalConfig.account.balanceTokenAddress);
             positionAmount = Math.min(globalConfig.stratgegy.buyingMaxAmount, Number(balance) * globalConfig.stratgegy.buyingAmountFactor);
             logInfo(`💰账户余额: ${balance}, 购买金额: ${positionAmount}`);
+            getLoggerModule().customLog('trade', LogLevel.INFO, `💰账户余额: ${balance}`)
 
             logInfo(`订阅市场订单簿数据: ${market.clobTokenIds}`);
             await polyMarketDataClient.connect();
@@ -229,8 +230,7 @@ export const runPolyWynn = async () => {
                 }
             }
 
-            await waitFor(globalConfig.redeemConfig.delyLogBalance)
-            await logAccountBalance();
+            await waitFor(distanceToNextInterval(slugIntervalTimestamp))
 
             logInfo(`本局结束...`);
         } catch (e) {
