@@ -13,7 +13,7 @@ import {
 } from "viem";
 import { privateKeyToAccount, sign } from "viem/accounts";
 import { polygon } from "viem/chains";
-import {logError, logInfo} from "./logger";
+import { logError, logInfo } from "./logger";
 import { getGlobalConfig, getKeyConfig } from "@utils/config";
 import { getGammaDataModule } from "./gammaData";
 
@@ -219,7 +219,7 @@ class Redeem {
             // EIP-2098格式，转换为传统格式
             v = v === 0n ? 27n : 28n;
         }
-        
+
         // 构建签名：r + s + v
         const signature = concat([
             pad(signatureObj.r, { size: 32 }),
@@ -238,7 +238,7 @@ class Redeem {
         console.log(`[Redeem] 准备执行交易...`);
         console.log(`[Redeem] 目标地址: ${to}`);
         console.log(`[Redeem] 数据长度: ${data.length} 字符`);
-        
+
         let hash: Hex;
         try {
             hash = await walletClient.writeContract({
@@ -300,9 +300,10 @@ class Redeem {
     public async redeemAll(funderAddress: string) {
         const positions = await getGammaDataModule().getRedeemablePositions({ funderAddress });
 
-        try {
-            logInfo(`[Redeem] 有 ${positions.length} 个仓位, 等待赎回...`);
-            for (let i = 0; i < positions.length; i++) {
+
+        logInfo(`[Redeem] 有 ${positions.length} 个仓位, 等待赎回...`);
+        for (let i = 0; i < positions.length; i++) {
+            try {
                 const position = positions[i];
                 logInfo(`[Redeem] 开始赎回第${i + 1}个仓位: ${position.conditionId}`);
                 const result = await this.redeemViaAAWallet(position.conditionId);
@@ -311,10 +312,11 @@ class Redeem {
                 } else {
                     logInfo(`[Redeem] 赎回失败: ${position.conditionId}`);
                 }
+            } catch (error) {
+                logError(`[Redeem] 赎回第${i + 1}个仓位失败: ${error}`);
             }
-        } catch (error) {
-            logError(`[Redeem] 赎回失败: ${error}`);
         }
+
         logInfo(`[Redeem] 赎回完成`);
     }
 }
