@@ -6,246 +6,257 @@ const url = require('url');
 // 根目录为当前项目下的 logs 目录
 const LOGS_ROOT = path.join(__dirname, 'logs');
 
-// 简单的内容类型映射
-const MIME_TYPES = {
-  '.html': 'text/html; charset=utf-8',
-  '.htm': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
-  '.log': 'text/plain; charset=utf-8',
-  '.txt': 'text/plain; charset=utf-8',
-};
+const fsPromises = fs.promises;
 
-function getContentType(filePath) {
-  const ext = path.extname(filePath).toLowerCase();
-  return MIME_TYPES[ext] || 'application/octet-stream';
-}
+// 日志类型的显示顺序
+const LOG_TYPE_ORDER = ['trade', 'info', 'error', 'data'];
 
 function sendError(res, statusCode, message) {
   res.writeHead(statusCode, { 'Content-Type': 'text/plain; charset=utf-8' });
   res.end(`${statusCode} ${message}\n`);
 }
 
-// 获取当天日志目录名，如 2025-12-09
-function getTodayDirName() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+function escapeHtml(str = '') {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
-// 实现类似 tail -f 的实时日志输出
-function streamRealtimeLog(res, logFilePath, tailBytes = 16 * 1024) {
-  fs.stat(logFilePath, (err, stats) => {
-    if (err) {
-      if (err.code === 'ENOENT') {
-        return sendError(res, 404, '日志文件不存在');
-      }
-      console.error('获取日志文件信息失败:', err);
-      return sendError(res, 500, '获取日志文件信息失败');
+/**
+ * 查找最新日期目录下的 trade.log 文件
+ */
+async function findLatestTradeLogPath() {
+  let entries;
+  try {
+    entries = await fsPromises.readdir(LOGS_ROOT, { withFileTypes: true });
+  } catch (e) {
+    if (e && e.code === 'ENOENT') {
+      throw new Error('日志根目录不存在');
     }
+    throw e;
+  }
 
-    let lastSize = stats.size;
-    let watcher = null;
-    let closed = false;
+  const dateDirs = entries
+    .filter((d) => d.isDirectory() && /^\d{4}-\d{2}-\d{2}$/.test(d.name))
+    // 名字本身就是日期，按倒序即最新在前
+    .sort((a, b) => b.name.localeCompare(a.name, 'en'))
+    .map((d) => d.name);
 
-    // 基础响应头，使用分块传输实现流式输出
-    res.writeHead(200, {
-      'Content-Type': 'text/plain; charset=utf-8',
-      'Cache-Control': 'no-cache',
-      'Transfer-Encoding': 'chunked',
-      Connection: 'keep-alive',
-    });
+  for (const dir of dateDirs) {
+    const tradePath = path.join(LOGS_ROOT, dir, 'trade.log');
+    try {
+      await fsPromises.access(tradePath, fs.constants.F_OK);
+      return tradePath;
+    } catch (e) {
+      // 当前日期没有 trade.log，继续往前找
+    }
+  }
 
-    // 先输出最后 tailBytes 字节内容
-    const start = Math.max(0, stats.size - tailBytes);
-    const initialStream = fs.createReadStream(logFilePath, { start });
-    initialStream.on('error', (streamErr) => {
-      console.error('读取日志文件失败:', streamErr);
-      if (!closed) {
-        closed = true;
-        res.end('读取日志文件失败\n');
-      }
-    });
-    initialStream.on('data', (chunk) => {
-      if (!closed) {
-        res.write(chunk);
-      }
-    });
-
-    const cleanup = () => {
-      if (closed) return;
-      closed = true;
-      if (watcher) {
-        watcher.close();
-        watcher = null;
-      }
-      if (!res.writableEnded) {
-        res.end();
-      }
-    };
-
-    const startWatch = () => {
-      watcher = fs.watch(logFilePath, (eventType) => {
-        if (closed) return;
-        if (eventType !== 'change') return;
-
-        fs.stat(logFilePath, (statErr, newStats) => {
-          if (statErr) {
-            console.error('监听日志文件时获取状态失败:', statErr);
-            return;
-          }
-
-          // 文件被截断，重置位置
-          if (newStats.size < lastSize) {
-            lastSize = newStats.size;
-          }
-
-          if (newStats.size > lastSize) {
-            const readStream = fs.createReadStream(logFilePath, {
-              start: lastSize,
-              end: newStats.size - 1,
-            });
-            lastSize = newStats.size;
-
-            readStream.on('error', (readErr) => {
-              console.error('读取新增日志失败:', readErr);
-            });
-
-            readStream.on('data', (chunk) => {
-              if (!closed) {
-                res.write(chunk);
-              }
-            });
-          }
-        });
-      });
-    };
-
-    initialStream.on('end', () => {
-      if (!closed) {
-        startWatch();
-      }
-    });
-
-    res.on('close', cleanup);
-    res.on('finish', cleanup);
-  });
+  throw new Error('未找到任何 trade.log 日志文件');
 }
 
-function sendDirectoryListing(res, dirPath, urlPath) {
-  fs.readdir(dirPath, { withFileTypes: true }, (err, entries) => {
-    if (err) {
-      console.error('读取目录失败:', err);
-      return sendError(res, 500, '读取目录失败');
+/**
+ * 处理 /log/trade 路由：返回最新 trade.log 的完整内容
+ */
+async function handleLatestTrade(res) {
+  try {
+    const latestTradePath = await findLatestTradeLogPath();
+    const content = await fsPromises.readFile(latestTradePath, 'utf8');
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end(content);
+  } catch (e) {
+    console.error('读取最新 trade.log 失败:', e);
+    sendError(res, 500, e.message || '读取最新 trade.log 失败');
+  }
+}
+
+/**
+ * 读取指定日期目录下所有日志文件（排除 price*），并按 traceId 过滤
+ * 返回结构：{ [logType: string]: string[] }，logType 为文件名去掉 .log 的部分
+ */
+async function collectLogsByTraceId(date, traceId) {
+  const dayDir = path.join(LOGS_ROOT, date);
+
+  // 安全校验，避免路径穿越
+  const normalized = path.normalize(dayDir);
+  if (!normalized.startsWith(LOGS_ROOT)) {
+    throw new Error('非法日期路径');
+  }
+
+  let entries;
+  try {
+    entries = await fsPromises.readdir(dayDir, { withFileTypes: true });
+  } catch (e) {
+    if (e && e.code === 'ENOENT') {
+      throw new Error(`日期目录不存在: ${date}`);
     }
+    throw e;
+  }
 
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+  const result = {};
 
-    const title = `索引 - ${urlPath || '/'}`;
-    res.write('<!DOCTYPE html>');
-    res.write('<html lang="zh-CN"><head><meta charset="utf-8">');
-    res.write(`<title>${title}</title>`);
-    res.write(
-      '<style>body{font-family:system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;padding:16px;}a{color:#2563eb;text-decoration:none}a:hover{text-decoration:underline}ul{list-style:none;padding-left:0}li{margin:4px 0}</style>',
-    );
-    res.write('</head><body>');
-    res.write(`<h1>${title}</h1>`);
+  const logFiles = entries.filter(
+    (f) =>
+      f.isFile() &&
+      f.name.endsWith('.log') &&
+      // 排除 price 相关日志（price.log 或 price-xxx.log）
+      !/^price(\.|-)/.test(f.name),
+  );
 
-    if (urlPath !== '/') {
-      const parent = urlPath.replace(/\/$/, '').split('/').slice(0, -1).join('/') || '/';
-      res.write(`<p><a href="${parent}">⬆ 返回上级目录</a></p>`);
-    }
+  // 日志中 TraceID 统一格式为：[TraceID: xxx]
+  const tracePattern = `[TraceID: ${traceId}]`;
 
-    res.write('<ul>');
-    entries
-      .sort((a, b) => a.name.localeCompare(b.name, 'en'))
-      .forEach((entry) => {
-        const name = entry.name;
-        const isDir = entry.isDirectory();
-        const href =
-          (urlPath === '/' ? '' : urlPath.replace(/\/$/, '')) + '/' + encodeURIComponent(name) + (isDir ? '/' : '');
-        res.write(
-          `<li>${isDir ? '📁' : '📄'} <a href="${href}">${name}${isDir ? '/' : ''}</a></li>`,
+  await Promise.all(
+    logFiles.map(async (entry) => {
+      const filePath = path.join(dayDir, entry.name);
+      const logType = entry.name.replace(/\.log$/i, '');
+      try {
+        const content = await fsPromises.readFile(filePath, 'utf8');
+        const lines = content
+          .split(/\r?\n/)
+          .filter((line) => line && line.includes(tracePattern));
+        if (lines.length > 0) {
+          result[logType] = lines;
+        }
+      } catch (e) {
+        console.error(`读取日志文件失败: ${filePath}`, e);
+      }
+    }),
+  );
+
+  return result;
+}
+
+/**
+ * 将搜索结果渲染为 HTML
+ */
+function renderSearchHtml(date, traceId, logsByType) {
+  const hasAny =
+    logsByType &&
+    Object.values(logsByType).some((arr) => Array.isArray(arr) && arr.length > 0);
+
+  let html = '';
+  html += '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">';
+  html += `<title>日志搜索 - ${escapeHtml(date)} - ${escapeHtml(traceId)}</title>`;
+  html +=
+    `<style>body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;margin:0;padding:16px;background:#0f172a;color:#e5e7eb;}h1{font-size:20px;margin-bottom:8px;}h2{font-size:16px;margin:16px 0 8px;}section{background:#020617;border-radius:8px;padding:12px 16px;margin-bottom:12px;border:1px solid #1f2937;}code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:12px;}pre{white-space:pre-wrap;word-break:break-all;margin:0;background:#020617;}small{color:#9ca3af;}a{color:#60a5fa;text-decoration:none;}a:hover{text-decoration:underline;}mark{background:#f97316;color:#111827;padding:0 1px;border-radius:2px;}</style>`;
+  html += '</head><body>';
+
+  html += '<header>';
+  html += '<h1>日志搜索结果</h1>';
+  html += `<p><small>日期: ${escapeHtml(date)} &nbsp;|&nbsp; traceId: <code>${escapeHtml(
+    traceId,
+  )}</code></small></p>`;
+  html += '</header>';
+
+  if (!hasAny) {
+    html += '<p>未在指定日期的日志文件中找到任何匹配该 traceId 的记录。</p>';
+  } else {
+    // 先按指定顺序输出
+    const alreadyRendered = new Set();
+
+    const renderSection = (type) => {
+      const lines = logsByType[type];
+      const safeType = escapeHtml(type);
+      if (!lines || lines.length === 0) {
+        html += `<section><h2>${safeType}（0 条）</h2><p><small>无匹配记录</small></p></section>`;
+        alreadyRendered.add(type);
+        return;
+      }
+
+      html += `<section><h2>${safeType}（${lines.length} 条）</h2>`;
+      html += '<pre>';
+      const highlightId = escapeHtml(traceId);
+      const highlightReg = new RegExp(highlightId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+      for (const line of lines) {
+        const safeLine = escapeHtml(line).replace(
+          highlightReg,
+          (m) => `<mark>${m}</mark>`,
         );
+        html += `${safeLine}\n`;
+      }
+      html += '</pre></section>';
+      alreadyRendered.add(type);
+    };
+
+    LOG_TYPE_ORDER.forEach((type) => {
+      // 即使该类型没有匹配记录，也输出空块以保持顺序
+      renderSection(type);
+    });
+
+    // 其它类型（如果有），按名称排序追加在后面
+    Object.keys(logsByType)
+      .filter((t) => !alreadyRendered.has(t))
+      .sort()
+      .forEach((t) => {
+        renderSection(t);
       });
-    res.write('</ul>');
-    res.write('</body></html>');
-    res.end();
-  });
+  }
+
+  html += '</body></html>';
+  return html;
+}
+
+/**
+ * 处理 /log/search?date=YYYY-MM-DD&traceId=xxx
+ */
+async function handleSearch(req, res, query) {
+  const date = (query.date || '').trim();
+  const traceId = (query.traceId || '').trim();
+
+  if (!date) {
+    return sendError(res, 400, '缺少 date 参数');
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return sendError(res, 400, 'date 格式不正确，应为 YYYY-MM-DD');
+  }
+  if (!traceId) {
+    return sendError(res, 400, '缺少 traceId 参数');
+  }
+
+  try {
+    const logsByType = await collectLogsByTraceId(date, traceId);
+    const html = renderSearchHtml(date, traceId, logsByType);
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(html);
+  } catch (e) {
+    console.error('搜索日志失败:', e);
+    sendError(res, 500, e.message || '搜索日志失败');
+  }
 }
 
 const server = http.createServer((req, res) => {
-  const parsedUrl = url.parse(req.url || '/');
-  let pathname = decodeURIComponent(parsedUrl.pathname || '/');
+  const parsedUrl = url.parse(req.url || '/', true);
+  const pathname = parsedUrl.pathname || '/';
+  const method = req.method || 'GET';
 
-  // 特殊路由：/logs/real/xxx => 当天目录下 xxx.log 的 tail -f
-  if (pathname.startsWith('/logs/real/')) {
-    const namePart = pathname.slice('/logs/real/'.length).replace(/\/+$/, '');
-    if (!namePart) {
-      return sendError(res, 400, '缺少日志文件名');
-    }
-
-    const baseName = namePart.endsWith('.log') ? namePart : `${namePart}.log`;
-    const todayDir = getTodayDirName();
-    const logFilePath = path.join(LOGS_ROOT, todayDir, baseName);
-
-    // 安全检查：必须在 LOGS_ROOT 之下
-    const normalized = path.normalize(logFilePath);
-    if (!normalized.startsWith(LOGS_ROOT)) {
-      return sendError(res, 403, '禁止访问');
-    }
-
-    return streamRealtimeLog(res, normalized);
+  if (method !== 'GET') {
+    return sendError(res, 405, '仅支持 GET 请求');
   }
 
-  // 默认静态文件/目录处理
-  // 统一去掉多余的 .. 等路径，防止越权访问
-  const safePath = path.normalize(pathname).replace(/^(\.\.[/\\])+/, '');
-  const fsPath = path.join(LOGS_ROOT, safePath);
-
-  if (!fsPath.startsWith(LOGS_ROOT)) {
-    return sendError(res, 403, '禁止访问');
+  // /log/trade 返回最新 trade.log
+  if (pathname === '/log/trade') {
+    handleLatestTrade(res);
+    return;
   }
 
-  fs.stat(fsPath, (err, stats) => {
-    if (err) {
-      if (err.code === 'ENOENT') {
-        return sendError(res, 404, '未找到');
-      }
-      console.error('读取文件状态失败:', err);
-      return sendError(res, 500, '服务器内部错误');
-    }
+  // /log/search?date=YYYY-MM-DD&traceId=xxx
+  if (pathname === '/log/search') {
+    handleSearch(req, res, parsedUrl.query || {});
+    return;
+  }
 
-    if (stats.isDirectory()) {
-      // 访问目录时列出目录内容
-      const urlPath = pathname.endsWith('/') ? pathname : pathname + '/';
-      return sendDirectoryListing(res, fsPath, urlPath);
-    }
-
-    // 访问文件时直接返回文件内容
-    const contentType = getContentType(fsPath);
-    res.writeHead(200, { 'Content-Type': contentType });
-    const stream = fs.createReadStream(fsPath);
-    stream.on('error', (streamErr) => {
-      console.error('读取文件失败:', streamErr);
-      if (!res.headersSent) {
-        sendError(res, 500, '读取文件失败');
-      } else {
-        res.destroy();
-      }
-    });
-    stream.pipe(res);
-  });
+  sendError(res, 404, '未找到对应路由');
 });
 
 const PORT = process.env.PORT || 8080;
 
 server.listen(PORT, () => {
-  console.log(`日志静态服务器已启动: http://localhost:${PORT}/`);
-  console.log(`根目录: ${LOGS_ROOT}`);
+  console.log(`日志服务已启动: http://localhost:${PORT}/`);
+  console.log(`日志根目录: ${LOGS_ROOT}`);
 });
 
 
