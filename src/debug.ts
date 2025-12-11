@@ -1,11 +1,8 @@
-import { getGammaDataModule } from "./module/gammaData";
-import { getGlobalConfig } from "@utils/config";
-import { sellExpired30MinPostions } from "./module/trade";
-import { getClobModule } from "./module/clob";
-import { getRedeemModule } from "./module/redeem";
+import { redeemWithRelayer } from "./utils/relayerRedeem";
 
 export const debug = async () => {
         // const globalConfig = getGlobalConfig();
         // const position = await getGammaDataModule().getExpired30MinPositions({ funderAddress: globalConfig.account.funderAddress });
-        await getRedeemModule().redeemViaAAWallet('0x2369ecbad3c821386fc0b716e31c809fb23d23f7b5b06956e889d3f54d8da149');
+        // await getRedeemModule().redeemWithEOA('0x181da7d7f70175f441367edc635c0d56ddb428ca1199a3ec71d4f6273b12eac3');
+        await redeemWithRelayer("0xe2a985ff57de4d7c3589871781081c95a0b722c41f4cf24899402982aadca002");
 }

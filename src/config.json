@@ -11,8 +11,8 @@
     },
 
     "account": {
-        "walletAddress": "0xf7bd414150ebe4d9215bb220db47447ab3f7bbe0",
-        "funderAddress": "0xe10c61be54E4c25FB744113cbbaFF28123f5a107",
+        "walletAddress": "0xadc6b5af3b65479a9c4122f32ed324dc2b4265c9",
+        "funderAddress": "0x8dF2E7574F5E97103F037ed45fB323FdBeABEEA8",
         "balanceTokenAddress": "0x2791bca1f2de4661ed88a30c99a7a9449aa84174"
     },
 
@@ -41,7 +41,7 @@
     },
 
     "redeemConfig": {
-        "relayerUrl": "https: //relayer-v2.polymarket.com/",
+        "relayerUrl": "https://relayer-v2.polymarket.com/",
         "ctf": "0x4d97dcd97ec945f40cf65f87097ace5ea0476045",
         "negRiskAdapter": "0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296",
         "usdc": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",

@@ -104,7 +104,7 @@ class Clob {
       return clobCreds
     }
     const signer = new Wallet(privKey);
-    const creds = await new ClobClient(clobHost, 137, signer).deriveApiKey(1);
+    const creds = await new ClobClient(clobHost, 137, signer).deriveApiKey(0);
     return creds;
   }
 

@@ -8,7 +8,6 @@ import {
     TOKEN_ACTION_ENUM,
     get15MinIntervalTimestamp,
     getMarketSlug15Min,
-    runFnDelay,
     distanceToNextInterval,
     omit,
     calcPriceRange,
