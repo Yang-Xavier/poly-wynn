@@ -28,7 +28,7 @@ const getAssetIdMapOutcome = (market: MarketResponse) => {
     return outcomes;
 }
 
-export const findChanceByWatchPrice = async (market: MarketResponse, priceToBeat: number, timeout: number, slugIntervalTimestamp: number) => {
+export const findChance = async (market: MarketResponse, priceToBeat: number, timeout: number, slugIntervalTimestamp: number) => {
     const globalConfig = getGlobalConfig();
     const outcomes = getAssetIdMapOutcome(market);
 
@@ -36,6 +36,52 @@ export const findChanceByWatchPrice = async (market: MarketResponse, priceToBeat
         let resolved = false;
 
         try {
+
+            polyMarketDataClient.onWatchOrderBookPriceChange((data: MarketPushData) => {
+                const distance = distanceToNextInterval(slugIntervalTimestamp);
+                if (distance <= 0) {
+                    resolved = true;
+                    resolve(null);
+                }
+
+                [OUTCOMES_ENUM.Up, OUTCOMES_ENUM.Down].forEach(outcome => {
+                    if (data.asset_id === outcomes[outcome]) {
+                        const bestAsk = data.asks[data.asks.length - 1]?.price;
+                        const historyPriceList = polyLiveDataClient.getHistoryPriceListFromChainLink();
+                        const currentPrice = polyLiveDataClient.getLatestCryptoPricesFromChainLink();
+                        
+                        if(bestAsk >= globalConfig.stratgegy.bestAskThreshold) {
+                            let tailSweepResult
+                            if(OUTCOMES_ENUM.Up) {
+                                tailSweepResult = decideTailSweep(
+                                    { ticks: historyPriceList, intervalStartPrice: priceToBeat, timeToExpiryMs: distance, upBestAsk: Number(bestAsk), downBestAsk: 0 },
+                                    globalConfig.stratgegy.tailSweepConfig
+                                );
+                            } else {
+                                tailSweepResult = decideTailSweep(
+                                    { ticks: historyPriceList, intervalStartPrice: priceToBeat, timeToExpiryMs: distance, upBestAsk: 0, downBestAsk: Number(bestAsk) },
+                                    globalConfig.stratgegy.tailSweepConfig
+                                );
+                            }
+                            logData(`[-- 扫尾盘数据策略数据 (📚订单簿变动触发) --] ${JSON.stringify(tailSweepResult)}`);
+
+                            if(tailSweepResult.shouldBet) {
+                                resolved = true;
+                                resolve({
+                                    tokenId: outcomes[tailSweepResult.side],
+                                    outcome: tailSweepResult.side,
+                                    cryptoPrice: currentPrice,
+                                    bestAsk,
+                                    priceToBeat,
+                                });
+                            }
+                        }
+                        
+                    }
+                })
+                
+            })
+
             polyLiveDataClient.onWatchPriceChange((currentPrice, historyPriceList) => {
                 try {
                     if (!resolved) {
@@ -45,27 +91,13 @@ export const findChanceByWatchPrice = async (market: MarketResponse, priceToBeat
                             resolve(null);
                         }
 
-                        // const diffBeatPriceResult = calcDiffBeatPrice(currentPrice.value, priceToBeat, globalConfig.stratgegy.diffBeatPriceFactor, distance);
-
                         const upBestAsk = polyMarketDataClient.getBestAskByAssetId(outcomes[OUTCOMES_ENUM.Up]);
                         const downBestAsk = polyMarketDataClient.getBestAskByAssetId(outcomes[OUTCOMES_ENUM.Down]);
                         const tailSweepResult = decideTailSweep(
                             { ticks: historyPriceList, intervalStartPrice: priceToBeat, timeToExpiryMs: distance, upBestAsk, downBestAsk },
                             globalConfig.stratgegy.tailSweepConfig
                         );
-                        // const tradingDecision = makeTradingDecision({
-                        //     priceData: historyPriceList,
-                        //     expiryTime: distance,
-                        //     upBestAsk,
-                        //     downBestAsk,
-                        //     targetPrice: priceToBeat
-                        // });
-
-                        // logData(`[--扫尾盘数据策略数据--1--] <diffBeatPriceResult>: ${JSON.stringify(diffBeatPriceResult)}`);
-                        logData(`[--扫尾盘数据策略数据--2--] <tailSweepResult>: ${JSON.stringify(tailSweepResult)}`);
-                        // logData(`[--扫尾盘数据策略数据--3--] <tradingDecision>: ${JSON.stringify(tradingDecision)}`);
-
-
+                        logData(`[-- 扫尾盘数据策略数据 (💰价格变动触发) --] ${JSON.stringify(tailSweepResult)}`);
 
                         if (tailSweepResult.shouldBet && upBestAsk && downBestAsk && tailSweepResult.impliedProbability >= globalConfig.stratgegy.bestAskThreshold) {
                             resolved = true;
@@ -91,7 +123,7 @@ export const findChanceByWatchPrice = async (market: MarketResponse, priceToBeat
     }), timeout > 0 ? timeout : 0)
 }
 
-export const monitorPriceChange = async (market: MarketResponse, priceToBeat: number, outcome: OUTCOMES_ENUM, timeout: number, slugIntervalTimestamp: number) => {
+export const watchPosition = async (market: MarketResponse, priceToBeat: number, outcome: OUTCOMES_ENUM, timeout: number, slugIntervalTimestamp: number) => {
     const globalConfig = getGlobalConfig();
     const outcomes = getAssetIdMapOutcome(market);
 

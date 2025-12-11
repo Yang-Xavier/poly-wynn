@@ -14,8 +14,8 @@ import {
     waitFor
 } from "./utils/tools";
 import {
-    findChanceByWatchPrice,
-    monitorPriceChange
+    findChance,
+    watchPosition
 } from './utils/strategy';
 import { getRedeemModule } from "./module/redeem";
 import { getLoggerModule, logError, logInfo, LogLevel, logTrade, setTraceId } from "./module/logger";
@@ -109,7 +109,7 @@ export const runPolyWynn = async () => {
                         logInfo(`没有持仓订单`);
                         logInfo(`🔍监控价格, 寻找机会... priceToBeat: ${priceToBeat}, timeout: ${watchingOrderbookTimeout}`);
                         logInfo(`监控价格范围, Up: ${upRange.reverse().join(' -> ')} ||  Down: ${downRange.join(' -> ')}`);
-                        tokenChanceDetails = await findChanceByWatchPrice(market, priceToBeat, watchingOrderbookTimeout, slugIntervalTimestamp);
+                        tokenChanceDetails = await findChance(market, priceToBeat, watchingOrderbookTimeout, slugIntervalTimestamp);
                     } else {
                         logInfo(`已存在持仓订单, 跳过购买`, boughtOrder);
                     }
@@ -147,7 +147,7 @@ export const runPolyWynn = async () => {
                         const watchingPriceChangeTimeout = distanceToNextInterval(slugIntervalTimestamp);
                         let currentPrice = polyLiveDataClient.getLatestCryptoPricesFromChainLink();
                         logInfo(`👀监控仓位... priceToBeat: ${priceToBeat}, currentPrice: ${currentPrice}, outcome: ${boughtOrder.outcome}, timeout: ${watchingPriceChangeTimeout}`);
-                        const action = await monitorPriceChange(market, priceToBeat, boughtOrder.outcome as OUTCOMES_ENUM, watchingPriceChangeTimeout, slugIntervalTimestamp);
+                        const action = await watchPosition(market, priceToBeat, boughtOrder.outcome as OUTCOMES_ENUM, watchingPriceChangeTimeout, slugIntervalTimestamp);
                         currentPrice = polyLiveDataClient.getLatestCryptoPricesFromChainLink();
                         logInfo(`🤔监控仓位结果: ${action}, priceToBeat: ${priceToBeat}, currentPrice: ${currentPrice}, outcome: ${boughtOrder.outcome}`);
 

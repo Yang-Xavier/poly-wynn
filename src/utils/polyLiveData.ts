@@ -41,6 +41,7 @@ interface CachedData {
 class PolyLiveDataClient {
     private ws: WebSocket | null = null;
     private url: string = 'wss://ws-live-data.polymarket.com/';
+    private topic: string = 'crypto_prices_chainlink';
     private isConnected: boolean = false;
     private isManualDisconnect: boolean = false; // 标记是否是主动断开
     private reconnectAttempts: number = 0;
@@ -142,13 +143,13 @@ class PolyLiveDataClient {
             if(data.toString()) {
                 const message = JSON.parse(data.toString());
 
-                if (message.topic === 'crypto_prices_chainlink') {
+                if (message.topic === this.topic) {
                     logPriceData(message.payload.value, message.payload.symbol, message.payload.timestamp);
                     this.cacheData(message);
                     this.onWatchPriceChangeCb?.({ 
                         value: Number(message.payload.value), 
                         timestamp: Number(message.payload.timestamp) 
-                    }, this.getHistoryPriceList(message.topic));
+                    }, this.getHistoryPriceList(this.topic));
                 }
             }
         } catch (error) {
@@ -353,6 +354,10 @@ class PolyLiveDataClient {
             return Number(data.payload.value)
         }
         return null;
+    }
+
+    getHistoryPriceListFromChainLink(): {value: number, timestamp: number}[] {
+        return this.getHistoryPriceList(this.topic)
     }
 }
 
