@@ -199,12 +199,13 @@ export const runPolyWynn = async () => {
             if (redeemOrder) {
                 logInfo(`等待验证结果并赎回...${globalConfig.redeemConfig.delyRedeem / 1000}s`);
                 await waitFor(globalConfig.redeemConfig.delyRedeem);
+
                 try {
                     logInfo("验证结果...");
                     let finalMarket: MarketResponse | null = null;
-                    let maxRequestCount = 10;
-                    while (!(finalMarket = await getGammaDataModule().getMarketBySlug(marketSlug)).closed && maxRequestCount > 0) {
-                        await waitFor(10000);
+                    let maxRequestCount = 6;
+                    while (maxRequestCount > 0 && !(finalMarket = await getGammaDataModule().getMarketBySlug(marketSlug)).closed) {
+                        await waitFor(10*1000);
                         maxRequestCount--;
                     }
                     const { outcomes, outcomePrices, closed } = finalMarket;
@@ -220,17 +221,17 @@ export const runPolyWynn = async () => {
                     }
 
                     const redeemModule = getRedeemModule();
+
+                    await waitFor(2*60*1000);
                     await redeemModule.redeemAll(globalConfig.account.funderAddress);
 
-                    logInfo(`判断是否需要卖出过期仓位, 回收资金...`);
-                    await sellExpired30MinPostions();
+                    // logInfo(`判断是否需要卖出过期仓位, 回收资金...`);
+                    // await sellExpired30MinPostions();
 
                 } catch (error) {
                     logError(`赎回失败: ${error}`);
                 }
             }
-
-            await waitFor(distanceToNextInterval(slugIntervalTimestamp))
 
             logInfo(`本局结束...`);
         } catch (e) {
