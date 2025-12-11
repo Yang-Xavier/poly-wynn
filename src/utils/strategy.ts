@@ -138,11 +138,11 @@ export const watchPosition = async (market: MarketResponse, priceToBeat: number,
             if (data.asset_id === assetId) {
                 const bestAsk = data.asks[data.asks.length - 1]?.price;
                 if (bestAsk && parseFloat(bestAsk) < globalConfig.stratgegy.sellProbabilityThreshold) {
-                    logData(`[买入后概率检查(低于阈值)] outcoum: ${outcome}, priceToBeat: ${priceToBeat}, bestAsk: ${bestAsk}, assetId: ${assetId}`);
+                    logData(`[买入后概率检查(低于阈值📚)] outcoum: ${outcome}, priceToBeat: ${priceToBeat}, bestAsk: ${bestAsk}, assetId: ${assetId}`);
                     resolved = true;
                     resolve(TOKEN_ACTION_ENUM.sell);
                 } else {
-                    logData(`[买入后概率检查(高于阈值)] outcoum: ${outcome}, priceToBeat: ${priceToBeat}, bestAsk: ${bestAsk}, assetId: ${assetId}`);
+                    logData(`[买入后概率检查(高于阈值📚)] outcoum: ${outcome}, priceToBeat: ${priceToBeat}, bestAsk: ${bestAsk}, assetId: ${assetId}`);
                 }
             }
         })
@@ -160,11 +160,11 @@ export const watchPosition = async (market: MarketResponse, priceToBeat: number,
             );
 
             if (currentOutCome !== outcome) {
-                logData(`[买入后价格检查(方向相反)] outcoum: ${outcome}, currentOutCome: ${currentOutCome}, priceToBeat: ${priceToBeat}, currentPrice: ${currentPrice.value}, tailSweepResult: ${JSON.stringify(tailSweepResult)}`);
+                logData(`[买入后价格检查(方向相反💰)] outcoum: ${outcome}, currentOutCome: ${currentOutCome}, priceToBeat: ${priceToBeat}, currentPrice: ${currentPrice.value}, tailSweepResult: ${JSON.stringify(tailSweepResult)}`);
                 resolved = true;
                 resolve(TOKEN_ACTION_ENUM.sell);
             } else {
-                logData(`[买入后价格检查(方向一致)] outcoum: ${outcome}, priceToBeat: ${priceToBeat}, currentPrice: ${currentPrice.value}, tailSweepResult: ${JSON.stringify(tailSweepResult)}`);
+                logData(`[买入后价格检查(方向一致💰)] outcoum: ${outcome}, priceToBeat: ${priceToBeat}, currentPrice: ${currentPrice.value}, tailSweepResult: ${JSON.stringify(tailSweepResult)}`);
             }
         })
     }), timeout > 0 ? timeout : 0);
