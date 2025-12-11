@@ -186,7 +186,7 @@ class Clob {
     tokenID,
     side,        // Side.BUY or Side.SELL
     amount,      // 金额
-    tickSize = '0.01',
+    tickSize = '0.001',
     negRisk = false,
     orderType = OrderType.FAK,  // 默认FAK
   }: {

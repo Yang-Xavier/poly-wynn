@@ -76,7 +76,7 @@ export const buyEnough = async ({
             buyResults.push(buyResult);
             remainAmount = remainAmount - (Number(buyResult?.size_matched) * Number(buyResult?.price));
         }
-        logInfo(`第 ${globalConfig.stratgegy.buyingMaxSplit - buyCount} / ${globalConfig.stratgegy.buyingMaxSplit} 笔购买完成, 本次购买: ${Number(buyResult?.size_matched) * Number(buyResult?.price)}, 购买额度: ${remainAmount}/${amount}`, buyResult);
+        logInfo(`第 ${globalConfig.stratgegy.buyingMaxSplit - buyCount} / ${globalConfig.stratgegy.buyingMaxSplit} 笔购买, 本次购买: ${Number(buyResult?.size_matched) * Number(buyResult?.price)}, 剩余购买额度: ${remainAmount}/${amount}`, buyResult);
         if (remainAmount <= 1 ) {
             break;
         }
