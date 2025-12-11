@@ -118,7 +118,7 @@ class Clob {
     const keyConfig = getKeyConfig();
     const { clobHost: host, account } = globalConfig;
     const { funderAddress } = account;
-    const signatureType = 2;
+    const signatureType = 1;
 
     const signer = new Wallet(keyConfig.privKey);
     const creds = await this.getClobClientCreds();
