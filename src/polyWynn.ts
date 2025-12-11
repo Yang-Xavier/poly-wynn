@@ -79,7 +79,7 @@ export const runPolyWynn = async () => {
             logInfo(`对赌价格: ${priceToBeat}, market: ${marketSlug}`);
 
             const { formatted: balance } = await getAccountBalance(globalConfig.account.funderAddress, globalConfig.account.balanceTokenAddress);
-            positionAmount = 1//Math.min(globalConfig.stratgegy.buyingMaxAmount, Number(balance) * globalConfig.stratgegy.buyingAmountFactor);
+            positionAmount = Math.min(globalConfig.stratgegy.buyingMaxAmount, Number(balance) * globalConfig.stratgegy.buyingAmountFactor);
             logInfo(`💰账户余额: ${balance}, 购买金额: ${positionAmount}`);
             getLoggerModule().customLog('trade', LogLevel.INFO, `💰账户余额: ${balance}`)
 
