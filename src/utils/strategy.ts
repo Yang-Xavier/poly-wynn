@@ -63,7 +63,7 @@ export const findChance = async (market: MarketResponse, priceToBeat: number, ti
                                     globalConfig.stratgegy.tailSweepConfig
                                 );
                             }
-                            logData(`[-- 扫尾盘数据策略数据 (📚订单簿变动触发) --] ${JSON.stringify(tailSweepResult)}`);
+                            logData(`[-- 扫尾盘数据策略数据 (📚订单簿变动触发) --] ${JSON.stringify({priceToBeat, currentPrice, ...tailSweepResult})}`);
 
                             if(tailSweepResult.shouldBet) {
                                 resolved = true;
@@ -97,7 +97,7 @@ export const findChance = async (market: MarketResponse, priceToBeat: number, ti
                             { ticks: historyPriceList, intervalStartPrice: priceToBeat, timeToExpiryMs: distance, upBestAsk, downBestAsk },
                             globalConfig.stratgegy.tailSweepConfig
                         );
-                        logData(`[-- 扫尾盘数据策略数据 (💰价格变动触发) --] ${JSON.stringify(tailSweepResult)}`);
+                        logData(`[-- 扫尾盘数据策略数据 (💰价格变动触发) --] ${JSON.stringify({priceToBeat, currentPrice, ...tailSweepResult})}`);
 
                         if (tailSweepResult.shouldBet && upBestAsk && downBestAsk && tailSweepResult.impliedProbability >= globalConfig.stratgegy.bestAskThreshold) {
                             resolved = true;
