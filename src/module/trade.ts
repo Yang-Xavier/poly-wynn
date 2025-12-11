@@ -120,7 +120,10 @@ export const mustSell = async ({
                 orderType: OrderType.FAK
             });
             if (resp.orderID) {
-                result = resp;
+                await waitFor(1000);
+                result = await clobModule.getOrder({
+                    orderId: resp.orderID
+                });
             }
         } catch (e) {
             logInfo(`sell failed! ${e}`)
