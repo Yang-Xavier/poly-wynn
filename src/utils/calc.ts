@@ -386,20 +386,18 @@ export const calcAttenuationFactor = (range: number[][], y: number, power: numbe
 }
 
 
-export const calcDiffBeatPrice = (price: string | number, priceToBeat: string | number, diffBeatPriceFactor: number[], distance: number) => {
+export const calcDiffEnough = (currentValue: string | number, targetValue: string | number, diffFactor: number[], distance: number) => {
     const globalConfig = getGlobalConfig();
     const { attenuationFactor, startBefore } = globalConfig.stratgegy;
-    const timeBasedRatio = calcAttenuationFactor([diffBeatPriceFactor.reverse(), [0, startBefore]], distance, attenuationFactor[0], attenuationFactor[1]);
+    const timeBasedRatio = calcAttenuationFactor([diffFactor.reverse(), [0, startBefore]], distance, attenuationFactor[0], attenuationFactor[1]);
 
     // price diff ratio
-    const diff = Math.abs(Number(price) - Number(priceToBeat));
-    const diffRatio = diff / Number(priceToBeat);
+    const diff = Math.abs(Number(currentValue) - Number(targetValue));
+    const diffRatio = diff / Number(targetValue);
 
     return {
         isDiffEnough: diffRatio >= timeBasedRatio,
-        timeBasedRatio,
-        diffRatio,
-        outcome: Number(price) > Number(priceToBeat) ? OUTCOMES_ENUM.Up : OUTCOMES_ENUM.Down
+        timeBasedRatio
     };
 }  
 

@@ -9,6 +9,7 @@ import { polyLiveDataClient } from "./polyLiveData";
 import { OUTCOMES_ENUM } from "./constans";
 import { decideTailSweep } from "./decision";
 import { MarketPushData } from "./polyMarketData";
+import { calcDiffBeatPrice, calcDiffEnough } from "./calc";
 
 
 
@@ -63,9 +64,11 @@ export const findChance = async (market: MarketResponse, priceToBeat: number, ti
                                     globalConfig.stratgegy.tailSweepConfig
                                 );
                             }
-                            logData(`[-- 扫尾盘数据策略数据 (📚订单簿变动触发) --] ${JSON.stringify({priceToBeat, currentPrice, ...tailSweepResult})}`);
 
-                            if(tailSweepResult.shouldBet) {
+                            const { isDiffEnough, timeBasedRatio }  = calcDiffEnough(tailSweepResult.winProbability, 0.95, [0.047, 0.0001], distance);
+                            logData(`[-- 扫尾盘数据策略数据 (📚订单簿变动触发) --] ${JSON.stringify({priceToBeat, currentPrice, isDiffEnough, timeBasedRatio,...tailSweepResult})}`);
+
+                            if(tailSweepResult.shouldBet && isDiffEnough) {
                                 resolved = true;
                                 resolve({
                                     tokenId: outcomes[tailSweepResult.side],
@@ -97,9 +100,11 @@ export const findChance = async (market: MarketResponse, priceToBeat: number, ti
                             { ticks: historyPriceList, intervalStartPrice: priceToBeat, timeToExpiryMs: distance, upBestAsk, downBestAsk },
                             globalConfig.stratgegy.tailSweepConfig
                         );
-                        logData(`[-- 扫尾盘数据策略数据 (💰价格变动触发) --] ${JSON.stringify({priceToBeat, currentPrice, ...tailSweepResult})}`);
+                        
+                        const { isDiffEnough, timeBasedRatio }  = calcDiffEnough(tailSweepResult.winProbability, 0.95, [0.047, 0.0001], distance);
+                        logData(`[-- 扫尾盘数据策略数据 (💰价格变动触发) --] ${JSON.stringify({priceToBeat, currentPrice, isDiffEnough, timeBasedRatio, ...tailSweepResult})}`);
 
-                        if (tailSweepResult.shouldBet && upBestAsk && downBestAsk && tailSweepResult.impliedProbability >= globalConfig.stratgegy.bestAskThreshold) {
+                        if (tailSweepResult.shouldBet && upBestAsk && downBestAsk && isDiffEnough && tailSweepResult.impliedProbability >= globalConfig.stratgegy.bestAskThreshold) {
                             resolved = true;
                             resolve({
                                 tokenId: outcomes[tailSweepResult.side],
