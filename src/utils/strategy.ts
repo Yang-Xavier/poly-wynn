@@ -65,8 +65,8 @@ export const findChance = async (market: MarketResponse, priceToBeat: number, ti
                                 );
                             }
 
-                            const { isDiffEnough, timeBasedRatio }  = calcDiffEnough(tailSweepResult.winProbability, 0.95, [0.047, 0.0001], distance);
-                            logData(`[-- 扫尾盘数据策略数据 (📚订单簿变动触发) --] ${JSON.stringify({priceToBeat, currentPrice, isDiffEnough, timeBasedRatio,...tailSweepResult})}`);
+                            const { isDiffEnough, avaliableValue }  = calcDiffEnough(tailSweepResult.winProbability, 0.95, [0.047, 0.0001], distance);
+                            logData(`[-- 扫尾盘数据策略数据 (📚订单簿变动触发) --] ${JSON.stringify({priceToBeat, currentPrice, isDiffEnough, avaliableValue,...tailSweepResult})}`);
 
                             if(tailSweepResult.shouldBet && isDiffEnough) {
                                 resolved = true;
@@ -101,8 +101,8 @@ export const findChance = async (market: MarketResponse, priceToBeat: number, ti
                             globalConfig.stratgegy.tailSweepConfig
                         );
                         
-                        const { isDiffEnough, timeBasedRatio }  = calcDiffEnough(tailSweepResult.winProbability, 0.95, [0.047, 0.0001], distance);
-                        logData(`[-- 扫尾盘数据策略数据 (💰价格变动触发) --] ${JSON.stringify({priceToBeat, currentPrice, isDiffEnough, timeBasedRatio, ...tailSweepResult})}`);
+                        const { isDiffEnough, avaliableValue }  = calcDiffEnough(tailSweepResult.winProbability, 0.95, [0.047, 0.0001], distance);
+                        logData(`[-- 扫尾盘数据策略数据 (💰价格变动触发) --] ${JSON.stringify({priceToBeat, currentPrice, isDiffEnough, avaliableValue, ...tailSweepResult})}`);
 
                         if (tailSweepResult.shouldBet && upBestAsk && downBestAsk && isDiffEnough && tailSweepResult.impliedProbability >= globalConfig.stratgegy.bestAskThreshold) {
                             resolved = true;

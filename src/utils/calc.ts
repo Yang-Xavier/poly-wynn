@@ -397,7 +397,7 @@ export const calcDiffEnough = (currentValue: string | number, targetValue: strin
 
     return {
         isDiffEnough: diffRatio >= timeBasedRatio,
-        timeBasedRatio
+        avaliableValue: Number(targetValue) + timeBasedRatio
     };
 }  
 
