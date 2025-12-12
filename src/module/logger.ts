@@ -199,7 +199,7 @@ export class Logger {
       buy: '✅',
       sell: '❌',
       redeem: '👍🏻',
-      lost: '💸',
+      lost: '🈚️',
       balance: '💰',
       won: '🎉',
       skip: '⏭️'
