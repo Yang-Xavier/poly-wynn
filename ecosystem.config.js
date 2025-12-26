@@ -11,16 +11,16 @@ module.exports = {
       out_file: './logs/pm2-start-out.log',
       error_file: './logs/pm2-start-error.log',
     },
-    {
-      name: 'logs-server',
-      script: 'npm',
-      args: 'run logs:server',
-      cwd: __dirname,
-      env: {
-        PORT: 80,
-      },
-      out_file: './logs/pm2-logs-server-out.log',
-      error_file: './logs/pm2-logs-server-error.log',
-    },
+    // {
+    //   name: 'logs-server',
+    //   script: 'npm',
+    //   args: 'run logs:server',
+    //   cwd: __dirname,
+    //   env: {
+    //     PORT: 80,
+    //   },
+    //   out_file: './logs/pm2-logs-server-out.log',
+    //   error_file: './logs/pm2-logs-server-error.log',
+    // },
   ],
 };
