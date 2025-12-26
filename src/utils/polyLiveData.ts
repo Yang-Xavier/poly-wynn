@@ -3,9 +3,10 @@
  * 用于连接 Polymarket 的 WebSocket 服务，订阅实时数据并缓存
  */
 
-import WebSocket from 'ws';
+import type WebSocket from 'ws';
 import { getGlobalConfig } from './config';
-import { logData, logInfo, logPriceData } from '../module/logger';
+import { logInfo, logPriceData } from '../module/logger';
+import { BaseLiveDataClient } from 'src/module/BaseLiveDataClient';
 
 // 订阅信息接口
 interface Subscription {
@@ -29,32 +30,15 @@ interface PushData {
     type: string;
 }
 
-// 缓存数据项接口
-interface CachedData {
-    data: PushData;
-    cachedAt: number;
-}
-
 /**
  * Polymarket WebSocket 实时数据客户端
+ * 继承基础 WebSocket 客户端，仅实现自身的消息处理、缓存和订阅逻辑
  */
-class PolyLiveDataClient {
-    private ws: WebSocket | null = null;
-    private url: string = 'wss://ws-live-data.polymarket.com/';
+class PolyLiveDataClient extends BaseLiveDataClient {
     private topic: string = 'crypto_prices_chainlink';
-    private isConnected: boolean = false;
-    private isManualDisconnect: boolean = false; // 标记是否是主动断开
-    private reconnectAttempts: number = 0;
-    private maxReconnectAttempts: number = 5;
-    private reconnectDelay: number = 3000; // 3秒
 
-    private maxCacheSize: number; // 每个 topic 最大缓存数量
-    // 全局数据缓存：使用 Map 存储，key 为 topic，value 为数据数组
-    private cache: Map<string, CachedData[]> = new Map();
     // 订阅列表
     private subscriptions: Subscription[] = [];
-
-    private onWatchPriceChangeCb: (currentPrice: { value: number, timestamp: number }, historyPriceList: {value: number, timestamp: number}[]) => void = () => { };
 
     /**
      * 构造函数
@@ -63,93 +47,53 @@ class PolyLiveDataClient {
      */
     constructor() {
         const globalConfig = getGlobalConfig();
-        this.url = globalConfig.ws.liveDataUrl;
-        this.maxCacheSize = globalConfig.ws.maxCacheSize;
-    }
-
-    /**
-     * 建立 WebSocket 连接
-     * @returns Promise<void>
-     */
-    async connect(): Promise<void> {
-        return new Promise((resolve, reject) => {
-            if (this.isConnected && this.ws?.readyState === WebSocket.OPEN) {
-                resolve();
-                return;
-            }
-
-            try {
-                this.ws = new WebSocket(this.url);
-
-                this.ws.on('open', () => {
-                    logInfo('[PolyLiveData] WebSocket 连接已建立');
-                    this.isConnected = true;
-                    this.isManualDisconnect = false; // 重置主动断开标志
-                    this.reconnectAttempts = 0;
-
-                    // 连接成功后，重新订阅之前的订阅
-                    if (this.subscriptions.length > 0) {
-                        this.sendSubscriptions(this.subscriptions);
-                    }
-
-                    resolve();
-                });
-
-                this.ws.on('message', (data: WebSocket.Data) => {
-                    this.handleMessage(data);
-                });
-
-                this.ws.on('error', (error: Error) => {
-                    logInfo('[PolyLiveData] WebSocket 错误:', error);
-                    this.isConnected = false;
-                    if (this.reconnectAttempts === 0) {
-                        reject(error);
-                    }
-                });
-
-                this.ws.on('close', (code: number, reason: Buffer) => {
-                    logInfo(`[PolyLiveData] WebSocket 连接已关闭: ${code} - ${reason.toString()}`);
-                    this.isConnected = false;
-                    this.ws = null;
-
-                    // 只有在非主动断开的情况下才尝试重连
-                    if (!this.isManualDisconnect) {
-                        this.attemptReconnect();
-                    } else {
-                        logInfo('[PolyLiveData] 主动断开连接，不进行重连');
-                    }
-                });
-
-            } catch (error) {
-                logInfo(`[PolyLiveData] 连接失败: ${error}`);
-                reject(error);
-            }
+        super({
+            url: globalConfig.ws.liveDataUrl,
+            name: 'PolyLiveData',
+            maxCacheSize: globalConfig.ws.maxCacheSize,
         });
     }
 
     public getHistoryPriceList(topic: string): {value: number, timestamp: number}[] {
-        const topicCache = this.cache.get(topic);
-        if (!topicCache) {
+        const list = this.getCachedList<PushData>(topic);
+        if (!list || list.length === 0) {
             return [];
         }
-        return topicCache.map(item => ({value: Number(item.data.payload.value), timestamp: Number(item.data.payload.timestamp)}));
+        return list.map(item => ({
+            value: Number(item.payload.value),
+            timestamp: Number(item.payload.timestamp),
+        }));
+    }
+
+    /**
+     * 连接成功时的回调：重新发送已有订阅
+     */
+    protected onOpen(): void {
+        if (this.subscriptions.length > 0) {
+            this.sendSubscriptions(this.subscriptions);
+        }
     }
 
     /**
      * 处理接收到的消息
      */
-    private handleMessage(data: WebSocket.Data): void {
+    protected onMessage(data: WebSocket.Data): void {
         try {
             if(data.toString()) {
-                const message = JSON.parse(data.toString());
+                const message = JSON.parse(data.toString()) as PushData;
 
                 if (message.topic === this.topic) {
                     logPriceData(message.payload.value, message.payload.symbol, message.payload.timestamp);
-                    this.cacheData(message);
-                    this.onWatchPriceChangeCb?.({ 
+                    // 使用基础类统一的缓存策略，key 为 topic
+                    this.cacheItem(message.topic, message);
+                    this.invokeCallback(
+                        'watchPriceChange',
+                        { 
                         value: Number(message.payload.value), 
                         timestamp: Number(message.payload.timestamp) 
-                    }, this.getHistoryPriceList(this.topic));
+                        },
+                        this.getHistoryPriceList(this.topic)
+                    );
                 }
             }
         } catch (error) {
@@ -158,35 +102,10 @@ class PolyLiveDataClient {
     }
 
     /**
-     * 缓存数据
-     */
-    private cacheData(data: PushData): void {
-        const topic = data.topic;
-
-        if (!this.cache.has(topic)) {
-            this.cache.set(topic, []);
-        }
-
-        const topicCache = this.cache.get(topic)!;
-        const cachedItem: CachedData = {
-            data,
-            cachedAt: Date.now()
-        };
-
-        // 添加到缓存
-        topicCache.push(cachedItem);
-
-        // 如果超过最大缓存数量，移除最旧的数据
-        if (topicCache.length > this.maxCacheSize) {
-            topicCache.shift();
-        }
-    }
-
-    /**
      * 发送订阅请求
      */
     private sendSubscriptions(subscriptions: Subscription[]): void {
-        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        if (!this.ws || this.ws.readyState !== 1) {
             console.warn('[PolyLiveData] WebSocket 未连接，无法发送订阅');
             return;
         }
@@ -205,25 +124,6 @@ class PolyLiveDataClient {
     }
 
     /**
-     * 尝试重连
-     */
-    private attemptReconnect(): void {
-        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-            logInfo('[PolyLiveData] 达到最大重连次数，停止重连');
-            return;
-        }
-
-        this.reconnectAttempts++;
-        logInfo(`[PolyLiveData] ${this.reconnectDelay / 1000}秒后尝试重连 (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
-
-        setTimeout(() => {
-            this.connect().catch((error) => {
-                logInfo('[PolyLiveData] 重连失败:', error);
-            });
-        }, this.reconnectDelay);
-    }
-
-    /**
      * 订阅加密货币价格数据（Chainlink）
      * @param symbol 交易对符号，如 'eth/usd'
      */
@@ -236,7 +136,7 @@ class PolyLiveDataClient {
 
         this.subscriptions.push(subscription);
 
-        if (this.isConnected && this.ws?.readyState === WebSocket.OPEN) {
+        if (this.isConnected && this.ws?.readyState === 1) {
             this.sendSubscriptions([subscription]);
         }
     }
@@ -256,35 +156,9 @@ class PolyLiveDataClient {
 
         this.subscriptions.push(subscription);
 
-        if (this.isConnected && this.ws?.readyState === WebSocket.OPEN) {
+        if (this.isConnected && this.ws?.readyState === 1) {
             this.sendSubscriptions([subscription]);
         }
-    }
-
-    /**
-     * 获取指定 topic 的缓存数据
-     * @param topic 主题名称
-     * @returns 缓存数据数组
-     */
-    getCache(topic: string): PushData[] {
-        const topicCache = this.cache.get(topic);
-        if (!topicCache) {
-            return [];
-        }
-        return topicCache.map(item => item.data);
-    }
-
-    /**
-     * 获取指定 topic 的最新数据
-     * @param topic 主题名称
-     * @returns 最新的数据，如果没有则返回 null
-     */
-    getLatest(topic: string): PushData | null {
-        const topicCache = this.cache.get(topic);
-        if (!topicCache || topicCache.length === 0) {
-            return null;
-        }
-        return topicCache[topicCache.length - 1].data;
     }
 
     /**
@@ -292,7 +166,7 @@ class PolyLiveDataClient {
      * @returns 主题名称数组
      */
     getTopics(): string[] {
-        return Array.from(this.cache.keys());
+        return this.getAllCacheKeys();
     }
 
     /**
@@ -301,55 +175,27 @@ class PolyLiveDataClient {
      */
     clearCache(topic?: string): void {
         if (topic) {
-            this.cache.delete(topic);
+            this.clearCacheByKey(topic);
         } else {
-            this.cache.clear();
+            this.clearAllCache();
         }
     }
 
     /**
-     * 获取连接状态
-     * @returns 是否已连接
+     * 断开连接时子类的清理逻辑
      */
-    getConnectionStatus(): boolean {
-        return this.isConnected && this.ws?.readyState === WebSocket.OPEN;
-    }
-
-    /**
-     * 关闭连接
-     */
-    disconnect(): void {
-        if (!this.isConnected) {
-            return
-        }
-        this.isManualDisconnect = true; // 标记为主动断开
-        if (this.ws) {
-            this.ws.close();
-            this.ws = null;
-        }
-        this.isConnected = false;
+    protected onDisconnectCleanup(): void {
         this.clearCache();
         this.subscriptions = [];
-        this.onWatchPriceChangeCb = () => { };
-        logInfo('[PolyLiveData] WebSocket 连接已断开');
     }
-
-
 
     onWatchPriceChange(callback: (price: { value: number, timestamp: number }, historyPriceList: {value: number, timestamp: number}[]) => any) {
-        this.onWatchPriceChangeCb = callback;
-    }
-
-    getPriceFromData(data: PushData) {
-        if (data.topic === 'crypto_prices_chainlink') {
-            return data.payload.value;
-        }
-        return null;
+        this.setCallback('watchPriceChange', callback);
     }
 
     getLatestCryptoPricesFromChainLink(): number | null {
         const topic = `crypto_prices_chainlink`;
-        const data = this.getLatest(topic);
+        const data = this.getLatestCached<PushData>(topic);
         if (data) {
             return Number(data.payload.value)
         }

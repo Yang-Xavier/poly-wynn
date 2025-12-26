@@ -236,7 +236,8 @@ class Clob {
       throw new Error('ClobClient not initialized. Please call init() first.');
     }
       let resp;
-      while (!resp && orderId) {
+      const start = Date.now();
+      while (!resp?.id && orderId && (Date.now() - start < 60 * 1000)) {
         try {
           resp = await this.clobClient!.getOrder(orderId);
           return resp;
