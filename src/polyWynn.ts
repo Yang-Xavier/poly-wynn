@@ -122,6 +122,8 @@ export const runPolyWynn = async () => {
                     if (tokenChanceDetails) {
                         logInfo(`💡找到机会`, omit(tokenChanceDetails, ['orderbookSummary']));
                         logInfo(`准备购买...`, {
+                            balance,
+                            buyingAmountFactor: globalConfig.stratgegy.buyingAmountFactor,
                             amount: positionAmount,
                             tokenId: tokenChanceDetails.tokenId,
                             cryptoPrice: tokenChanceDetails.cryptoPrice.value
