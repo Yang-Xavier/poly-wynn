@@ -240,11 +240,11 @@ class Clob {
       while (!resp?.id && orderId && (Date.now() - start < 60 * 1000)) {
         try {
           resp = await this.clobClient!.getOrder(orderId);
-          return resp;
         } catch (err) {
           logInfo(`getOrder error: ${err}`);
         }
       }
+      return resp;
   }
 
   /**
