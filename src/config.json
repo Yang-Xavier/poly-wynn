@@ -24,7 +24,7 @@
         "attenuationFactor": [2, 0.8],
         "buyingRetryCount": 5,
         "buyingMaxSplit": 3,
-        "buyingAmountFactor": 1,
+        "buyingAmountFactor": 0.5,
         "buyingMaxAmount": 100,
         "confidenceThreshold": 0.2,
         "limitBuyCount": 1,

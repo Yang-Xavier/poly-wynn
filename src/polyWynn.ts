@@ -82,6 +82,11 @@ export const runPolyWynn = async () => {
             positionAmount = Math.min(globalConfig.stratgegy.buyingMaxAmount, Number(balance) * globalConfig.stratgegy.buyingAmountFactor);
             logInfo(`💰账户余额: ${balance}, 购买金额: ${positionAmount}`);
             getLoggerModule().customLog('trade', LogLevel.INFO, `💰账户余额: ${balance}`)
+            if (Number(balance) <= 1) {
+                logInfo(`账户余额小于1, 跳过本局购买,等待下一轮开始...`);
+                await waitFor(distanceToNextInterval(slugIntervalTimestamp));
+                return;
+            }
 
             logInfo(`订阅市场订单簿数据: ${market.clobTokenIds}`);
             await polyMarketDataClient.connect();
