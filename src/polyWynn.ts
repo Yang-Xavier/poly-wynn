@@ -82,6 +82,7 @@ export const runPolyWynn = async () => {
             positionAmount = Math.min(globalConfig.stratgegy.buyingMaxAmount, Number(balance) * globalConfig.stratgegy.buyingAmountFactor);
             logInfo(`💰账户余额: ${balance}, 购买金额: ${positionAmount}`);
             getLoggerModule().customLog('trade', LogLevel.INFO, `💰账户余额: ${balance}`)
+
             if (Number(balance) <= 1) {
                 logInfo(`账户余额小于1, 跳过本局购买,等待下一轮开始...`);
                 await waitFor(distanceToNextInterval(slugIntervalTimestamp));
@@ -202,9 +203,8 @@ export const runPolyWynn = async () => {
             logInfo(`断开与PolyMarketData的连接`);
             await polyMarketDataClient.disconnect();
 
-
             if (redeemOrder) {
-                logInfo(`等待验证结果并赎回...${globalConfig.redeemConfig.delyRedeem / 1000}s`);
+                logInfo(`等待验证结果...${globalConfig.redeemConfig.delyRedeem / 1000}s`);
                 await waitFor(globalConfig.redeemConfig.delyRedeem);
 
                 try {
@@ -224,21 +224,17 @@ export const runPolyWynn = async () => {
                         logInfo(`对赌结果: ${redeemOrder.outcome === finalOutcome ? "🎉Won" : "💩Lost"}, 市场最终结果: ${finalOutcome}`);
                         logTrade(redeemOrder.outcome === finalOutcome ? "won" : "lost", redeemOrder);
                     } else {
-                        logInfo(`市场未关闭, 对赌结果不准确, 继续执行赎回...`);
+                        logInfo(`市场未关闭, 对赌结果未知`);
                     }
-
-                    const redeemModule = getRedeemModule();
-
                     await waitFor(2*60*1000);
-                    await redeemModule.redeemAll(globalConfig.account.funderAddress);
-
-                    // logInfo(`判断是否需要卖出过期仓位, 回收资金...`);
-                    // await sellExpired30MinPostions();
-
                 } catch (error) {
-                    logError(`赎回失败: ${error}`);
+                    logError(`验证结果失败: ${error}`);
                 }
             }
+
+            logInfo(`检查赎回仓位，进行赎回...`);
+            const redeemModule = getRedeemModule();
+            await redeemModule.redeemAll(globalConfig.account.funderAddress);
 
             logInfo(`本局结束...`);
         } catch (e) {
