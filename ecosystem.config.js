@@ -1,26 +1,17 @@
 module.exports = {
   apps: [
     {
-      name: 'polywynn-start',
-      script: 'npm',
-      args: 'run start:polywynn',
+      name: "crypto15min-start",
+      script: "npm",
+      args: "run crypto15min:runPolyWynn",
       cwd: __dirname,
       env: {
-        LOGGER_DISABLE_CONSOLE: 'true',
+        LOGGER_DISABLE_CONSOLE: "true",
+        // 将 PASSWORD 传递给子进程
+        ...(process.env.PASSWORD && { PASSWORD: process.env.PASSWORD }),
       },
-      out_file: './logs/pm2-start-out.log',
-      error_file: './logs/pm2-start-error.log',
+      out_file: "./logs/pm2-start-out.log",
+      error_file: "./logs/pm2-start-error.log",
     },
-    // {
-    //   name: 'logs-server',
-    //   script: 'npm',
-    //   args: 'run logs:server',
-    //   cwd: __dirname,
-    //   env: {
-    //     PORT: 80,
-    //   },
-    //   out_file: './logs/pm2-logs-server-out.log',
-    //   error_file: './logs/pm2-logs-server-error.log',
-    // },
   ],
 };

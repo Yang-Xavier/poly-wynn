@@ -2,17 +2,16 @@
   "name": "poly-wynn",
   "version": "0.1.0",
   "private": true,
-  "main": "index.js",
   "scripts": {
     "build": "rm -rf dist && node build.js",
-    "start": "pm2 start ecosystem.config.js",
-    "stop": "pm2 stop all && pm2 delete all",
-    "restart": "pm2 kill && npm run start",
-    "start:polywynn": "bun run src/index.ts redeem && bun run src/index.ts runPolyWynn",
-    "polyWynn": "npm run build && node dist/index.js runPolyWynn",
-    "redeem": "npm run build && node dist/index.js redeem",
-    "debug": "npm run build  && node dist/index.js debug",
-    "logs:server": "bun serve-logs.js"
+    "prod:stop": "pm2 kill",
+    "prod:start": "node ./scripts/pm2-start.js",
+    "syncConfig": "node ./scripts/sync-config.js",
+    "crypto15min:runPolyWynn": "bun src/boostApp.ts crypto15min:runPolyWynn",
+    "crypto15min:redeem": "bun src/boostApp.ts crypto15min:redeem",
+    "crypto15min:debug": "bun src/boostApp.ts crypto15min:debug",
+    "format": "prettier --write \"src/**/*.{ts,js,json}\"",
+    "deploy": "bash ./scripts/deploy.sh"
   },
   "dependencies": {
     "@ethersproject/contracts": "^5.8.0",
