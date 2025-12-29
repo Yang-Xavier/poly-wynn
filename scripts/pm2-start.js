@@ -12,7 +12,7 @@
 
 const { spawn } = require("child_process");
 const path = require("path");
-const { parseAndGetPassword } = require("./getPassword");
+const { parseAndGetPassword } = require("../src/shared/getPassword");
 
 // 解析命令行参数并获取密码
 // 优先级：命令行 -p > .env 文件 > 环境变量

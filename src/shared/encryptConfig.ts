@@ -14,7 +14,7 @@ const PROJECT_ROOT = path.resolve(__dirname, "../..");
 // 加密后的配置文件路径（保存在项目根目录）
 const ENCRYPTED_CONFIG_PATH = path.join(PROJECT_ROOT, "config.encrypted.json");
 // 源配置文件路径（src/config.json）
-const SOURCE_CONFIG_PATH = path.join(PROJECT_ROOT, "src", "keyConfig.json");
+const SOURCE_CONFIG_PATH = path.join(PROJECT_ROOT, "keyConfig.json");
 
 /**
  * 从环境变量获取加密密钥

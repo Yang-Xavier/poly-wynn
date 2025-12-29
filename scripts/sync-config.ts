@@ -1,10 +1,10 @@
-const { syncConfig } = require("../dist/shared/encryptConfig");
-const { parseAndGetPassword } = require("./getPassword");
+import { syncConfig } from "../src/shared/encryptConfig";
+import { parseAndGetPassword } from "../src/shared/getPassword";
 
 /**
  * 主函数
  */
-function main() {
+function main(): void {
   try {
     // 从命令行参数解析并获取密码
     // 优先级：命令行 -p > .env 文件 > 环境变量
@@ -17,6 +17,9 @@ function main() {
       console.error("或者设置环境变量 PASSWORD 或在 .env 文件中设置 PASSWORD=your_password");
       process.exit(1);
     }
+
+    // 设置环境变量
+    process.env.ENCRYPTION_KEY = password;
 
     console.log("=== 同步加密配置文件 ===\n");
     console.log("开始同步配置文件...\n");
@@ -34,4 +37,5 @@ function main() {
 // 执行主函数
 main();
 
-module.exports = { main };
+export { main };
+

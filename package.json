@@ -6,7 +6,7 @@
     "build": "rm -rf dist && node build.js",
     "prod:stop": "pm2 kill",
     "prod:start": "node ./scripts/pm2-start.js",
-    "syncConfig": "node ./scripts/sync-config.js",
+    "syncConfig": "bun ./scripts/sync-config.ts",
     "crypto15min:runPolyWynn": "bun src/boostApp.ts crypto15min:runPolyWynn",
     "crypto15min:redeem": "bun src/boostApp.ts crypto15min:redeem",
     "crypto15min:debug": "bun src/boostApp.ts crypto15min:debug",

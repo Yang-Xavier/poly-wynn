@@ -16,7 +16,7 @@
 import { debug as crypto15minDebug } from "./app/crypto15min/debug";
 import { runPolyWynn as crypto15minRunPolyWynn } from "./app/crypto15min/polyWynn";
 import { redeem as crypto15minRedeem } from "./app/crypto15min/redeem";
-import { parsePasswordArg, getPassword } from "../scripts/getPassword";
+import { parsePasswordArg, getPassword } from "./shared/getPassword";
 
 // 应用类型定义
 type App = "crypto15min";
