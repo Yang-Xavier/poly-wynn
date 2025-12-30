@@ -57,11 +57,14 @@ export const findChance = async (
           } else if (data.asset_id === outcomes[OUTCOMES_ENUM.Down]) {
             outcome = OUTCOMES_ENUM.Down;
           }
-          logData(`[findChance] outcome: ${outcome}`);
+
           if (outcome) {
             const bestAsk = data.asks[data.asks.length - 1]?.price;
             const historyPriceList = polyLiveDataClient.getHistoryPriceListFromChainLink();
             const currentPrice = polyLiveDataClient.getLatestCryptoPricesFromChainLink();
+            logData(
+              `[findChance] ${JSON.stringify({ outcome, bestAsk, priceToBeat, historyPriceListLength: historyPriceList.length, currentPrice, distance })}`
+            );
 
             if (bestAsk >= globalConfig.stratgegy.bestAskThreshold) {
               let tailSweepResult;
