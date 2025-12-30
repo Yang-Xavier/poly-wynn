@@ -218,16 +218,27 @@ export abstract class BaseLiveDataClient {
   }
 
   /**
-   * 触发指定名称的回调
+   * 触发指定名称的回调（异步执行）
+   * 优化点：
+   * 1. 使用 setImmediate 异步执行，避免阻塞 WebSocket 消息处理
+   * 2. 改进错误处理，包含更多调试信息
    */
   protected invokeCallback(name: string, ...args: any[]): void {
     const cb = this.callbacks.get(name);
     if (!cb) return;
-    try {
-      cb(...args);
-    } catch (err) {
-      logInfo(`[${this.name}] callback "${name}" 执行异常: ${err}`);
-    }
+
+    // 使用 setImmediate 异步执行，避免阻塞当前事件循环
+    setImmediate(() => {
+      try {
+        cb(...args);
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        const errorStack = err instanceof Error ? err.stack : undefined;
+        logInfo(
+          `[${this.name}] callback "${name}" 执行异常: ${errorMsg}${errorStack ? `\n${errorStack}` : ""}`
+        );
+      }
+    });
   }
 
   /**
