@@ -15,6 +15,7 @@ export interface LoggerConfig {
   traceId?: string; // 追踪ID，所有日志都会包含此ID
   enableConsole?: boolean; // 是否输出到控制台，默认为 true
   appName?: string; // 应用名称，用于区分日志文件名，默认为 'app'
+  flushInterval?: number; // 自动刷新间隔（毫秒），在进程空闲时批量写入，默认为 2000
 }
 
 // 默认配置
@@ -24,10 +25,25 @@ const DEFAULT_CONFIG: Required<Omit<LoggerConfig, "traceId" | "appName">> & {
 } = {
   logDir: "./logs",
   enableConsole: false,
+  flushInterval: 2000, // 2秒自动刷新，在进程空闲时批量写入
 };
+
+// 日志项接口
+interface LogItem {
+  message: string;
+  type?: string;
+}
 
 /**
  * 基础Logger类 - 支持日志级别、traceId和本地文件保存
+ *
+ * 性能优化特性：
+ * - 日志先入队，不立即写入文件，避免阻塞主线程
+ * - 在进程空闲阶段（使用 setImmediate）批量写入文件
+ * - 定时批量刷新（默认2秒），确保日志及时持久化
+ * - 支持背压处理，当文件写入缓冲区满时自动等待
+ *
+ * 适用于高频日志场景，确保主线任务性能不受影响
  */
 export class Logger {
   private config: Required<Omit<LoggerConfig, "traceId" | "appName">> & {
@@ -37,6 +53,10 @@ export class Logger {
   private fileStreams: Map<string, fs.WriteStream> = new Map(); // 存储不同 type 的文件流
   private streamDates: Map<string, string> = new Map(); // 存储每个 type 对应的当前日期
   private traceId: string | undefined;
+  private logQueue: Map<string, LogItem[]> = new Map(); // 按 type 分组的日志队列
+  private flushTimer: NodeJS.Timeout | null = null; // 自动刷新定时器
+  private isFlushing: boolean = false; // 是否正在刷新
+  private pendingFlush: NodeJS.Immediate | null = null; // 待执行的空闲刷新任务
 
   constructor(config?: LoggerConfig) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -45,6 +65,9 @@ export class Logger {
     if (!fs.existsSync(this.config.logDir)) {
       fs.mkdirSync(this.config.logDir, { recursive: true });
     }
+
+    // 启动自动刷新定时器
+    this.startAutoFlush();
   }
 
   /**
@@ -126,13 +149,121 @@ export class Logger {
   }
 
   /**
-   * 写入日志到文件
+   * 启动自动刷新定时器
+   * 在进程空闲时定期批量写入日志到文件
+   */
+  private startAutoFlush(): void {
+    if (this.flushTimer) {
+      clearInterval(this.flushTimer);
+    }
+    // 使用 setInterval 定期触发，但实际写入在进程空闲时执行
+    this.flushTimer = setInterval(() => {
+      // 如果有待处理的日志，在空闲时刷新
+      if (this.logQueue.size > 0 && !this.isFlushing) {
+        // 使用 setImmediate 确保在进程空闲阶段执行
+        setImmediate(() => {
+          this.flush();
+        });
+      }
+    }, this.config.flushInterval);
+  }
+
+  /**
+   * 将日志添加到队列（异步，不阻塞）
+   * 日志不会立即写入文件，而是在进程空闲时批量写入
    * @param formattedMessage 格式化后的日志消息
    * @param type 日志类型
    */
+  private enqueueLog(formattedMessage: string, type?: string): void {
+    const queueKey = type || "default";
+    if (!this.logQueue.has(queueKey)) {
+      this.logQueue.set(queueKey, []);
+    }
+    this.logQueue.get(queueKey)!.push({ message: formattedMessage, type });
+
+    // 在进程空闲时触发刷新（如果还没有待执行的刷新任务）
+    // 使用 setImmediate 确保在事件循环空闲阶段执行，不阻塞主线程
+    if (!this.pendingFlush) {
+      this.pendingFlush = setImmediate(() => {
+        this.pendingFlush = null;
+        // 在空闲时刷新，但只在有日志时才执行
+        if (this.logQueue.size > 0) {
+          this.flush();
+        }
+      });
+    }
+  }
+
+  /**
+   * 刷新日志队列到文件（异步批量写入）
+   * @param specificType 如果指定，只刷新该类型的队列
+   */
+  private flush(specificType?: string): void {
+    // 如果正在刷新，跳过（避免并发问题）
+    if (this.isFlushing) {
+      return;
+    }
+
+    this.isFlushing = true;
+
+    // 使用 setImmediate 确保在下一个事件循环中执行，不阻塞主线程
+    setImmediate(() => {
+      try {
+        const typesToFlush = specificType ? [specificType] : Array.from(this.logQueue.keys());
+
+        let hasBackpressure = false;
+
+        for (const queueKey of typesToFlush) {
+          const queue = this.logQueue.get(queueKey);
+          if (!queue || queue.length === 0) {
+            continue;
+          }
+
+          const stream = this.getOrCreateLogStream(queueKey === "default" ? undefined : queueKey);
+
+          // 批量写入所有日志
+          const messages = queue.map((item) => item.message + "\n").join("");
+          const canWrite = stream.write(messages);
+
+          // 如果写入缓冲区已满，等待 drain 事件
+          if (!canWrite) {
+            hasBackpressure = true;
+            // 数据已写入缓冲区，清空队列
+            this.logQueue.set(queueKey, []);
+            // 设置 drain 事件监听器，等待缓冲区有空间后继续
+            stream.once("drain", () => {
+              this.isFlushing = false;
+              // 继续刷新，处理可能新加入的日志
+              this.flush();
+            });
+            // 跳出循环，等待 drain 事件
+            break;
+          }
+
+          // 清空已写入的队列
+          this.logQueue.set(queueKey, []);
+        }
+
+        // 如果没有遇到背压，重置刷新状态
+        if (!hasBackpressure) {
+          this.isFlushing = false;
+        }
+      } catch (error) {
+        // 错误处理：如果写入失败，至少输出到控制台
+        if (this.config.enableConsole) {
+          console.error("日志写入失败:", error);
+        }
+        this.isFlushing = false;
+      }
+    });
+  }
+
+  /**
+   * 写入日志到文件（已废弃，使用 enqueueLog 代替）
+   * @deprecated 使用 enqueueLog 代替，以实现异步批量写入
+   */
   private writeToFile(formattedMessage: string, type?: string): void {
-    const stream = this.getOrCreateLogStream(type);
-    stream.write(formattedMessage + "\n");
+    this.enqueueLog(formattedMessage, type);
   }
 
   /**
@@ -218,12 +349,35 @@ export class Logger {
    * 关闭所有文件流
    */
   close(): void {
+    // 停止自动刷新定时器
+    if (this.flushTimer) {
+      clearInterval(this.flushTimer);
+      this.flushTimer = null;
+    }
+
+    // 取消待执行的空闲刷新任务
+    if (this.pendingFlush) {
+      clearImmediate(this.pendingFlush);
+      this.pendingFlush = null;
+    }
+
+    // 刷新所有剩余的日志
+    this.flush();
+
+    // 等待一小段时间确保所有日志都已写入
+    // 注意：这是一个同步等待，但通常很快
+    const startTime = Date.now();
+    while (this.isFlushing && Date.now() - startTime < 1000) {
+      // 等待最多1秒
+    }
+
     // 关闭所有文件流
     for (const [key, stream] of this.fileStreams.entries()) {
       stream.end();
     }
     this.fileStreams.clear();
     this.streamDates.clear();
+    this.logQueue.clear();
   }
 
   /**

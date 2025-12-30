@@ -5,7 +5,7 @@
 
 import type WebSocket from "ws";
 import { getGlobalConfig } from "./config";
-import { logInfo, logPriceData } from "@crypto15min/module/logger";
+import { logInfo, logData } from "@crypto15min/module/logger";
 import { BaseLiveDataClient } from "@crypto15min/module/BaseLiveDataClient";
 
 // 订阅信息接口
@@ -83,7 +83,9 @@ class PolyLiveDataClient extends BaseLiveDataClient {
         const message = JSON.parse(data.toString()) as PushData;
 
         if (message.topic === this.topic) {
-          logPriceData(message.payload.value, message.payload.symbol, message.payload.timestamp);
+          logData(
+            `symbol: ${message.payload.symbol}, price: ${message.payload.value}, timestamp: ${message.payload.timestamp}`
+          );
           // 使用基础类统一的缓存策略，key 为 topic
           this.cacheItem(message.topic, message);
           this.invokeCallback(

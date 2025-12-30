@@ -9,6 +9,7 @@ const logger = new Logger({
 export const getLoggerModule = () => logger;
 export const logInfo = (message: string, data?: any) => getLoggerModule().info(message, data);
 export const logError = (message: string, data?: any) => getLoggerModule().error(message, data);
+
 export const logData = (message: string, data?: any) =>
   getLoggerModule().info(message, data, "data");
 
@@ -27,14 +28,7 @@ export const logTrade = (
     skip: "⏭️",
   };
 
-  getLoggerModule().info(`${label[tradeType]} ${tradeType} ${message}`, data, "trade");
+  getLoggerModule().info(`${label[tradeType]} ${tradeType} ${message ?? ""}`, data, "trade");
 };
-
-export const logPriceData = (price: number, symbol: string, timestamp: number) =>
-  getLoggerModule().info(
-    `symbol: ${symbol}, price: ${price}, timestamp: ${timestamp}`,
-    null,
-    "price"
-  );
 
 export const setTraceId = (traceId: string) => getLoggerModule().setTraceId(traceId);
