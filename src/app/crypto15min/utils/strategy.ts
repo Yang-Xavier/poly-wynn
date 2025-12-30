@@ -49,7 +49,6 @@ export const findChance = async (
             resolved = true;
             resolve(null);
           }
-          logData(`[onWatchOrderBookPriceChange] calculate tailSweepResult`);
 
           // 直接判断是Up还是Down，避免使用forEach
           let outcome: OUTCOMES_ENUM | null = null;
@@ -58,7 +57,7 @@ export const findChance = async (
           } else if (data.asset_id === outcomes[OUTCOMES_ENUM.Down]) {
             outcome = OUTCOMES_ENUM.Down;
           }
-
+          logData(`[findChance] outcome: ${outcome}`);
           if (outcome) {
             const bestAsk = data.asks[data.asks.length - 1]?.price;
             const historyPriceList = polyLiveDataClient.getHistoryPriceListFromChainLink();
@@ -89,6 +88,7 @@ export const findChance = async (
                   globalConfig.stratgegy.tailSweepConfig
                 );
               }
+              logData(`[findChance] tailSweepResult: ${tailSweepResult}`);
 
               const { isDiffEnough, avaliableValue } = calcDiffEnough(
                 tailSweepResult.winProbability,
