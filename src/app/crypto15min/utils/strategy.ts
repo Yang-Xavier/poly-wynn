@@ -50,69 +50,55 @@ export const findChance = async (
             resolve(null);
           }
 
-          // 直接判断是Up还是Down，避免使用forEach
+          // 直接判断是Up还是Down，并推测出双边最佳卖价
           let outcome: OUTCOMES_ENUM | null = null;
+          let [upBestAsk, downBestAsk] = [0, 0];
           if (data.asset_id === outcomes[OUTCOMES_ENUM.Up]) {
             outcome = OUTCOMES_ENUM.Up;
+            upBestAsk = Number(data.asks[data.asks.length - 1]?.price);
+            downBestAsk = 1 - upBestAsk;
           } else if (data.asset_id === outcomes[OUTCOMES_ENUM.Down]) {
             outcome = OUTCOMES_ENUM.Down;
+            downBestAsk = Number(data.asks[data.asks.length - 1]?.price);
+            upBestAsk = 1 - downBestAsk;
           }
 
-          if (outcome) {
+          if (
+            outcome &&
+            Math.max(upBestAsk, downBestAsk) >= globalConfig.stratgegy.bestAskThreshold
+          ) {
             const bestAsk = data.asks[data.asks.length - 1]?.price;
             const historyPriceList = polyLiveDataClient.getHistoryPriceListFromChainLink();
             const currentPrice = polyLiveDataClient.getLatestCryptoPricesFromChainLink();
+            const tailSweepResult = decideTailSweep(
+              {
+                ticks: historyPriceList,
+                intervalStartPrice: priceToBeat,
+                timeToExpiryMs: distance,
+                upBestAsk,
+                downBestAsk,
+              },
+              globalConfig.stratgegy.tailSweepConfig
+            );
+            const { isDiffEnough, avaliableValue } = calcDiffEnough(
+              tailSweepResult.winProbability,
+              0.95,
+              [0.047, 0.0001],
+              distance
+            );
             logData(
-              `[findChance] ${JSON.stringify({ outcome, bestAsk, priceToBeat, historyPriceListLength: historyPriceList.length, currentPrice, distance })}`
+              `[-- 扫尾盘数据策略数据 (📚订单簿变动触发) --] ${JSON.stringify({ priceToBeat, currentPrice, isDiffEnough, avaliableValue, ...tailSweepResult })}`
             );
 
-            if (bestAsk >= globalConfig.stratgegy.bestAskThreshold) {
-              let tailSweepResult;
-              if (outcome === OUTCOMES_ENUM.Up) {
-                tailSweepResult = decideTailSweep(
-                  {
-                    ticks: historyPriceList,
-                    intervalStartPrice: priceToBeat,
-                    timeToExpiryMs: distance,
-                    upBestAsk: Number(bestAsk),
-                    downBestAsk: 0,
-                  },
-                  globalConfig.stratgegy.tailSweepConfig
-                );
-              } else if (outcome === OUTCOMES_ENUM.Down) {
-                tailSweepResult = decideTailSweep(
-                  {
-                    ticks: historyPriceList,
-                    intervalStartPrice: priceToBeat,
-                    timeToExpiryMs: distance,
-                    upBestAsk: 0,
-                    downBestAsk: Number(bestAsk),
-                  },
-                  globalConfig.stratgegy.tailSweepConfig
-                );
-              }
-              logData(`[findChance] tailSweepResult: ${tailSweepResult}`);
-
-              const { isDiffEnough, avaliableValue } = calcDiffEnough(
-                tailSweepResult.winProbability,
-                0.95,
-                [0.047, 0.0001],
-                distance
-              );
-              logData(
-                `[-- 扫尾盘数据策略数据 (📚订单簿变动触发) --] ${JSON.stringify({ priceToBeat, currentPrice, isDiffEnough, avaliableValue, ...tailSweepResult })}`
-              );
-
-              if (tailSweepResult.shouldBet && isDiffEnough) {
-                resolved = true;
-                resolve({
-                  tokenId: outcomes[tailSweepResult.side],
-                  outcome: tailSweepResult.side,
-                  cryptoPrice: currentPrice,
-                  bestAsk,
-                  priceToBeat,
-                });
-              }
+            if (tailSweepResult.shouldBet && isDiffEnough) {
+              resolved = true;
+              resolve({
+                tokenId: outcomes[tailSweepResult.side],
+                outcome: tailSweepResult.side,
+                cryptoPrice: currentPrice,
+                bestAsk,
+                priceToBeat,
+              });
             }
           }
         });
