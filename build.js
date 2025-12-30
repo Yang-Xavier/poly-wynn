@@ -17,6 +17,7 @@ esbuild
       alias({
         "@crypto15min": path.resolve(__dirname, "./src/app/crypto15min"),
         "@shared": path.resolve(__dirname, "./src/shared"),
+        "@typings": path.resolve(__dirname, "./src/typings"),
       }),
     ],
   })

@@ -7,7 +7,8 @@
     "baseUrl": "./", // 源文件目录
     "paths": {
       "@crypto15min/*": ["src/app/crypto15min/*"],
-      "@shared/*": ["src/shared/*"]
+      "@shared/*": ["src/shared/*"],
+      "@typings/*": ["src/typings/*"]
     }
   },
   "include": ["src/**/*", "scripts/**/*.ts"]

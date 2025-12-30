@@ -181,26 +181,26 @@ export const watchPosition = async (
     new Promise((resolve) => {
       let resolved = false;
 
-      // polyMarketDataClient.onWatchOrderBookPriceChange((data: MarketPushData) => {
-      //   if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) {
-      //     return;
-      //   }
-      //   const assetId = outcomes[outcome];
-      //   if (data.asset_id === assetId) {
-      //     const bestAsk = data.asks[data.asks.length - 1]?.price;
-      //     if (bestAsk && parseFloat(bestAsk) < globalConfig.stratgegy.sellProbabilityThreshold) {
-      //       logData(
-      //         `[买入后概率检查(低于阈值📚)] outcoum: ${outcome}, priceToBeat: ${priceToBeat}, bestAsk: ${bestAsk}, assetId: ${assetId}`
-      //       );
-      //       resolved = true;
-      //       resolve(TOKEN_ACTION_ENUM.sell);
-      //     } else {
-      //       logData(
-      //         `[买入后概率检查(高于阈值📚)] outcoum: ${outcome}, priceToBeat: ${priceToBeat}, bestAsk: ${bestAsk}, assetId: ${assetId}`
-      //       );
-      //     }
-      //   }
-      // });
+      polyMarketDataClient.onWatchOrderBookPriceChange((data: MarketPushData) => {
+        if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) {
+          return;
+        }
+        const assetId = outcomes[outcome];
+        if (data.asset_id === assetId) {
+          const bestAsk = data.asks[data.asks.length - 1]?.price;
+          if (bestAsk && parseFloat(bestAsk) < globalConfig.stratgegy.sellProbabilityThreshold) {
+            logData(
+              `[买入后概率检查(低于阈值📚)] outcoum: ${outcome}, priceToBeat: ${priceToBeat}, bestAsk: ${bestAsk}, assetId: ${assetId}`
+            );
+            resolved = true;
+            resolve(TOKEN_ACTION_ENUM.sell);
+          } else {
+            logData(
+              `[买入后概率检查(高于阈值📚)] outcoum: ${outcome}, priceToBeat: ${priceToBeat}, bestAsk: ${bestAsk}, assetId: ${assetId}`
+            );
+          }
+        }
+      });
 
       polyLiveDataClient.onWatchPriceChange((currentPrice, historyPriceList) => {
         if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) {
