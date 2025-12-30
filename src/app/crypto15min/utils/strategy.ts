@@ -49,6 +49,7 @@ export const findChance = async (
             resolved = true;
             resolve(null);
           }
+          logData(`[onWatchOrderBookPriceChange] calculate tailSweepResult`);
 
           // 直接判断是Up还是Down，避免使用forEach
           let outcome: OUTCOMES_ENUM | null = null;
