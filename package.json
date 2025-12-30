@@ -11,7 +11,8 @@
     "crypto15min:redeem": "bun src/boostApp.ts crypto15min:redeem",
     "crypto15min:debug": "bun src/boostApp.ts crypto15min:debug",
     "format": "prettier --write \"src/**/*.{ts,js,json}\"",
-    "deploy": "bash ./scripts/deploy.sh"
+    "deploy": "bash ./scripts/deploy.sh",
+    "prepare": "husky"
   },
   "dependencies": {
     "@ethersproject/contracts": "^5.8.0",
@@ -38,6 +39,7 @@
     "@zerollup/ts-transform-paths": "^1.7.18",
     "esbuild": "^0.24.0",
     "esbuild-plugin-alias": "^0.2.1",
+    "husky": "^9.1.7",
     "prettier": "^3.3.3",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",

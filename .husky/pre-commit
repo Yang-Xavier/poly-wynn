@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔧 执行 syncConfig..."
+npm run syncConfig
+
+# 将 syncConfig 修改的文件添加到暂存区
+echo "📦 添加修改的文件到暂存区..."
+git add -u
+
+echo "✅ pre-commit 完成"
