@@ -10,6 +10,7 @@
     "crypto15min:runPolyWynn": "bun src/boostApp.ts crypto15min:runPolyWynn",
     "crypto15min:redeem": "bun src/boostApp.ts crypto15min:redeem",
     "crypto15min:debug": "bun src/boostApp.ts crypto15min:debug",
+    "server:start": "bun src/app/server/index.ts",
     "format": "prettier --write \"src/**/*.{ts,js,json}\"",
     "deploy": "bash ./scripts/deploy.sh",
     "prepare": "husky"
@@ -24,6 +25,7 @@
     "axios": "^1.7.7",
     "co": "^4.6.0",
     "danfojs": "^1.2.0",
+    "express": "^4.18.2",
     "json5": "^2.2.3",
     "type-fest": "^4.31.0",
     "viem": "^2.40.3",
@@ -34,6 +36,7 @@
     "@babel/core": "^7.25.7",
     "@babel/node": "^7.25.7",
     "@babel/preset-env": "^7.25.7",
+    "@types/express": "^4.17.21",
     "@types/node": "^22.7.4",
     "@types/ws": "^8.18.1",
     "@zerollup/ts-transform-paths": "^1.7.18",

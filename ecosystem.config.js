@@ -13,5 +13,21 @@ module.exports = {
       out_file: "./logs/pm2-start-out.log",
       error_file: "./logs/pm2-start-error.log",
     },
+    {
+      name: "server",
+      script: "bun",
+      args: "src/app/server/index.ts",
+      cwd: __dirname,
+      env: {
+        PORT: process.env.PORT || 80,
+        NODE_ENV: process.env.NODE_ENV || "production",
+      },
+      out_file: "./logs/server-out.log",
+      error_file: "./logs/server-error.log",
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: "500M",
+    },
   ],
 };
