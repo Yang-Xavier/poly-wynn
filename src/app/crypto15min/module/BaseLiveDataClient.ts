@@ -30,6 +30,12 @@ export abstract class BaseLiveDataClient {
   // 统一的回调容器：key 表示回调名称，由子类约定
   private callbacks: Map<string, BaseCallback> = new Map();
 
+  // 回调防抖定时器：key 表示回调名称，value 为定时器 ID
+  private callbackTimers: Map<string, NodeJS.Timeout> = new Map();
+
+  // 回调防抖参数缓存：key 表示回调名称，value 为最后一次调用的参数
+  private callbackArgsCache: Map<string, any[]> = new Map();
+
   constructor(options: {
     url: string;
     name: string;
@@ -218,27 +224,47 @@ export abstract class BaseLiveDataClient {
   }
 
   /**
-   * 触发指定名称的回调（异步执行）
+   * 触发指定名称的回调（异步执行，带防抖）
    * 优化点：
-   * 1. 使用 setImmediate 异步执行，避免阻塞 WebSocket 消息处理
-   * 2. 改进错误处理，包含更多调试信息
+   * 1. 使用防抖机制，100ms 内只执行最后一次调用
+   * 2. 使用 setImmediate 异步执行，避免阻塞 WebSocket 消息处理
+   * 3. 改进错误处理，包含更多调试信息
    */
   protected invokeCallback(name: string, ...args: any[]): void {
     const cb = this.callbacks.get(name);
     if (!cb) return;
 
-    // 使用 setImmediate 异步执行，避免阻塞当前事件循环
-    setImmediate(() => {
-      try {
-        cb(...args);
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        const errorStack = err instanceof Error ? err.stack : undefined;
-        logInfo(
-          `[${this.name}] callback "${name}" 执行异常: ${errorMsg}${errorStack ? `\n${errorStack}` : ""}`
-        );
-      }
-    });
+    // 缓存最新的参数
+    this.callbackArgsCache.set(name, args);
+
+    // 清除之前的定时器
+    const existingTimer = this.callbackTimers.get(name);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+
+    // 设置新的定时器，100ms 后执行最后一次调用
+    const timer = setTimeout(() => {
+      // 获取最后一次缓存的参数
+      const finalArgs = this.callbackArgsCache.get(name);
+      this.callbackTimers.delete(name);
+      this.callbackArgsCache.delete(name);
+
+      // 使用 setImmediate 异步执行，避免阻塞当前事件循环
+      setImmediate(() => {
+        try {
+          cb(...finalArgs);
+        } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : String(err);
+          const errorStack = err instanceof Error ? err.stack : undefined;
+          logInfo(
+            `[${this.name}] callback "${name}" 执行异常: ${errorMsg}${errorStack ? `\n${errorStack}` : ""}`
+          );
+        }
+      });
+    }, 100);
+
+    this.callbackTimers.set(name, timer);
   }
 
   /**
@@ -246,6 +272,13 @@ export abstract class BaseLiveDataClient {
    */
   protected clearCallback(name: string): void {
     this.callbacks.delete(name);
+    // 清理对应的定时器和参数缓存
+    const timer = this.callbackTimers.get(name);
+    if (timer) {
+      clearTimeout(timer);
+      this.callbackTimers.delete(name);
+    }
+    this.callbackArgsCache.delete(name);
   }
 
   /**
@@ -253,6 +286,12 @@ export abstract class BaseLiveDataClient {
    */
   protected clearAllCallbacks(): void {
     this.callbacks.clear();
+    // 清理所有定时器和参数缓存
+    this.callbackTimers.forEach((timer) => {
+      clearTimeout(timer);
+    });
+    this.callbackTimers.clear();
+    this.callbackArgsCache.clear();
   }
 
   /**

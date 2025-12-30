@@ -14,58 +14,37 @@ export interface LoggerConfig {
   logDir?: string; // 日志目录，默认为 './logs'
   traceId?: string; // 追踪ID，所有日志都会包含此ID
   enableConsole?: boolean; // 是否输出到控制台，默认为 true
+  appName?: string; // 应用名称，用于区分日志文件名，默认为 'app'
 }
 
 // 默认配置
-const DEFAULT_CONFIG: Required<Omit<LoggerConfig, "traceId">> & { traceId?: string } = {
+const DEFAULT_CONFIG: Required<Omit<LoggerConfig, "traceId" | "appName">> & {
+  traceId?: string;
+  appName?: string;
+} = {
   logDir: "./logs",
-  enableConsole: true,
+  enableConsole: false,
 };
 
 /**
  * 基础Logger类 - 支持日志级别、traceId和本地文件保存
  */
 export class Logger {
-  private static instance: Logger | null = null;
-  private config: Required<Omit<LoggerConfig, "traceId">> & { traceId?: string };
-  private fileStream: fs.WriteStream | null = null;
+  private config: Required<Omit<LoggerConfig, "traceId" | "appName">> & {
+    traceId?: string;
+    appName?: string;
+  };
+  private fileStreams: Map<string, fs.WriteStream> = new Map(); // 存储不同 type 的文件流
+  private streamDates: Map<string, string> = new Map(); // 存储每个 type 对应的当前日期
   private traceId: string | undefined;
-  private currentDate: string = ""; // 当前日期文件夹名称
 
-  private constructor(config?: LoggerConfig) {
+  constructor(config?: LoggerConfig) {
     this.config = { ...DEFAULT_CONFIG, ...config };
 
     // 确保日志目录存在
     if (!fs.existsSync(this.config.logDir)) {
       fs.mkdirSync(this.config.logDir, { recursive: true });
     }
-
-    // 初始化当前日期
-    this.currentDate = this.getDateFolderName();
-
-    // 创建文件流
-    this.createLogStream();
-  }
-
-  /**
-   * 获取Logger单例实例
-   * @param config 可选配置，仅在第一次调用时生效
-   * @returns Logger单例实例
-   */
-  public static getInstance(config?: LoggerConfig): Logger {
-    if (!Logger.instance) {
-      Logger.instance = new Logger(config);
-    }
-    return Logger.instance;
-  }
-
-  /**
-   * 创建新的Logger实例（非单例）
-   * @param config 配置
-   * @returns Logger实例
-   */
-  public static create(config?: LoggerConfig): Logger {
-    return new Logger(config);
   }
 
   /**
@@ -81,68 +60,90 @@ export class Logger {
 
   /**
    * 获取日志文件的完整路径（包含日期文件夹）
+   * @param dateFolder 日期文件夹名称
+   * @param type 日志类型，用于区分不同的日志文件
    */
-  private getLogFilePath(dateFolder: string): string {
+  private getLogFilePath(dateFolder: string, type?: string): string {
     const dateDir = path.join(this.config.logDir, dateFolder);
     // 确保日期文件夹存在
     if (!fs.existsSync(dateDir)) {
       fs.mkdirSync(dateDir, { recursive: true });
     }
-    return path.join(dateDir, "app.log");
+    // 根据 appName 和 type 生成日志文件名
+    let logFileName: string;
+    if (type) {
+      // 如果有 type，文件名格式：${appName}_${type}.log 或 ${type}.log
+      logFileName = this.config.appName ? `${this.config.appName}_${type}.log` : `${type}.log`;
+    } else {
+      // 如果没有 type，使用原来的逻辑
+      logFileName = this.config.appName ? `${this.config.appName}.log` : "app.log";
+    }
+    return path.join(dateDir, logFileName);
   }
 
   /**
-   * 创建日志文件流
+   * 获取或创建指定 type 的日志文件流
+   * @param type 日志类型
    */
-  private createLogStream(): void {
+  private getOrCreateLogStream(type?: string): fs.WriteStream {
+    const streamKey = type || "default";
     const date = this.getDateFolderName();
-    const logFilePath = this.getLogFilePath(date);
+    const currentDate = this.streamDates.get(streamKey);
 
-    // 如果已存在文件流，先关闭它
-    if (this.fileStream) {
-      this.fileStream.end();
+    // 如果日期变化或文件流不存在，需要重新创建
+    if (!currentDate || currentDate !== date || !this.fileStreams.has(streamKey)) {
+      // 如果已存在文件流，先关闭它
+      const existingStream = this.fileStreams.get(streamKey);
+      if (existingStream) {
+        existingStream.end();
+      }
+
+      // 创建新的文件流
+      const logFilePath = this.getLogFilePath(date, type);
+      const newStream = fs.createWriteStream(logFilePath, { flags: "a" });
+      this.fileStreams.set(streamKey, newStream);
+      this.streamDates.set(streamKey, date);
+      return newStream;
     }
 
-    // 以追加模式打开日志文件
-    this.fileStream = fs.createWriteStream(logFilePath, { flags: "a" });
+    return this.fileStreams.get(streamKey)!;
   }
 
   /**
    * 格式化日志消息
    */
-  private formatMessage(level: LogLevel, message: string, data?: any): string {
+  private formatMessage(level: LogLevel, message: string, data?: any, type?: string): string {
     // 使用中国北京时区（东八区），显示为 "YYYY-MM-DD HH:mm:ss.SSS 北京时间"
     const date = new Date();
     const utc8Date = new Date(date.getTime() + 8 * 60 * 60 * 1000);
     const timestamp = utc8Date.toISOString().replace("T", " ").replace("Z", " 北京时间");
 
     const traceIdStr = this.traceId ? ` [TraceID: ${this.traceId}]` : "";
+    const typeStr = type ? ` [Type: ${type}]` : "";
     const dataStr = data ? ` | Data: ${JSON.stringify(data)}` : "";
 
-    return `[${timestamp}] [${level}]${traceIdStr} ${message}${dataStr}`;
+    return `[${timestamp}] ${typeStr} [${level}] ${traceIdStr} => ${message}${dataStr}`;
   }
 
   /**
    * 写入日志到文件
+   * @param formattedMessage 格式化后的日志消息
+   * @param type 日志类型
    */
-  private writeToFile(formattedMessage: string): void {
-    // 检查日期是否变化，如果变化则重新创建文件流
-    const today = this.getDateFolderName();
-    if (today !== this.currentDate) {
-      this.currentDate = today;
-      this.createLogStream();
-    }
-
-    if (this.fileStream) {
-      this.fileStream.write(formattedMessage + "\n");
-    }
+  private writeToFile(formattedMessage: string, type?: string): void {
+    const stream = this.getOrCreateLogStream(type);
+    stream.write(formattedMessage + "\n");
   }
 
   /**
    * 通用日志方法
+   * @param level 日志级别
+   * @param message 日志消息
+   * @param data 可选数据
+   * @param type 可选日志类型，用于区分不同的日志文件
    */
-  private log(level: LogLevel, message: string, data?: any): void {
-    const formattedMessage = this.formatMessage(level, message, data);
+  private log(level: LogLevel, message: string, data?: any, type?: string): void {
+    const formattedMessage = this.formatMessage(level, message, data, type);
 
     // 输出到控制台
     if (this.config.enableConsole) {
@@ -156,35 +157,47 @@ export class Logger {
     }
 
     // 写入到文件
-    this.writeToFile(formattedMessage);
+    this.writeToFile(formattedMessage, type);
   }
 
   /**
    * Debug级别日志
+   * @param message 日志消息
+   * @param data 可选数据
+   * @param type 可选日志类型，用于区分不同的日志文件
    */
-  debug(message: string, data?: any): void {
-    this.log(LogLevel.DEBUG, message, data);
+  debug(message: string, data?: any, type?: string): void {
+    this.log(LogLevel.DEBUG, message, data, type);
   }
 
   /**
    * Info级别日志
+   * @param message 日志消息
+   * @param data 可选数据
+   * @param type 可选日志类型，用于区分不同的日志文件
    */
-  info(message: string, data?: any): void {
-    this.log(LogLevel.INFO, message, data);
+  info(message: string, data?: any, type?: string): void {
+    this.log(LogLevel.INFO, message, data, type);
   }
 
   /**
    * Warn级别日志
+   * @param message 日志消息
+   * @param data 可选数据
+   * @param type 可选日志类型，用于区分不同的日志文件
    */
-  warn(message: string, data?: any): void {
-    this.log(LogLevel.WARN, message, data);
+  warn(message: string, data?: any, type?: string): void {
+    this.log(LogLevel.WARN, message, data, type);
   }
 
   /**
    * Error级别日志
+   * @param message 日志消息
+   * @param data 可选数据
+   * @param type 可选日志类型，用于区分不同的日志文件
    */
-  error(message: string, data?: any): void {
-    this.log(LogLevel.ERROR, message, data);
+  error(message: string, data?: any, type?: string): void {
+    this.log(LogLevel.ERROR, message, data, type);
   }
 
   /**
@@ -202,13 +215,15 @@ export class Logger {
   }
 
   /**
-   * 关闭文件流
+   * 关闭所有文件流
    */
   close(): void {
-    if (this.fileStream) {
-      this.fileStream.end();
-      this.fileStream = null;
+    // 关闭所有文件流
+    for (const [key, stream] of this.fileStreams.entries()) {
+      stream.end();
     }
+    this.fileStreams.clear();
+    this.streamDates.clear();
   }
 
   /**
@@ -263,7 +278,8 @@ export class Logger {
           const folderPath = path.join(this.config.logDir, folderName);
 
           // 如果是要删除的文件夹是当前使用的日志文件夹，跳过
-          if (folderName === this.currentDate) {
+          const currentDate = this.getDateFolderName();
+          if (folderName === currentDate) {
             continue;
           }
 

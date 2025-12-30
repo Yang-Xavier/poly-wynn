@@ -1,5 +1,5 @@
 import { getClobModule, PolymarketOrderResult } from "./module/clob";
-import { buyEnough, mustSell, sellExpired30MinPostions } from "./module/trade";
+import { buyEnough, mustSell } from "./module/trade";
 import {
   runIntervalFn,
   TOKEN_ACTION_ENUM,
@@ -7,19 +7,11 @@ import {
   getMarketSlug15Min,
   distanceToNextInterval,
   omit,
-  calcPriceRange,
   waitFor,
 } from "@crypto15min/utils/tools";
 import { findChance, watchPosition } from "@crypto15min/utils/strategy";
 import { getRedeemModule } from "./module/redeem";
-import {
-  getLoggerModule,
-  logError,
-  logInfo,
-  LogLevel,
-  logTrade,
-  setTraceId,
-} from "./module/logger";
+import { getLoggerModule, logError, logInfo, logTrade, setTraceId } from "./module/logger";
 import { getGlobalConfig } from "@crypto15min/utils/config";
 import { polyLiveDataClient } from "@crypto15min/utils/polyLiveData";
 import { polyMarketDataClient } from "@crypto15min/utils/polyMarketData";
@@ -27,7 +19,6 @@ import { getGammaDataModule, MarketResponse } from "./module/gammaData";
 import { getPriceToBeat } from "@crypto15min/utils/polymarketApi";
 import { getAccountBalance, logAccountBalance } from "@crypto15min/utils/account";
 import { OUTCOMES_ENUM } from "@crypto15min/utils/constans";
-import { cleanOldLogs } from "@crypto15min/utils/cleanLogs";
 
 const init = async () => {
   const clobModule = getClobModule();
@@ -43,7 +34,7 @@ export const runPolyWynn = async () => {
   const globalConfig = getGlobalConfig();
 
   runIntervalFn(async () => {
-    await cleanOldLogs();
+    getLoggerModule().cleanOldLogs(3);
 
     let buyCount = 0;
     const slugIntervalTimestamp = get15MinIntervalTimestamp();
@@ -100,7 +91,7 @@ export const runPolyWynn = async () => {
         Number(balance) * globalConfig.stratgegy.buyingAmountFactor
       );
       logInfo(`💰账户余额: ${balance}, 购买金额: ${positionAmount}`);
-      getLoggerModule().customLog("trade", LogLevel.INFO, `💰账户余额: ${balance}`);
+      logTrade("balance", null, balance);
 
       if (Number(balance) <= 1) {
         logInfo(`账户余额小于1, 跳过本局购买,等待下一轮开始...`);
