@@ -19,7 +19,7 @@ module.exports = {
       args: "src/app/server/index.ts",
       cwd: __dirname,
       env: {
-        PORT: process.env.PORT || 80,
+        PORT: process.env.PORT || 8080,
         NODE_ENV: process.env.NODE_ENV || "production",
       },
       out_file: "./logs/server-out.log",
