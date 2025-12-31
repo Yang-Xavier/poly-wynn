@@ -72,12 +72,16 @@ export class Logger {
 
   /**
    * 获取当前日期的文件夹名称（格式：YYYY-MM-DD）
+   * 按照北京时区（UTC+8）进行划分
    */
   private getDateFolderName(): string {
     const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
+    // 转换为北京时区（UTC+8）
+    const beijingTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+    // 使用 UTC 方法获取北京时区的年月日
+    const year = beijingTime.getUTCFullYear();
+    const month = String(beijingTime.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(beijingTime.getUTCDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   }
 
@@ -395,9 +399,24 @@ export class Logger {
       return 0;
     }
 
-    const currentDate = new Date();
-    currentDate.setHours(0, 0, 0, 0); // 设置为当天0点
-    const cutoffTime = currentDate.getTime() - days * 24 * 60 * 60 * 1000; // 截止时间戳
+    // 获取北京时区的当前日期（UTC+8）
+    const now = new Date();
+    const beijingTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+    // 设置为北京时区当天的0点（UTC时间）
+    const currentDate = new Date(
+      Date.UTC(
+        beijingTime.getUTCFullYear(),
+        beijingTime.getUTCMonth(),
+        beijingTime.getUTCDate(),
+        0,
+        0,
+        0,
+        0
+      )
+    );
+    // 转换回UTC时间戳（减去8小时偏移）
+    const beijingMidnight = currentDate.getTime() - 8 * 60 * 60 * 1000;
+    const cutoffTime = beijingMidnight - days * 24 * 60 * 60 * 1000; // 截止时间戳
 
     let deletedCount = 0;
 
@@ -419,16 +438,18 @@ export class Logger {
           continue;
         }
 
-        // 解析日期
+        // 解析日期（按北京时区解析）
         const year = parseInt(dateMatch[1], 10);
         const month = parseInt(dateMatch[2], 10) - 1; // 月份从0开始
         const day = parseInt(dateMatch[3], 10);
 
-        const folderDate = new Date(year, month, day);
-        folderDate.setHours(0, 0, 0, 0);
+        // 创建北京时区当天的0点（使用UTC时间表示）
+        const folderDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+        // 转换为UTC时间戳（减去8小时偏移，使其对应北京时区的0点）
+        const folderDateUTC = folderDate.getTime() - 8 * 60 * 60 * 1000;
 
         // 如果文件夹日期早于截止时间，删除该文件夹
-        if (folderDate.getTime() < cutoffTime) {
+        if (folderDateUTC < cutoffTime) {
           const folderPath = path.join(this.config.logDir, folderName);
 
           // 如果是要删除的文件夹是当前使用的日志文件夹，跳过
