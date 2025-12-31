@@ -75,7 +75,12 @@ class PolyMarketDataClient extends BaseLiveDataClient {
         this.cacheItem(asset_id, message);
         this.invokeCallback("watchOrderBookPriceChange", message);
         logData(
-          `[PolyMarketData] asset_id: ${asset_id}, bestAsks: ${asks?.length > 0 ? asks[asks.length - 1].price : "N/A"}, bestBids: ${bids?.length > 0 ? bids[bids.length - 1].price : "N/A"}`
+          (() => {
+            const now = Date.now();
+            const msgTimestamp = Number(message.timestamp);
+            const delay = now - msgTimestamp;
+            return `[PolyMarketData] asset_id: ${asset_id}, bestAsks: ${asks?.length > 0 ? asks[asks.length - 1].price : "N/A"}, bestBids: ${bids?.length > 0 ? bids[bids.length - 1].price : "N/A"}, delay: ${delay}ms`;
+          })()
         );
       }
     } catch (error) {

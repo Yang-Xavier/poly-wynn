@@ -84,7 +84,12 @@ class PolyLiveDataClient extends BaseLiveDataClient {
 
         if (message.topic === this.topic) {
           logData(
-            `symbol: ${message.payload.symbol}, price: ${message.payload.value}, timestamp: ${message.payload.timestamp}`
+            (() => {
+              const now = Date.now();
+              const msgTimestamp = Number(message.payload.timestamp);
+              const delay = now - msgTimestamp;
+              return `symbol: ${message.payload.symbol}, price: ${message.payload.value}, timestamp: ${message.payload.timestamp}, delay: ${delay}ms`;
+            })()
           );
           // 使用基础类统一的缓存策略，key 为 topic
           this.cacheItem(message.topic, message);
