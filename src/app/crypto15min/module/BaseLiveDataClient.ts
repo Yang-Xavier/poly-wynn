@@ -36,6 +36,11 @@ export abstract class BaseLiveDataClient {
   // 回调防抖参数缓存：key 表示回调名称，value 为最后一次调用的参数
   private callbackArgsCache: Map<string, any[]> = new Map();
 
+  // 消息处理防抖定时器
+  private messageTimer: NodeJS.Timeout | null = null;
+  // 缓存最新的消息数据
+  private latestMessageData: WebSocket.Data | null = null;
+
   constructor(options: {
     url: string;
     name: string;
@@ -94,7 +99,22 @@ export abstract class BaseLiveDataClient {
         });
 
         this.ws.on("message", (data: WebSocket.Data) => {
-          this.onMessage(data);
+          // 缓存最新的消息数据
+          this.latestMessageData = data;
+
+          // 清除之前的定时器
+          if (this.messageTimer) {
+            clearTimeout(this.messageTimer);
+          }
+
+          // 设置新的定时器，50ms 后执行最后一次调用
+          this.messageTimer = setTimeout(() => {
+            if (this.latestMessageData) {
+              this.onMessage(this.latestMessageData);
+              this.latestMessageData = null;
+            }
+            this.messageTimer = null;
+          }, 50);
         });
 
         this.ws.on("error", (error: Error) => {
@@ -316,6 +336,13 @@ export abstract class BaseLiveDataClient {
       logInfo(`[${this.name}] WebSocket 已是断开状态（主动关闭）`);
       return;
     }
+
+    // 清理消息防抖定时器
+    if (this.messageTimer) {
+      clearTimeout(this.messageTimer);
+      this.messageTimer = null;
+    }
+    this.latestMessageData = null;
 
     if (this.ws) {
       this.ws.close();

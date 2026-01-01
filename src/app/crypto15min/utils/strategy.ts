@@ -103,60 +103,60 @@ export const findChance = async (
           }
         });
 
-        polyLiveDataClient.onWatchPriceChange((currentPrice, historyPriceList) => {
-          try {
-            if (resolved) {
-              return;
-            }
-            const distance = distanceToNextInterval(slugIntervalTimestamp);
-            if (distance <= 0) {
-              resolved = true;
-              resolve(null);
-            }
+        // polyLiveDataClient.onWatchPriceChange((currentPrice, historyPriceList) => {
+        //   try {
+        //     if (resolved) {
+        //       return;
+        //     }
+        //     const distance = distanceToNextInterval(slugIntervalTimestamp);
+        //     if (distance <= 0) {
+        //       resolved = true;
+        //       resolve(null);
+        //     }
 
-            const upBestAsk = polyMarketDataClient.getBestAskByAssetId(outcomes[OUTCOMES_ENUM.Up]);
-            const downBestAsk = polyMarketDataClient.getBestAskByAssetId(
-              outcomes[OUTCOMES_ENUM.Down]
-            );
-            const tailSweepResult = decideTailSweep(
-              {
-                ticks: historyPriceList,
-                intervalStartPrice: priceToBeat,
-                timeToExpiryMs: distance,
-                upBestAsk,
-                downBestAsk,
-              },
-              globalConfig.stratgegy.tailSweepConfig
-            );
+        //     const upBestAsk = polyMarketDataClient.getBestAskByAssetId(outcomes[OUTCOMES_ENUM.Up]);
+        //     const downBestAsk = polyMarketDataClient.getBestAskByAssetId(
+        //       outcomes[OUTCOMES_ENUM.Down]
+        //     );
+        //     const tailSweepResult = decideTailSweep(
+        //       {
+        //         ticks: historyPriceList,
+        //         intervalStartPrice: priceToBeat,
+        //         timeToExpiryMs: distance,
+        //         upBestAsk,
+        //         downBestAsk,
+        //       },
+        //       globalConfig.stratgegy.tailSweepConfig
+        //     );
 
-            const { isDiffEnough, avaliableValue } = calcDiffEnough(
-              tailSweepResult.winProbability,
-              0.95,
-              [0.047, 0.0001],
-              distance
-            );
-            logData(
-              `[-- 扫尾盘数据策略数据 (💰价格变动触发) --] ${JSON.stringify({ priceToBeat, currentPrice, isDiffEnough, avaliableValue, ...tailSweepResult })}`
-            );
+        //     const { isDiffEnough, avaliableValue } = calcDiffEnough(
+        //       tailSweepResult.winProbability,
+        //       0.95,
+        //       [0.047, 0.0001],
+        //       distance
+        //     );
+        //     logData(
+        //       `[-- 扫尾盘数据策略数据 (💰价格变动触发) --] ${JSON.stringify({ priceToBeat, currentPrice, isDiffEnough, avaliableValue, ...tailSweepResult })}`
+        //     );
 
-            if (
-              tailSweepResult.shouldBet &&
-              upBestAsk &&
-              downBestAsk &&
-              isDiffEnough &&
-              tailSweepResult.impliedProbability >= globalConfig.stratgegy.bestAskThreshold
-            ) {
-              resolved = true;
-              resolve({
-                tokenId: outcomes[tailSweepResult.side],
-                bestAsk: tailSweepResult.side === OUTCOMES_ENUM.Up ? upBestAsk : downBestAsk,
-                outcome: tailSweepResult.side,
-                cryptoPrice: currentPrice,
-                priceToBeat,
-              });
-            }
-          } catch (e) {}
-        });
+        //     if (
+        //       tailSweepResult.shouldBet &&
+        //       upBestAsk &&
+        //       downBestAsk &&
+        //       isDiffEnough &&
+        //       tailSweepResult.impliedProbability >= globalConfig.stratgegy.bestAskThreshold
+        //     ) {
+        //       resolved = true;
+        //       resolve({
+        //         tokenId: outcomes[tailSweepResult.side],
+        //         bestAsk: tailSweepResult.side === OUTCOMES_ENUM.Up ? upBestAsk : downBestAsk,
+        //         outcome: tailSweepResult.side,
+        //         cryptoPrice: currentPrice,
+        //         priceToBeat,
+        //       });
+        //     }
+        //   } catch (e) {}
+        // });
       } catch (e) {
         logInfo(`findChanceByWatchPrice failed! ${e}`);
         resolved = true;
@@ -202,40 +202,40 @@ export const watchPosition = async (
         }
       });
 
-      polyLiveDataClient.onWatchPriceChange((currentPrice, historyPriceList) => {
-        if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) {
-          return;
-        }
-        const currentOutCome =
-          currentPrice.value - priceToBeat >= 0 ? OUTCOMES_ENUM.Up : OUTCOMES_ENUM.Down;
-        const upBestAsk = polyMarketDataClient.getBestAskByAssetId(outcomes[OUTCOMES_ENUM.Up]);
-        const downBestAsk = polyMarketDataClient.getBestAskByAssetId(outcomes[OUTCOMES_ENUM.Down]);
-        const tailSweepResult = decideTailSweep(
-          {
-            ticks: historyPriceList,
-            intervalStartPrice: priceToBeat,
-            timeToExpiryMs: distanceToNextInterval(slugIntervalTimestamp),
-            upBestAsk,
-            downBestAsk,
-          },
-          globalConfig.stratgegy.tailSweepConfig
-        );
+      //   polyLiveDataClient.onWatchPriceChange((currentPrice, historyPriceList) => {
+      //     if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) {
+      //       return;
+      //     }
+      //     const currentOutCome =
+      //       currentPrice.value - priceToBeat >= 0 ? OUTCOMES_ENUM.Up : OUTCOMES_ENUM.Down;
+      //     const upBestAsk = polyMarketDataClient.getBestAskByAssetId(outcomes[OUTCOMES_ENUM.Up]);
+      //     const downBestAsk = polyMarketDataClient.getBestAskByAssetId(outcomes[OUTCOMES_ENUM.Down]);
+      //     const tailSweepResult = decideTailSweep(
+      //       {
+      //         ticks: historyPriceList,
+      //         intervalStartPrice: priceToBeat,
+      //         timeToExpiryMs: distanceToNextInterval(slugIntervalTimestamp),
+      //         upBestAsk,
+      //         downBestAsk,
+      //       },
+      //       globalConfig.stratgegy.tailSweepConfig
+      //     );
 
-        if (currentOutCome !== outcome && tailSweepResult.winProbability < 0.95) {
-          logData(
-            `[买入后价格检查(方向相反💰)] outcoum: ${outcome}, currentOutCome: ${currentOutCome}, priceToBeat: ${priceToBeat}, currentPrice: ${currentPrice.value}, tailSweepResult: ${JSON.stringify(tailSweepResult)}`
-          );
-          if (tailSweepResult.winProbability < 0.5) {
-            logData(`[---- 胜率低于50%，立即卖出 ----]`);
-            resolved = true;
-            resolve(TOKEN_ACTION_ENUM.sell);
-          }
-        } else {
-          logData(
-            `[买入后价格检查(方向一致💰)] outcoum: ${outcome}, priceToBeat: ${priceToBeat}, currentPrice: ${currentPrice.value}, tailSweepResult: ${JSON.stringify(tailSweepResult)}`
-          );
-        }
-      });
+      //     if (currentOutCome !== outcome && tailSweepResult.winProbability < 0.95) {
+      //       logData(
+      //         `[买入后价格检查(方向相反💰)] outcoum: ${outcome}, currentOutCome: ${currentOutCome}, priceToBeat: ${priceToBeat}, currentPrice: ${currentPrice.value}, tailSweepResult: ${JSON.stringify(tailSweepResult)}`
+      //       );
+      //       if (tailSweepResult.winProbability < 0.5) {
+      //         logData(`[---- 胜率低于50%，立即卖出 ----]`);
+      //         resolved = true;
+      //         resolve(TOKEN_ACTION_ENUM.sell);
+      //       }
+      //     } else {
+      //       logData(
+      //         `[买入后价格检查(方向一致💰)] outcoum: ${outcome}, priceToBeat: ${priceToBeat}, currentPrice: ${currentPrice.value}, tailSweepResult: ${JSON.stringify(tailSweepResult)}`
+      //       );
+      //     }
+      //   });
     }),
     timeout > 0 ? timeout : 0
   );
