@@ -1,4 +1,4 @@
-import { logInfo } from "../module/logger";
+import { polyLiveDataClient } from "./polyLiveData";
 
 /**
  * Pyth 价格信息
@@ -66,6 +66,8 @@ export interface PythPriceUpdate {
 interface PythCachedItem {
   data: PythPriceUpdate;
   cachedAt: number;
+  receivedAt: number; // 数据接收时间（从服务器收到的时间）
+  parsedAt: number; // 数据解析完成时间
 }
 
 /**
@@ -131,7 +133,6 @@ export class PythClient {
     // 构建 URL
     const priceIds = options.priceIds.map((id) => `ids[]=${encodeURIComponent(id)}`).join("&");
     this.url = `https://hermes.pyth.network/v2/updates/price/stream?${priceIds}`;
-
     this.name = options.name ?? "PythClient";
     this.maxReconnectAttempts = options.maxReconnectAttempts ?? 5;
     this.reconnectDelay = options.reconnectDelay ?? 3000;
@@ -150,7 +151,7 @@ export class PythClient {
    */
   async connect(): Promise<void> {
     if (this.isConnected) {
-      logInfo(`[${this.name}] 已连接，跳过重复连接`);
+      console.log(`[${this.name}] 已连接，跳过重复连接`);
       return;
     }
 
@@ -181,7 +182,7 @@ export class PythClient {
             this.reader = response.body.getReader();
             const decoder = new TextDecoder();
 
-            logInfo(`[${this.name}] 连接已建立`);
+            console.log(`[${this.name}] 连接已建立`);
 
             // 开始读取流数据
             this.readStream(decoder);
@@ -191,11 +192,11 @@ export class PythClient {
           .catch((error) => {
             this.isConnected = false;
             if (error.name === "AbortError") {
-              logInfo(`[${this.name}] 连接被中止`);
+              console.log(`[${this.name}] 连接被中止`);
               return;
             }
 
-            logInfo(`[${this.name}] 连接失败: ${error}`);
+            console.log(`[${this.name}] 连接失败: ${error}`);
 
             if (this.reconnectAttempts === 0) {
               reject(error);
@@ -207,7 +208,7 @@ export class PythClient {
             }
           });
       } catch (error) {
-        logInfo(`[${this.name}] 连接异常: ${error}`);
+        console.log(`[${this.name}] 连接异常: ${error}`);
         reject(error);
       }
     });
@@ -226,25 +227,28 @@ export class PythClient {
         const { done, value } = await this.reader.read();
 
         if (done) {
-          logInfo(`[${this.name}] 流读取完成`);
+          console.log(`[${this.name}] 流读取完成`);
           this.handleDisconnect();
           break;
         }
+
+        // 记录数据块接收时间（从服务器接收到的时间）
+        const chunkReceivedAt = Date.now();
 
         // 解码数据并追加到缓冲区
         const chunk = decoder.decode(value, { stream: true });
         this.buffer += chunk;
 
-        // 处理缓冲区中的数据（SSE 格式）
-        this.processBuffer();
+        // 处理缓冲区中的数据（SSE 格式），传入接收时间
+        this.processBuffer(chunkReceivedAt);
       }
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
-        logInfo(`[${this.name}] 流读取被中止`);
+        console.log(`[${this.name}] 流读取被中止`);
         return;
       }
 
-      logInfo(`[${this.name}] 流读取错误: ${error}`);
+      console.log(`[${this.name}] 流读取错误: ${error}`);
       this.handleDisconnect();
     }
   }
@@ -253,7 +257,7 @@ export class PythClient {
    * 处理缓冲区中的数据（SSE 格式）
    * SSE 格式：每行以 "data:" 开头，后跟 JSON 数据
    */
-  private processBuffer(): void {
+  private processBuffer(chunkReceivedAt: number): void {
     const lines = this.buffer.split("\n");
 
     // 保留最后一行（可能不完整），处理其他行
@@ -277,9 +281,13 @@ export class PythClient {
 
         try {
           const data: PythPriceUpdate = JSON.parse(jsonStr);
-          this.handleData(data);
+          const parsedAt = Date.now();
+
+          this.handleData(data, chunkReceivedAt, parsedAt);
         } catch (error) {
-          logInfo(`[${this.name}] JSON 解析失败: ${error}, 数据: ${jsonStr.substring(0, 100)}...`);
+          console.log(
+            `[${this.name}] JSON 解析失败: ${error}, 数据: ${jsonStr.substring(0, 100)}...`
+          );
         }
       }
     }
@@ -288,16 +296,16 @@ export class PythClient {
   /**
    * 处理接收到的数据
    */
-  private handleData(data: PythPriceUpdate): void {
-    // 缓存数据
-    this.cacheItem(data);
+  private handleData(data: PythPriceUpdate, receivedAt: number, parsedAt: number): void {
+    // 缓存数据（包含时间戳信息）
+    this.cacheItem(data, receivedAt, parsedAt);
 
-    // 执行回调
+    // 立即执行回调，不延迟
     if (this.dataCallback) {
       try {
         this.dataCallback(data);
       } catch (error) {
-        logInfo(`[${this.name}] 回调执行异常: ${error}`);
+        console.log(`[${this.name}] 回调执行异常: ${error}`);
       }
     }
   }
@@ -305,10 +313,12 @@ export class PythClient {
   /**
    * 缓存数据项
    */
-  private cacheItem(data: PythPriceUpdate): void {
+  private cacheItem(data: PythPriceUpdate, receivedAt: number, parsedAt: number): void {
     this.cache.push({
       data,
       cachedAt: Date.now(),
+      receivedAt,
+      parsedAt,
     });
 
     // 如果超出最大缓存数量，移除最旧的数据
@@ -327,7 +337,7 @@ export class PythClient {
     if (!this.isManualDisconnect) {
       this.attemptReconnect();
     } else {
-      logInfo(`[${this.name}] 主动断开连接，不进行重连`);
+      console.log(`[${this.name}] 主动断开连接，不进行重连`);
     }
   }
 
@@ -336,29 +346,29 @@ export class PythClient {
    */
   private attemptReconnect(): void {
     if (this.isManualDisconnect) {
-      logInfo(`[${this.name}] 已主动断开，不再尝试重连`);
+      console.log(`[${this.name}] 已主动断开，不再尝试重连`);
       return;
     }
 
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      logInfo(`[${this.name}] 达到最大重连次数，停止重连`);
+      console.log(`[${this.name}] 达到最大重连次数，停止重连`);
       return;
     }
 
     this.reconnectAttempts++;
-    logInfo(
+    console.log(
       `[${this.name}] ${this.reconnectDelay / 1000}秒后尝试重连 (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`
     );
 
     setTimeout(() => {
       // 在真正重连前再次检查是否已经被主动断开
       if (this.isManualDisconnect) {
-        logInfo(`[${this.name}] 已主动断开，取消本次重连`);
+        console.log(`[${this.name}] 已主动断开，取消本次重连`);
         return;
       }
 
       this.connect().catch((error) => {
-        logInfo(`[${this.name}] 重连失败: ${error}`);
+        console.log(`[${this.name}] 重连失败: ${error}`);
       });
     }, this.reconnectDelay);
   }
@@ -393,13 +403,13 @@ export class PythClient {
     this.isManualDisconnect = true;
 
     if (!this.isConnected) {
-      logInfo(`[${this.name}] 已是断开状态（主动关闭）`);
+      console.log(`[${this.name}] 已是断开状态（主动关闭）`);
       return;
     }
 
     this.cleanup();
     this.isConnected = false;
-    logInfo(`[${this.name}] 连接已断开`);
+    console.log(`[${this.name}] 连接已断开`);
   }
 
   /**
@@ -424,6 +434,16 @@ export class PythClient {
       return null;
     }
     return this.cache[this.cache.length - 1].data;
+  }
+
+  /**
+   * 获取最新缓存项的完整信息（包含时间戳）
+   */
+  getLatestCachedItem(): PythCachedItem | null {
+    if (this.cache.length === 0) {
+      return null;
+    }
+    return this.cache[this.cache.length - 1];
   }
 
   /**
@@ -467,79 +487,210 @@ export function calculatePythConfidence(priceInfo: PythPriceInfo): number {
 
 // 测试用例：可以直接用 bun 命令运行
 // 使用方法: bun src/app/crypto15min/utils/pythClient.ts
-// @ts-expect-error - Bun 支持 import.meta.main，但 TypeScript CommonJS 配置不支持
-if (import.meta.main) {
-  // 默认的价格 ID（BTC/USD）
-  const PRICE_ID = "0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43";
 
-  const client = new PythClient({
-    priceIds: [PRICE_ID],
-    maxReconnectAttempts: 5,
-    reconnectDelay: 3000,
-    maxCacheSize: 100,
-    name: "PythPriceTest",
-  });
+// 默认的价格 ETH/USD
+const PRICE_ID = "0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace";
+// Chainlink 交易对符号
+const CHAINLINK_SYMBOL = "eth/usd";
 
-  // 设置回调函数，打印实时价格和延迟
-  client.setDataCallback((data: PythPriceUpdate) => {
+// 存储最新的价格数据，用于对比
+let latestPythPrice: { price: number; timestamp: number } | null = null;
+let latestChainlinkPrice: { price: number; timestamp: number } | null = null;
+
+/**
+ * 对比两个价格源的价格
+ */
+const comparePrices = () => {
+  if (!latestPythPrice || !latestChainlinkPrice) {
+    return;
+  }
+
+  const priceDiff = latestPythPrice.price - latestChainlinkPrice.price;
+  const priceDiffPercent = (priceDiff / latestChainlinkPrice.price) * 100;
+  const timeDiff = latestPythPrice.timestamp - latestChainlinkPrice.timestamp;
+
+  console.log("\n=== 价格对比 ===");
+  console.log(
+    `Pyth 价格: ${latestPythPrice.price.toFixed(8)} (时间戳: ${latestPythPrice.timestamp})`
+  );
+  console.log(
+    `Chainlink 价格: ${latestChainlinkPrice.price.toFixed(8)} (时间戳: ${latestChainlinkPrice.timestamp})`
+  );
+  console.log(
+    `价格差异: ${priceDiff.toFixed(8)} (${priceDiffPercent > 0 ? "+" : ""}${priceDiffPercent.toFixed(4)}%)`
+  );
+  console.log(
+    `时间戳差异 (Pyth - Chainlink): ${timeDiff.toFixed(2)}ms ${timeDiff > 0 ? "(Pyth 更晚)" : timeDiff < 0 ? "(Chainlink 更晚)" : "(相同)"}`
+  );
+  console.log("===================\n");
+};
+
+// 创建 Pyth 客户端
+const pythClient = new PythClient({
+  priceIds: [PRICE_ID],
+  maxReconnectAttempts: 5,
+  reconnectDelay: 3000,
+  maxCacheSize: 100,
+  name: "PythPriceTest",
+});
+
+// 设置 Pyth 回调函数
+pythClient.setDataCallback((data: PythPriceUpdate) => {
+  const callbackStartTime = Date.now();
+  const cacheItem = pythClient.getLatestCachedItem();
+
+  // 处理每个价格数据
+  for (const priceData of data.parsed) {
+    // 计算实际价格
+    const actualPrice = calculatePythPrice(priceData.price);
+    const emaPrice = calculatePythPrice(priceData.ema_price);
+    const confidence = calculatePythConfidence(priceData.price);
+
+    // 更新时间戳
+    const publishTimeMs = priceData.price.publish_time * 1000;
+    const receivedAt = cacheItem?.receivedAt || callbackStartTime;
+    const parsedAt = cacheItem?.parsedAt || callbackStartTime;
+    const callbackAt = callbackStartTime;
     const now = Date.now();
-    const currentTime = Math.floor(now / 1000); // 转换为秒
 
-    // 处理每个价格数据
-    for (const priceData of data.parsed) {
-      // 计算实际价格
-      const actualPrice = calculatePythPrice(priceData.price);
-      const emaPrice = calculatePythPrice(priceData.ema_price);
-      const confidence = calculatePythConfidence(priceData.price);
+    // 更新最新 Pyth 价格
+    latestPythPrice = {
+      price: actualPrice,
+      timestamp: publishTimeMs,
+    };
 
-      // 计算延迟（当前时间 - 发布时间，单位：毫秒）
-      const publishTimeMs = priceData.price.publish_time * 1000;
-      const delayMs = now - publishTimeMs;
+    // 计算各种延迟
+    const publishToReceivedDelay = receivedAt - publishTimeMs;
+    const receivedToParsedDelay = parsedAt - receivedAt;
+    const parsedToCallbackDelay = callbackAt - parsedAt;
+    const totalDelay = now - publishTimeMs;
 
-      // 格式化时间
-      const publishTime = new Date(publishTimeMs).toISOString();
-      const receiveTime = new Date(now).toISOString();
+    // 格式化时间
+    const publishTime = new Date(publishTimeMs).toISOString();
+    const receiveTime = new Date(receivedAt).toISOString();
+    const parseTime = new Date(parsedAt).toISOString();
+    const callbackTime = new Date(callbackAt).toISOString();
 
-      // 打印价格信息
-      console.log("\n=== Pyth 价格更新 ===");
-      console.log(`价格 ID: ${priceData.id}`);
-      console.log(`实时价格: ${actualPrice.toFixed(8)}`);
-      console.log(`EMA 价格: ${emaPrice.toFixed(8)}`);
-      console.log(`置信区间: ${confidence.toFixed(8)}`);
-      console.log(`发布时间: ${publishTime} (Unix: ${priceData.price.publish_time})`);
-      console.log(`接收时间: ${receiveTime}`);
-      console.log(`延迟: ${delayMs}ms (${(delayMs / 1000).toFixed(2)}s)`);
-      console.log(`Slot: ${priceData.metadata.slot}`);
-      console.log(`缓存数量: ${client.getCacheSize()}`);
-      console.log("===================\n");
+    // 打印 Pyth 价格信息
+    console.log("\n=== Pyth 价格更新 ===");
+
+    console.log(`价格 ID: ${priceData.id}`);
+    console.log(`实时价格: ${actualPrice.toFixed(8)}`);
+    console.log(`EMA 价格: ${emaPrice.toFixed(8)}`);
+    console.log(`置信区间: ${confidence.toFixed(8)}`);
+    console.log(`\n时间戳分析:`);
+    console.log(`  发布时间: ${publishTime} (Unix: ${priceData.price.publish_time})`);
+    console.log(`  接收时间: ${receiveTime}`);
+    console.log(`  解析时间: ${parseTime}`);
+    console.log(`  回调时间: ${callbackTime}`);
+    console.log(`\n延迟分析:`);
+    console.log(`  发布→接收延迟: ${publishToReceivedDelay.toFixed(2)}ms (网络传输)`);
+    console.log(`  接收→解析延迟: ${receivedToParsedDelay.toFixed(2)}ms (数据处理)`);
+    console.log(`  解析→回调延迟: ${parsedToCallbackDelay.toFixed(2)}ms (回调调度)`);
+    console.log(`  总延迟: ${totalDelay.toFixed(2)}ms (${(totalDelay / 1000).toFixed(2)}s)`);
+    console.log(`\n其他信息:`);
+    console.log(`  Slot: ${priceData.metadata.slot}`);
+    console.log(
+      `  证明可用时间: ${new Date(priceData.metadata.proof_available_time * 1000).toISOString()}`
+    );
+    console.log(`  缓存数量: ${pythClient.getCacheSize()}`);
+
+    // 在回调函数中直接打印价格差异
+    if (latestChainlinkPrice) {
+      const priceDiff = actualPrice - latestChainlinkPrice.price;
+      const priceDiffPercent = (priceDiff / latestChainlinkPrice.price) * 100;
+      const timeDiff = publishTimeMs - latestChainlinkPrice.timestamp;
+
+      console.log(`\n价格对比 (Pyth vs Chainlink):`);
+      console.log(`  Pyth 价格: ${actualPrice.toFixed(8)}`);
+      console.log(`  Chainlink 价格: ${latestChainlinkPrice.price.toFixed(8)}`);
+      console.log(
+        `  价格差异: ${priceDiff.toFixed(8)} (${priceDiffPercent > 0 ? "+" : ""}${priceDiffPercent.toFixed(4)}%)`
+      );
+      console.log(
+        `  时间戳差异 (Pyth - Chainlink): ${timeDiff.toFixed(2)}ms ${timeDiff > 0 ? "(Pyth 更晚)" : timeDiff < 0 ? "(Chainlink 更晚)" : "(相同)"}`
+      );
+    } else {
+      console.log(`\n价格对比: Chainlink 价格尚未更新，无法对比`);
     }
-  });
 
-  // 连接并启动
-  console.log(`正在连接到 Pyth Network...`);
-  console.log(`价格 ID: ${PRICE_ID}`);
-  console.log(`按 Ctrl+C 退出\n`);
+    console.log("===================\n");
 
-  client
-    .connect()
-    .then(() => {
-      console.log("连接成功，开始接收价格数据...\n");
-    })
-    .catch((error) => {
-      console.error("连接失败:", error);
-      process.exit(1);
-    });
+    // 进行价格对比（保留原有函数调用）
+    comparePrices();
+  }
+});
 
-  // 处理退出信号
-  process.on("SIGINT", () => {
-    console.log("\n\n正在断开连接...");
-    client.disconnect();
-    process.exit(0);
-  });
+// 设置 Chainlink (PolyLiveData) 回调函数
+polyLiveDataClient.onWatchPriceChange((price, historyPriceList) => {
+  const now = Date.now();
+  const delay = now - price.timestamp;
 
-  process.on("SIGTERM", () => {
-    console.log("\n\n正在断开连接...");
-    client.disconnect();
-    process.exit(0);
-  });
-}
+  // 更新最新 Chainlink 价格
+  latestChainlinkPrice = {
+    price: price.value,
+    timestamp: price.timestamp,
+  };
+
+  // 打印 Chainlink 价格信息
+  console.log("\n=== Chainlink 价格更新 ===");
+  console.log(`价格: ${price.value.toFixed(8)}`);
+  console.log(`时间戳: ${price.timestamp} (${new Date(price.timestamp).toISOString()})`);
+  console.log(`延迟: ${delay}ms`);
+  console.log(`历史价格数量: ${historyPriceList.length}`);
+
+  // 在回调函数中直接打印价格差异
+  if (latestPythPrice) {
+    const priceDiff = latestPythPrice.price - price.value;
+    const priceDiffPercent = (priceDiff / price.value) * 100;
+    const timeDiff = latestPythPrice.timestamp - price.timestamp;
+
+    console.log(`\n价格对比 (Chainlink vs Pyth):`);
+    console.log(`  Chainlink 价格: ${price.value.toFixed(8)}`);
+    console.log(`  Pyth 价格: ${latestPythPrice.price.toFixed(8)}`);
+    console.log(
+      `  价格差异: ${priceDiff.toFixed(8)} (${priceDiffPercent > 0 ? "+" : ""}${priceDiffPercent.toFixed(4)}%)`
+    );
+    console.log(
+      `  时间戳差异 (Pyth - Chainlink): ${timeDiff.toFixed(2)}ms ${timeDiff > 0 ? "(Pyth 更晚)" : timeDiff < 0 ? "(Chainlink 更晚)" : "(相同)"}`
+    );
+  } else {
+    console.log(`\n价格对比: Pyth 价格尚未更新，无法对比`);
+  }
+
+  console.log("===================\n");
+
+  // 进行价格对比（保留原有函数调用）
+  comparePrices();
+});
+
+// 连接并启动两个客户端
+console.log(`正在连接到 Pyth Network 和 Polymarket Chainlink...`);
+console.log(`Pyth 价格 ID: ${PRICE_ID}`);
+console.log(`Chainlink 交易对: ${CHAINLINK_SYMBOL}`);
+console.log(`按 Ctrl+C 退出\n`);
+
+// 同时连接两个客户端
+Promise.all([
+  pythClient.connect().then(() => {
+    console.log("Pyth Network 连接成功，开始接收价格数据...\n");
+  }),
+  polyLiveDataClient.connect().then(() => {
+    console.log("Polymarket Chainlink 连接成功，开始订阅价格数据...\n");
+    polyLiveDataClient.subscribeCryptoPrices(CHAINLINK_SYMBOL);
+  }),
+]).catch((error) => {
+  console.error("连接失败:", error);
+  process.exit(1);
+});
+
+// 处理退出信号
+const cleanup = () => {
+  console.log("\n\n正在断开连接...");
+  pythClient.disconnect();
+  polyLiveDataClient.disconnect();
+  process.exit(0);
+};
+
+process.on("SIGINT", cleanup);
+process.on("SIGTERM", cleanup);
