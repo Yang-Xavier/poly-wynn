@@ -1,53 +1,103 @@
 import * as path from "path";
-import { ParsedLog, LogFileType, LogChunk } from "../types";
-import { parseLogFile, getLogFilePath } from "../utils/logParser";
+import * as fs from "fs";
+import { ParsedLog, LogChunk } from "../types";
+import {
+  parseLogFile,
+  getLogFilePath,
+  getTraceIdDirs,
+  getLogFilesInDir,
+} from "../utils/logParser";
 import { getTodayDateString, isValidDateString } from "../utils/dateUtils";
+
+/**
+ * 获取项目根目录
+ */
+function getProjectRoot(): string {
+  let currentDir = __dirname;
+  const rootDir = path.parse(currentDir).root;
+  
+  while (currentDir !== rootDir) {
+    const logsPath = path.join(currentDir, "logs");
+    if (fs.existsSync(logsPath)) {
+      return currentDir;
+    }
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      break;
+    }
+    currentDir = parentDir;
+  }
+  
+  const cwd = process.cwd();
+  const cwdLogsPath = path.join(cwd, "logs");
+  if (fs.existsSync(cwdLogsPath)) {
+    return cwd;
+  }
+  
+  if (__dirname.includes("dist")) {
+    return path.resolve(__dirname, "../..");
+  }
+  
+  return path.resolve(__dirname, "../../../..");
+}
 
 /**
  * 日志服务层
  */
 
 /**
- * 获取指定日期的 trade 日志
+ * 获取指定 appName 和 date 的所有 traceId 的 trade 日志（聚合）
  */
-export function getTradeLogs(date?: string): ParsedLog[] {
+export function getTradeLogs(appName: string, date?: string): ParsedLog[] {
   const targetDate = date && isValidDateString(date) ? date : getTodayDateString();
-  const filePath = getLogFilePath(targetDate, "trade");
-  const logs = parseLogFile(filePath);
-  return logs;
+  const traceIdDirs = getTraceIdDirs(appName, targetDate);
+  
+  const allLogs: ParsedLog[] = [];
+  
+  // 遍历所有 traceId 目录，读取 trade.log
+  for (const traceId of traceIdDirs) {
+    const tradeLogPath = getLogFilePath(appName, targetDate, traceId, "trade");
+    const logs = parseLogFile(tradeLogPath);
+    allLogs.push(...logs);
+  }
+  
+  // 按时间戳排序
+  allLogs.sort((a, b) => {
+    if (a.timestamp && b.timestamp) {
+      return a.timestamp.localeCompare(b.timestamp);
+    }
+    return 0;
+  });
+  
+  return allLogs;
 }
 
 /**
- * 根据 traceId 筛选指定日期的日志
- * 从 data 和 default 日志文件中筛选
+ * 根据 appName, date, traceId 获取所有类型的日志文件
  */
-export function getLogsByTraceId(date: string, traceId: string): LogChunk[] {
+export function getLogsByTraceId(
+  appName: string,
+  date: string,
+  traceId: string
+): LogChunk[] {
   if (!isValidDateString(date)) {
     return [];
   }
 
+  const projectRoot = getProjectRoot();
+  const traceIdDir = path.join(projectRoot, "logs", appName, date, traceId);
+  
+  const logFiles = getLogFilesInDir(traceIdDir);
   const chunks: LogChunk[] = [];
 
-  // 读取 data 日志
-  const dataFilePath = getLogFilePath(date, "data");
-  const dataLogs = parseLogFile(dataFilePath);
-  const filteredDataLogs = dataLogs.filter((log) => log.traceId === traceId);
-  if (filteredDataLogs.length > 0) {
-    chunks.push({
-      type: "data",
-      logs: filteredDataLogs,
-    });
-  }
-
-  // 读取 default 日志
-  const defaultFilePath = getLogFilePath(date, "default");
-  const defaultLogs = parseLogFile(defaultFilePath);
-  const filteredDefaultLogs = defaultLogs.filter((log) => log.traceId === traceId);
-  if (filteredDefaultLogs.length > 0) {
-    chunks.push({
-      type: "default",
-      logs: filteredDefaultLogs,
-    });
+  for (const logFile of logFiles) {
+    const logs = parseLogFile(logFile.path);
+    if (logs.length > 0) {
+      chunks.push({
+        type: logFile.name,
+        logs: logs,
+      });
+    }
   }
 
   return chunks;
@@ -140,11 +190,9 @@ function formatTradeLog(rawLine: string): string {
 }
 
 /**
- * 为 trade 日志添加链接
+ * 格式化 trade 日志（不添加链接，链接在控制器中添加）
  */
-export function addLinkToTradeLog(log: ParsedLog, baseUrl: string = ""): string {
-  const link = `${baseUrl}/log?date=${log.date}&traceId=${encodeURIComponent(log.traceId)}`;
-  const formattedLog = formatTradeLog(log.rawLine);
-  return `${formattedLog} <a href="${link}">查看详情</a>`;
+export function formatTradeLogForDisplay(log: ParsedLog): string {
+  return formatTradeLog(log.rawLine);
 }
 

@@ -99,23 +99,54 @@ export function parseLogFile(filePath: string): ParsedLog[] {
 }
 
 /**
- * 获取日志文件路径
+ * 获取日志文件路径（新结构：/logs/{appName}/{date}/{traceId}/{type}.log）
  */
 export function getLogFilePath(
+  appName: string,
   date: string,
-  logType: LogFileType,
+  traceId: string,
+  logType: string,
   baseDir?: string
 ): string {
   const projectRoot = baseDir || getProjectRoot();
   const logsDir = path.join(projectRoot, "logs");
-  
-  const fileName =
-    logType === "default"
-      ? "crypto15min.log"
-      : logType === "trade"
-        ? "crypto15min_trade.log"
-        : "crypto15min_data.log";
+  const fileName = `${logType}.log`;
+  return path.join(logsDir, appName, date, traceId, fileName);
+}
 
-  return path.join(logsDir, date, fileName);
+/**
+ * 获取指定 appName 和 date 下所有 traceId 目录
+ */
+export function getTraceIdDirs(appName: string, date: string, baseDir?: string): string[] {
+  const projectRoot = baseDir || getProjectRoot();
+  const dateDir = path.join(projectRoot, "logs", appName, date);
+  
+  if (!fs.existsSync(dateDir)) {
+    return [];
+  }
+
+  const entries = fs.readdirSync(dateDir, { withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort(); // 按字母顺序排序
+}
+
+/**
+ * 获取指定目录下的所有 log 文件
+ */
+export function getLogFilesInDir(dirPath: string): Array<{ name: string; path: string }> {
+  if (!fs.existsSync(dirPath)) {
+    return [];
+  }
+
+  const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".log"))
+    .map((entry) => ({
+      name: entry.name.replace(".log", ""),
+      path: path.join(dirPath, entry.name),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 

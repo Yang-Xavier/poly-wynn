@@ -5,9 +5,9 @@ const router = Router();
 
 /**
  * Trade 路由
- * GET /trade?date=yyyy-mm-dd
+ * GET /:appName/trade?date=yyyy-mm-dd
  */
-router.get("/", getTradeLogsHandler);
+router.get("/:appName/trade", getTradeLogsHandler);
 
 export default router;
 

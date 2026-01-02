@@ -63,13 +63,13 @@ app.get("/", (req: Request, res: Response) => {
 <body>
   <div class="container">
     <h1>📋 日志查看服务</h1>
-    <a href="/trade" class="link">
+    <a href="/crypto15min/trade" class="link">
       <strong>查看 Trade 日志</strong>
-      <div class="example">/trade?date=yyyy-mm-dd (不传 date 则显示今天)</div>
+      <div class="example">/:appName/trade?date=yyyy-mm-dd (不传 date 则显示今天)</div>
     </a>
-    <a href="/log?date=2025-12-30&traceId=eth-updown-15m-1767062700" class="link">
+    <a href="/log?date=2026-01-03&traceId=btc-updown-15m-1767369600&appName=crypto15min" class="link">
       <strong>查看日志详情</strong>
-      <div class="example">/log?date=yyyy-mm-dd&traceId=xxxx</div>
+      <div class="example">/log?date=yyyy-mm-dd&traceId=xxxx&appName=xxxx</div>
     </a>
   </div>
 </body>
