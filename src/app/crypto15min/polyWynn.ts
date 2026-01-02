@@ -11,14 +11,13 @@ import {
 } from "@crypto15min/utils/tools";
 import { findChance, watchPosition } from "@crypto15min/utils/strategy";
 import { getRedeemModule } from "./module/redeem";
-import { getLoggerModule, logError, logInfo, logTrade, setTraceId } from "./module/logger";
+import { getLoggerModule, logError, logInfo, logTrade, setTraceId, logData } from "./module/logger";
 import { getGlobalConfig } from "@crypto15min/utils/config";
-import { polyLiveDataClient } from "@crypto15min/utils/polyLiveData";
-import { polyMarketDataClient } from "@crypto15min/utils/polyMarketData";
 import { getGammaDataModule, MarketResponse } from "./module/gammaData";
-import { getPriceToBeat } from "@crypto15min/utils/polymarketApi";
+import { getPriceToBeat } from "@crypto15min/utils/getPriceToBeat";
 import { getAccountBalance, logAccountBalance } from "@crypto15min/utils/account";
 import { OUTCOMES_ENUM } from "@crypto15min/utils/constans";
+import { destroyDataFlow, getDataFlowInstances, initializeDataFlow } from "./module/dataFlow";
 
 const init = async () => {
   const clobModule = getClobModule();
@@ -41,6 +40,16 @@ export const runPolyWynn = async () => {
     const marketSlug = getMarketSlug15Min(globalConfig.marketTag, slugIntervalTimestamp);
     setTraceId(`${marketSlug}`);
 
+    logInfo(`初始化数据流...`);
+    initializeDataFlow({
+      logger: {
+        logInfo,
+        logError,
+        logData,
+      },
+      symbol: globalConfig.marketTag,
+    });
+
     let positionAmount = globalConfig.stratgegy.buyingMaxAmount / 2;
     try {
       if (
@@ -56,9 +65,13 @@ export const runPolyWynn = async () => {
         await waitFor(waitTime > 0 ? waitTime : 0);
       }
 
-      logInfo(`订阅Crypto价格: ${globalConfig.marketTag}/usd`);
-      await polyLiveDataClient.connect();
-      await polyLiveDataClient.subscribeCryptoPrices(`${globalConfig.marketTag}/usd`);
+      logInfo(`订阅PolyCrypto价格: ${globalConfig.marketTag}/usd`);
+      await getDataFlowInstances()?.polyPriceWs.connect();
+      await getDataFlowInstances()?.polyPriceWs.subscribeCryptoPrices(
+        `${globalConfig.marketTag}/usd`
+      );
+      logInfo(`订阅BN价格: ${globalConfig.marketTag}usdc`);
+      await getDataFlowInstances()?.bnPriceWs.connect();
 
       const toStartTime =
         distanceToNextInterval(slugIntervalTimestamp) - globalConfig.stratgegy.startBefore;
@@ -100,8 +113,10 @@ export const runPolyWynn = async () => {
       }
 
       logInfo(`订阅市场订单簿数据: ${market.clobTokenIds}`);
-      await polyMarketDataClient.connect();
-      await polyMarketDataClient.subscribeMarket(JSON.parse(market.clobTokenIds) as string[]);
+      await getDataFlowInstances()?.polyOrderBookWs.connect();
+      await getDataFlowInstances()?.polyOrderBookWs.subscribeOrderBook(
+        JSON.parse(market.clobTokenIds) as string[]
+      );
 
       logInfo(`开始执行策略...`);
       let restartTimes = 0;
@@ -172,7 +187,7 @@ export const runPolyWynn = async () => {
               logTrade("buy", boughtOrder);
             }
             const watchingPriceChangeTimeout = distanceToNextInterval(slugIntervalTimestamp);
-            let currentPrice = polyLiveDataClient.getLatestCryptoPricesFromChainLink();
+            let currentPrice = getDataFlowInstances()?.polyPriceWs.getLatestPriceData();
             logInfo(
               `👀监控仓位... priceToBeat: ${priceToBeat}, currentPrice: ${currentPrice}, outcome: ${boughtOrder.outcome}, timeout: ${watchingPriceChangeTimeout}`
             );
@@ -183,7 +198,7 @@ export const runPolyWynn = async () => {
               watchingPriceChangeTimeout,
               slugIntervalTimestamp
             );
-            currentPrice = polyLiveDataClient.getLatestCryptoPricesFromChainLink();
+            currentPrice = getDataFlowInstances()?.polyPriceWs.getLatestPriceData();
             logInfo(
               `🤔监控仓位结果: ${action}, priceToBeat: ${priceToBeat}, currentPrice: ${currentPrice}, outcome: ${boughtOrder.outcome}`
             );
@@ -226,10 +241,12 @@ export const runPolyWynn = async () => {
         restartTimes++;
       }
 
-      logInfo(`断开与PolyLiveData的连接`);
-      await polyLiveDataClient.disconnect();
-      logInfo(`断开与PolyMarketData的连接`);
-      await polyMarketDataClient.disconnect();
+      logInfo(`断开与PolyPriceWs的连接`);
+      await getDataFlowInstances()?.polyPriceWs.disconnect();
+      logInfo(`断开与BNPriceWs的连接`);
+      await getDataFlowInstances()?.bnPriceWs.disconnect();
+      logInfo(`断开与PolyOrderBookWs的连接`);
+      await getDataFlowInstances()?.polyOrderBookWs.disconnect();
 
       if (redeemOrder) {
         logInfo(`等待验证结果...${globalConfig.redeemConfig.delyRedeem / 1000}s`);
@@ -274,5 +291,9 @@ export const runPolyWynn = async () => {
     } catch (e) {
       logInfo(`策略执行失败: ${e}`);
     }
+
+    logInfo(`销毁数据流...`);
+
+    destroyDataFlow();
   });
 };

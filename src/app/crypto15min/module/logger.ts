@@ -4,6 +4,7 @@ export { LogLevel } from "@shared/Logger";
 
 const logger = new Logger({
   appName: "crypto15min",
+  enableConsole: true,
 });
 
 export const getLoggerModule = () => logger;

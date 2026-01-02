@@ -1,15 +1,13 @@
 import {
   createWalletClient,
   createPublicClient,
-  encodeFunctionData,
   http,
   Hex,
   zeroHash,
   parseAbi,
   Address,
-  pad,
 } from "viem";
-import { privateKeyToAccount, sign } from "viem/accounts";
+import { privateKeyToAccount } from "viem/accounts";
 import { polygon } from "viem/chains";
 import { logError, logInfo } from "./logger";
 import { getGlobalConfig, getKeyConfig } from "@crypto15min/utils/config";
