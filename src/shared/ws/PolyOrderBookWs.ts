@@ -27,14 +27,14 @@ export class PolyOrderBookWs extends HighPerformanceWs {
    * 构造函数
    * @param logger Logger 实例
    */
-  constructor(params: { logger: IWsLogger }) {
+  constructor(params: { logger: IWsLogger; windowTime?: number }) {
     const globalConfig = getGlobalConfig();
 
     // 调用父类构造函数，窗口时间设置为 50ms（参考 watchOrderBook.ts）
     super({
       logger: params.logger,
       url: globalConfig.ws.marketDataUrl,
-      windowTime: 50, // 窗口时间 50ms
+      windowTime: params.windowTime || 50, // 窗口时间 50ms
     });
 
     // 创建 orderBookHistory 缓存：maxSize=10000，不设置过期时间

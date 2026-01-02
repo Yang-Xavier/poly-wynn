@@ -8,7 +8,6 @@ import { decideTailSweep } from "./decision";
 import { calcDiffEnough } from "./calc";
 import { getDataFlowInstances } from "@crypto15min/module/dataFlow";
 import { OrderBookData } from "@shared/ws/PolyOrderBookWs";
-import { log } from "console";
 
 const getOutcomeByAssetId = (market: MarketResponse, assetId: string) => {
   const { clobTokenIds, outcomes } = market;
@@ -120,10 +119,10 @@ export const watchPosition = async (
         }
         const assetId = outcomes[outcome];
         const bestAsk = data[assetId]?.bestAsk;
-        const latency = data[assetId]?.timestamp - Date.now();
+        const latency = Date.now() - data[assetId]?.timestamp;
         const polyData = getDataFlowInstances()?.polyPriceWs.getLatestPriceData();
         const bnData = getDataFlowInstances()?.bnPriceWs.getLatestPriceData();
-        const priceGap = polyData?.value - bnData?.value;
+        const priceGap = bnData?.value - polyData?.value;
 
         if (bestAsk && bestAsk < globalConfig.stratgegy.sellProbabilityThreshold) {
           customTypeLog(

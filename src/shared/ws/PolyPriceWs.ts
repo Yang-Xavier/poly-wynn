@@ -43,14 +43,14 @@ export class PolyPriceWs extends HighPerformanceWs {
    * 构造函数
    * @param logger Logger 实例
    */
-  constructor(params: { logger: IWsLogger }) {
+  constructor(params: { logger: IWsLogger; windowTime?: number }) {
     const globalConfig = getGlobalConfig();
 
     // 调用父类构造函数，窗口时间设置为 100ms
     super({
       logger: params.logger,
       url: globalConfig.ws.liveDataUrl,
-      windowTime: 100, // 窗口时间 100ms
+      windowTime: params.windowTime || 100, // 窗口时间 100ms
     });
 
     // 创建 priceHistory 缓存：maxSize=10000，不设置过期时间

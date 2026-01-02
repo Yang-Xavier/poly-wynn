@@ -18,7 +18,7 @@ export class BnPriceWs extends HighPerformanceWs {
    * @param logger Logger 实例
    * @param symbol 交易对符号，如 'btcusdt'（会自动转换为小写）
    */
-  constructor(params: { logger: IWsLogger; symbol: string }) {
+  constructor(params: { logger: IWsLogger; symbol: string; windowTime?: number }) {
     // 确保symbol是小写
     const symbol = params.symbol.toLowerCase();
     const url = `wss://stream.binance.com:9443/ws/${symbol}@trade`;
@@ -27,7 +27,7 @@ export class BnPriceWs extends HighPerformanceWs {
     super({
       logger: params.logger,
       url,
-      windowTime: 50, // 窗口时间 50ms
+      windowTime: params.windowTime || 100, // 窗口时间 50ms
     });
 
     // 创建 priceHistory 缓存：maxSize=10000，不设置过期时间

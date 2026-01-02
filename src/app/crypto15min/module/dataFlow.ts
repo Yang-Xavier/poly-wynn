@@ -35,16 +35,19 @@ export function initializeDataFlow(params: {
   const bnPriceWs = new BnPriceWs({
     logger,
     symbol: `${params.symbol}usdc`,
+    windowTime: 100,
   });
 
   // 创建 Polymarket 价格 WebSocket 实例
   const polyPriceWs = new PolyPriceWs({
     logger,
+    windowTime: 100,
   });
 
   // 创建 Polymarket 订单簿 WebSocket 实例
   const polyOrderBookWs = new PolyOrderBookWs({
     logger,
+    windowTime: 50,
   });
 
   dataFlowInstances = {
