@@ -11,7 +11,15 @@ import {
 } from "@crypto15min/utils/tools";
 import { findChance, watchPosition } from "@crypto15min/utils/strategy";
 import { getRedeemModule } from "./module/redeem";
-import { getLoggerModule, logError, logInfo, logTrade, setTraceId, logData } from "./module/logger";
+import {
+  getLoggerModule,
+  logError,
+  logInfo,
+  logTrade,
+  setTraceId,
+  logData,
+  customTypeLog,
+} from "./module/logger";
 import { getGlobalConfig } from "@crypto15min/utils/config";
 import { getGammaDataModule, MarketResponse } from "./module/gammaData";
 import { getPriceToBeat } from "@crypto15min/utils/getPriceToBeat";
@@ -46,6 +54,7 @@ export const runPolyWynn = async () => {
         logInfo,
         logError,
         logData,
+        customTypeLog,
       },
       symbol: globalConfig.marketTag,
     });

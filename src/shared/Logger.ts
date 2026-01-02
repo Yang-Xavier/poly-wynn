@@ -60,6 +60,7 @@ export class Logger {
 
   constructor(config?: LoggerConfig) {
     this.config = { ...DEFAULT_CONFIG, ...config };
+    this.traceId = config?.traceId;
 
     // 确保日志目录存在
     if (!fs.existsSync(this.config.logDir)) {
@@ -86,38 +87,73 @@ export class Logger {
   }
 
   /**
-   * 获取日志文件的完整路径（包含日期文件夹）
+   * 获取日志文件的完整路径（包含 appName、日期文件夹和 traceId 文件夹）
+   * 目录结构：appName/date/traceId/type.log
    * @param dateFolder 日期文件夹名称
+   * @param traceId 追踪ID，用于创建 traceId 子目录
    * @param type 日志类型，用于区分不同的日志文件
    */
-  private getLogFilePath(dateFolder: string, type?: string): string {
-    const dateDir = path.join(this.config.logDir, dateFolder);
-    // 确保日期文件夹存在
-    if (!fs.existsSync(dateDir)) {
-      fs.mkdirSync(dateDir, { recursive: true });
+  private getLogFilePath(dateFolder: string, traceId: string | undefined, type?: string): string {
+    // appName 目录，如果没有 appName 则使用 "default"
+    const appNameDir = path.join(this.config.logDir, this.config.appName || "default");
+    // 日期目录
+    const dateDir = path.join(appNameDir, dateFolder);
+    // traceId 目录，如果没有 traceId 则使用 "default"
+    const traceIdDir = path.join(dateDir, traceId || "default");
+    // 确保所有目录都存在
+    if (!fs.existsSync(traceIdDir)) {
+      fs.mkdirSync(traceIdDir, { recursive: true });
     }
-    // 根据 appName 和 type 生成日志文件名
+    // 根据 type 生成日志文件名
     let logFileName: string;
     if (type) {
-      // 如果有 type，文件名格式：${appName}_${type}.log 或 ${type}.log
-      logFileName = this.config.appName ? `${this.config.appName}_${type}.log` : `${type}.log`;
+      // 如果有 type，文件名格式：${type}.log
+      logFileName = `${type}.log`;
     } else {
-      // 如果没有 type，使用原来的逻辑
-      logFileName = this.config.appName ? `${this.config.appName}.log` : "app.log";
+      // 如果没有 type，使用 "app.log"
+      logFileName = "app.log";
     }
-    return path.join(dateDir, logFileName);
+    return path.join(traceIdDir, logFileName);
   }
 
   /**
-   * 获取或创建指定 type 的日志文件流
+   * 生成 streamKey，格式：${traceId || 'default'}_${type || 'default'}
+   * @param traceId 追踪ID
    * @param type 日志类型
    */
-  private getOrCreateLogStream(type?: string): fs.WriteStream {
-    const streamKey = type || "default";
+  private getStreamKey(traceId: string | undefined, type?: string): string {
+    const traceIdPart = traceId || "default";
+    const typePart = type || "default";
+    return `${traceIdPart}_${typePart}`;
+  }
+
+  /**
+   * 从 streamKey 解析出 traceId 和 type
+   * @param streamKey streamKey
+   * @returns [traceId, type]
+   */
+  private parseStreamKey(streamKey: string): [string | undefined, string | undefined] {
+    const parts = streamKey.split("_");
+    if (parts.length < 2) {
+      return [undefined, undefined];
+    }
+    const traceId = parts[0] === "default" ? undefined : parts[0];
+    const type = parts.slice(1).join("_") === "default" ? undefined : parts.slice(1).join("_");
+    return [traceId, type];
+  }
+
+  /**
+   * 获取或创建指定 traceId 和 type 的日志文件流
+   * @param traceId 追踪ID
+   * @param type 日志类型
+   */
+  private getOrCreateLogStream(traceId: string | undefined, type?: string): fs.WriteStream {
+    const streamKey = this.getStreamKey(traceId, type);
     const date = this.getDateFolderName();
     const currentDate = this.streamDates.get(streamKey);
 
     // 如果日期变化或文件流不存在，需要重新创建
+    // streamKey 已经包含了 traceId 信息，所以不需要单独检查 traceId
     if (!currentDate || currentDate !== date || !this.fileStreams.has(streamKey)) {
       // 如果已存在文件流，先关闭它
       const existingStream = this.fileStreams.get(streamKey);
@@ -126,7 +162,7 @@ export class Logger {
       }
 
       // 创建新的文件流
-      const logFilePath = this.getLogFilePath(date, type);
+      const logFilePath = this.getLogFilePath(date, traceId, type);
       const newStream = fs.createWriteStream(logFilePath, { flags: "a" });
       this.fileStreams.set(streamKey, newStream);
       this.streamDates.set(streamKey, date);
@@ -179,7 +215,8 @@ export class Logger {
    * @param type 日志类型
    */
   private enqueueLog(formattedMessage: string, type?: string): void {
-    const queueKey = type || "default";
+    // queueKey 需要包含 traceId，格式：${traceId || 'default'}_${type || 'default'}
+    const queueKey = this.getStreamKey(this.traceId, type);
     if (!this.logQueue.has(queueKey)) {
       this.logQueue.set(queueKey, []);
     }
@@ -223,7 +260,9 @@ export class Logger {
             continue;
           }
 
-          const stream = this.getOrCreateLogStream(queueKey === "default" ? undefined : queueKey);
+          // 从 queueKey 解析出 traceId 和 type
+          const [traceId, type] = this.parseStreamKey(queueKey);
+          const stream = this.getOrCreateLogStream(traceId, type);
 
           // 批量写入所有日志
           const messages = queue.map((item) => item.message + "\n").join("");
@@ -337,9 +376,52 @@ export class Logger {
 
   /**
    * 设置或更新 traceId
+   * 当 traceId 变化时，会关闭所有旧的文件流，新的日志将写入到新的 traceId 目录下
    */
   setTraceId(traceId: string): void {
+    const oldTraceId = this.traceId;
+    if (oldTraceId === traceId) {
+      return; // traceId 没有变化，不需要做任何处理
+    }
+
     this.traceId = traceId;
+
+    // 如果 traceId 变化，需要关闭所有旧的文件流
+    // 因为新的日志应该写入到新的 traceId 目录下
+    // 关闭所有与旧 traceId 相关的文件流
+    const streamsToClose: string[] = [];
+    for (const streamKey of this.fileStreams.keys()) {
+      const [streamTraceId] = this.parseStreamKey(streamKey);
+      // 比较时，如果 oldTraceId 是 undefined，则 streamTraceId 也应该是 undefined（即 "default"）
+      if (
+        (oldTraceId === undefined && streamTraceId === undefined) ||
+        streamTraceId === oldTraceId
+      ) {
+        streamsToClose.push(streamKey);
+      }
+    }
+
+    // 先刷新这些流中的日志
+    for (const streamKey of streamsToClose) {
+      const queue = this.logQueue.get(streamKey);
+      if (queue && queue.length > 0) {
+        const [traceIdForStream, type] = this.parseStreamKey(streamKey);
+        const stream = this.getOrCreateLogStream(traceIdForStream, type);
+        const messages = queue.map((item) => item.message + "\n").join("");
+        stream.write(messages);
+        this.logQueue.set(streamKey, []);
+      }
+    }
+
+    // 关闭旧的文件流
+    for (const streamKey of streamsToClose) {
+      const stream = this.fileStreams.get(streamKey);
+      if (stream) {
+        stream.end();
+        this.fileStreams.delete(streamKey);
+        this.streamDates.delete(streamKey);
+      }
+    }
   }
 
   /**
@@ -386,8 +468,9 @@ export class Logger {
 
   /**
    * 清理指定天数之前的日志文件
+   * 目录结构：appName/date/traceId/type.log
    * @param days 保留最近N天的日志，N天之前的日志将被删除
-   * @returns 返回被删除的日志文件夹数量
+   * @returns 返回被删除的日期文件夹数量
    */
   cleanOldLogs(days: number): number {
     if (days < 0) {
@@ -419,54 +502,66 @@ export class Logger {
     const cutoffTime = beijingMidnight - days * 24 * 60 * 60 * 1000; // 截止时间戳
 
     let deletedCount = 0;
+    const currentDateFolder = this.getDateFolderName();
 
     try {
-      // 读取日志目录下的所有文件和文件夹
-      const entries = fs.readdirSync(this.config.logDir, { withFileTypes: true });
+      // 读取日志目录下的所有文件和文件夹（appName 目录）
+      const appEntries = fs.readdirSync(this.config.logDir, { withFileTypes: true });
 
-      for (const entry of entries) {
-        // 只处理目录
-        if (!entry.isDirectory()) {
+      for (const appEntry of appEntries) {
+        // 只处理目录（appName 目录）
+        if (!appEntry.isDirectory()) {
           continue;
         }
 
-        const folderName = entry.name;
-        // 检查文件夹名称是否符合日期格式 YYYY-MM-DD
-        const dateMatch = folderName.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        if (!dateMatch) {
-          // 如果不是日期格式的文件夹，跳过
-          continue;
-        }
+        const appNamePath = path.join(this.config.logDir, appEntry.name);
 
-        // 解析日期（按北京时区解析）
-        const year = parseInt(dateMatch[1], 10);
-        const month = parseInt(dateMatch[2], 10) - 1; // 月份从0开始
-        const day = parseInt(dateMatch[3], 10);
+        // 读取 appName 目录下的所有文件和文件夹（日期目录）
+        const dateEntries = fs.readdirSync(appNamePath, { withFileTypes: true });
 
-        // 创建北京时区当天的0点（使用UTC时间表示）
-        const folderDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
-        // 转换为UTC时间戳（减去8小时偏移，使其对应北京时区的0点）
-        const folderDateUTC = folderDate.getTime() - 8 * 60 * 60 * 1000;
-
-        // 如果文件夹日期早于截止时间，删除该文件夹
-        if (folderDateUTC < cutoffTime) {
-          const folderPath = path.join(this.config.logDir, folderName);
-
-          // 如果是要删除的文件夹是当前使用的日志文件夹，跳过
-          const currentDate = this.getDateFolderName();
-          if (folderName === currentDate) {
+        for (const dateEntry of dateEntries) {
+          // 只处理目录（日期目录）
+          if (!dateEntry.isDirectory()) {
             continue;
           }
 
-          try {
-            // 递归删除文件夹及其内容
-            fs.rmSync(folderPath, { recursive: true, force: true });
-            deletedCount++;
-            this.info(`已删除旧日志文件夹: ${folderName}`);
-          } catch (error) {
-            this.error(`删除日志文件夹失败: ${folderName}`, {
-              error: error instanceof Error ? error.message : String(error),
-            });
+          const folderName = dateEntry.name;
+          // 检查文件夹名称是否符合日期格式 YYYY-MM-DD
+          const dateMatch = folderName.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+          if (!dateMatch) {
+            // 如果不是日期格式的文件夹，跳过
+            continue;
+          }
+
+          // 如果是要删除的文件夹是当前使用的日志文件夹，跳过
+          if (folderName === currentDateFolder) {
+            continue;
+          }
+
+          // 解析日期（按北京时区解析）
+          const year = parseInt(dateMatch[1], 10);
+          const month = parseInt(dateMatch[2], 10) - 1; // 月份从0开始
+          const day = parseInt(dateMatch[3], 10);
+
+          // 创建北京时区当天的0点（使用UTC时间表示）
+          const folderDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+          // 转换为UTC时间戳（减去8小时偏移，使其对应北京时区的0点）
+          const folderDateUTC = folderDate.getTime() - 8 * 60 * 60 * 1000;
+
+          // 如果文件夹日期早于截止时间，删除该文件夹
+          if (folderDateUTC < cutoffTime) {
+            const folderPath = path.join(appNamePath, folderName);
+
+            try {
+              // 递归删除文件夹及其内容
+              fs.rmSync(folderPath, { recursive: true, force: true });
+              deletedCount++;
+              this.info(`已删除旧日志文件夹: ${appEntry.name}/${folderName}`);
+            } catch (error) {
+              this.error(`删除日志文件夹失败: ${appEntry.name}/${folderName}`, {
+                error: error instanceof Error ? error.message : String(error),
+              });
+            }
           }
         }
       }

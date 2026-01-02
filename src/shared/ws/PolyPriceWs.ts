@@ -94,14 +94,14 @@ export class PolyPriceWs extends HighPerformanceWs {
               this.priceCallback(priceData);
             } catch (error) {
               // 使用父类的 send 方法无法记录日志，这里简化处理
-              console.error("价格回调函数执行失败", error);
+              this.logger.logError("价格回调函数执行失败", error);
             }
           }
-          this.logger.logData(`[PolyPriceWs]: ${JSON.stringify(priceData)}`);
+          this.logger.customTypeLog("PolyPriceWs", JSON.stringify(priceData));
         }
       } catch (error) {
         // 使用父类的 send 方法无法记录日志，这里简化处理
-        console.error("处理窗口消息失败", error);
+        this.logger.logError("处理窗口消息失败", error);
       }
     });
   }
@@ -237,7 +237,7 @@ export class PolyPriceWs extends HighPerformanceWs {
 
       return null;
     } catch (error) {
-      console.error("解析最新消息失败", error);
+      this.logger.logError("解析最新消息失败", error);
       return null;
     }
   }

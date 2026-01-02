@@ -125,7 +125,7 @@ export class PolyOrderBookWs extends HighPerformanceWs {
         }
       }
 
-      this.logger.logData(`[PolyOrderBookWs]: ${JSON.stringify(currentWindowOrderBook)}`);
+      this.logger.customTypeLog("PolyOrderBookWs", JSON.stringify(currentWindowOrderBook));
     }
   }
 

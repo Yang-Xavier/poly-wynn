@@ -1,5 +1,5 @@
 import { MarketResponse } from "@crypto15min/module/gammaData";
-import { logData, logInfo } from "@crypto15min/module/logger";
+import { customTypeLog, logInfo } from "@crypto15min/module/logger";
 import { race } from "./race";
 import { TOKEN_ACTION_ENUM, distanceToNextInterval } from "./tools";
 import { getGlobalConfig } from "./config";
@@ -8,6 +8,7 @@ import { decideTailSweep } from "./decision";
 import { calcDiffEnough } from "./calc";
 import { getDataFlowInstances } from "@crypto15min/module/dataFlow";
 import { OrderBookData } from "@shared/ws/PolyOrderBookWs";
+import { log } from "console";
 
 const getOutcomeByAssetId = (market: MarketResponse, assetId: string) => {
   const { clobTokenIds, outcomes } = market;
@@ -72,7 +73,8 @@ export const findChance = async (
               [0.047, 0.0001],
               distance
             );
-            logData(
+            customTypeLog(
+              "strategy",
               `[-- 扫尾盘数据策略数据 (📚订单簿变动触发) --] ${JSON.stringify({ priceToBeat, currentPrice, isDiffEnough, avaliableValue, ...tailSweepResult })}`
             );
 
@@ -124,13 +126,15 @@ export const watchPosition = async (
         const priceGap = polyData?.value - bnData?.value;
 
         if (bestAsk && bestAsk < globalConfig.stratgegy.sellProbabilityThreshold) {
-          logData(
+          customTypeLog(
+            "strategy",
             `[买入后概率检查(低于阈值📚)] outcoum: ${outcome}, priceToBeat: ${priceToBeat}, bestAsk: ${bestAsk}, assetId: ${assetId}, latency: ${latency}, priceGap: ${priceGap}`
           );
           resolved = true;
           resolve(TOKEN_ACTION_ENUM.sell);
         } else {
-          logData(
+          customTypeLog(
+            "strategy",
             `[买入后概率检查(高于阈值📚)] outcoum: ${outcome}, priceToBeat: ${priceToBeat}, bestAsk: ${bestAsk}, assetId: ${assetId}, latency: ${latency}, priceGap: ${priceGap}`
           );
         }

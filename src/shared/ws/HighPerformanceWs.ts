@@ -1,5 +1,5 @@
 import WebSocket from "ws";
-import { Cache, CacheController } from "../Cache";
+import { CacheController } from "../Cache";
 
 /**
  * Logger 接口定义
@@ -8,6 +8,7 @@ export interface IWsLogger {
   logInfo: (message: string, ...args: any[]) => void;
   logData?: (message: string, ...args: any[]) => void;
   logError?: (message: string, ...args: any[]) => void;
+  customTypeLog?: (type: string, message: string, ...args: any[]) => void;
   [key: string]: any;
 }
 

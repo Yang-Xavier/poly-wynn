@@ -59,7 +59,7 @@ export class BnPriceWs extends HighPerformanceWs {
           const timestamp = message.T;
 
           if (isNaN(price) || price <= 0) {
-            console.error(`[BnPriceWs] 收到无效价格: ${message.p}, timestamp: ${timestamp}`);
+            this.logger.logError(`[BnPriceWs] 收到无效价格: ${message.p}, timestamp: ${timestamp}`);
             return;
           }
 
@@ -79,13 +79,13 @@ export class BnPriceWs extends HighPerformanceWs {
             try {
               this.priceCallback(priceData);
             } catch (error) {
-              console.error("价格回调函数执行失败", error);
+              this.logger.logError("价格回调函数执行失败", error);
             }
           }
-          this.logger.logData(`[BnPriceWs]: ${JSON.stringify(priceData)}`);
+          this.logger.customTypeLog("BnPriceWs", JSON.stringify(priceData));
         }
       } catch (error) {
-        console.error("处理窗口消息失败", error);
+        this.logger.logError("处理窗口消息失败", error);
       }
     });
   }
@@ -147,7 +147,7 @@ export class BnPriceWs extends HighPerformanceWs {
 
       return null;
     } catch (error) {
-      console.error("解析最新消息失败", error);
+      this.logger.logError("解析最新消息失败", error);
       return null;
     }
   }

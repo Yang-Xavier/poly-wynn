@@ -14,6 +14,9 @@ export const logError = (message: string, data?: any) => getLoggerModule().error
 export const logData = (message: string, data?: any) =>
   getLoggerModule().info(message, data, "data");
 
+export const customTypeLog = (type: string, message: string, data?: any) =>
+  getLoggerModule().info(message, data, type);
+
 export const logTrade = (
   tradeType: "buy" | "sell" | "redeem" | "lost" | "balance" | "won" | "skip",
   data?: any,
