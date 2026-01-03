@@ -61,10 +61,11 @@ export function getTradeLogs(appName: string, date?: string): ParsedLog[] {
     allLogs.push(...logs);
   }
   
-  // 按时间戳排序
+  // 按时间戳排序（从新到旧，最新的在前）
   allLogs.sort((a, b) => {
     if (a.timestamp && b.timestamp) {
-      return a.timestamp.localeCompare(b.timestamp);
+      // 反转排序，从新到旧
+      return b.timestamp.localeCompare(a.timestamp);
     }
     return 0;
   });
