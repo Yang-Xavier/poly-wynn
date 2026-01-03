@@ -17,3 +17,8 @@ export const RPC_URL = "https://polygon-rpc.com";
 // account
 export const WALLET_ADDRESS = "0xadc6b5af3b65479a9c4122f32ed324dc2b4265c9";
 export const FUNDER_ADDRESS = "0x8dF2E7574F5E97103F037ed45fB323FdBeABEEA8";
+
+export enum OUTCOMES_ENUM {
+  Up = "Up",
+  Down = "Down",
+}

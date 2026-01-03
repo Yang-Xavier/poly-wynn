@@ -6,6 +6,10 @@ const config = {
   buyingAmountFactor: 0.2,
   maxBuyAmount: 100,
 
+  startCalcMinDataPoints: 200,
+
+  predictProbFactor: 0.5,
+
   deltaRateThreshold: 0.5,
   bsmProbThreshold: 0.12,
 };

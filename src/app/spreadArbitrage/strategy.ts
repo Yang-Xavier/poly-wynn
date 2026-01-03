@@ -5,8 +5,9 @@ import { getConfig } from "./config";
 import { calculateProbability } from "@shared/algorithm/bsm";
 import { customTypeLog } from "./logger";
 import { race } from "@shared/utils/race";
-import { OUTCOMES_ENUM } from "@crypto15min/utils/constans";
+import { OUTCOMES_ENUM } from "@shared/constants";
 import { predictSpreadChange } from "@shared/algorithm/spreadPredictor";
+import { calculateStopLoss } from "./calc";
 
 export const findChance = async (params: {
   market: TMarketResponseData;
@@ -17,8 +18,6 @@ export const findChance = async (params: {
   const assetIdMapOutcome = getAssetIdMapOutcome(market);
   const dataFlowInstances = dataFlow.getInstances();
   const config = getConfig();
-  let prevPriceGap = 0;
-  let first = true;
   let resolved = false;
 
   return await race(
@@ -38,13 +37,13 @@ export const findChance = async (params: {
 
         const upBestAsk = upOrderbook[assetIdMapOutcome[OUTCOMES_ENUM.Up]].bestAsk;
         const downBestAsk = downOrderbook[assetIdMapOutcome[OUTCOMES_ENUM.Down]].bestAsk;
-        const priceGap = bnPrice.value - polyPrice.value;
-        const priceGapDelta = priceGap - prevPriceGap;
-        const deltaRate = Math.abs(priceGapDelta / prevPriceGap);
         const polyPriceHistory = dataFlowInstances.polyPriceWs.getPriceHistory();
         const bnPriceHistory = dataFlowInstances.bnPriceWs.getPriceHistory();
 
-        if (bnPriceHistory.length > 50 && polyPriceHistory.length > 50) {
+        if (
+          Math.min(bnPriceHistory.length, polyPriceHistory.length) > config.startCalcMinDataPoints
+        ) {
+          // 开始计算的最小数据量
           const { predictedNewPrice } = predictSpreadChange(
             bnPriceHistory,
             polyPriceHistory,
@@ -64,59 +63,57 @@ export const findChance = async (params: {
             distanceToNextInterval(slugIntervalTimestamp)
           );
           if (
-            Math.abs(bsmResult.probUp - Number(upBestAsk)) > config.bsmProbThreshold ||
-            Math.abs(bsmResult.probDown - Number(downBestAsk)) > config.bsmProbThreshold
+            Math.max(
+              bsmResult.probUp - Number(upBestAsk),
+              bsmResult.probDown - Number(downBestAsk)
+            ) > config.bsmProbThreshold
           ) {
+            // up或者down 大于阈值，则认为有机会
+
+            const outcome =
+              bsmResult.probUp - Number(upBestAsk) > bsmResult.probDown - Number(downBestAsk)
+                ? OUTCOMES_ENUM.Up
+                : OUTCOMES_ENUM.Down;
+
+            const buyPrice = outcome === OUTCOMES_ENUM.Up ? upBestAsk : downBestAsk;
+
+            const probAdvantage =
+              outcome === OUTCOMES_ENUM.Up
+                ? bsmResult.probUp - Number(upBestAsk)
+                : bsmResult.probDown - Number(downBestAsk);
+
+            const stopProfitPrice = Number((probAdvantage * config.predictProbFactor).toFixed(2));
+
+            // 计算科学的止损点
+            const stopLossPrice = calculateStopLoss({
+              bsmProbability: outcome === OUTCOMES_ENUM.Up ? bsmResult.probUp : bsmResult.probDown,
+              confidence: bsmResult.confidence,
+              timeToExpiryMs: distanceToNextInterval(slugIntervalTimestamp),
+              buyPrice,
+              probAdvantage,
+              outcome,
+            });
+
+            const result = {
+              assetId: assetIdMapOutcome[outcome],
+              outcome,
+              buyPrice,
+              stopProfitPrice,
+              stopLossPrice,
+            };
             customTypeLog(
               "Chance",
               `
                 === 💡找到机会 ===    
                 predictedNewPrice: ${predictedNewPrice},
+                curentPrice: ${polyPrice.value},
                 priceToBeat: ${priceToBeat},
                 upBestAsk: ${upBestAsk},
                 downBestAsk: ${downBestAsk},
-                priceGap: ${priceGap},
-                priceGapDelta: ${priceGapDelta},
-                deltaRate: ${deltaRate},
                 bsmResult: ${JSON.stringify(bsmResult)},
-                distance: ${distanceToNextInterval(slugIntervalTimestamp)},
                 calcCost: ${Date.now() - startTime}ms
               `
             );
-            const buyParams = {};
-            const sellParams = {};
-            if (downBestAsk < upBestAsk) {
-              // 买低概率事件
-              // 买入点
-              Object.assign(buyParams, {
-                assetId: assetIdMapOutcome.Down,
-                outcome: OUTCOMES_ENUM.Down,
-                targetPrice: downBestAsk,
-              });
-              // 卖出点
-              Object.assign(sellParams, {
-                assetId: assetIdMapOutcome.Down,
-                outcome: OUTCOMES_ENUM.Down,
-                targetPrice: ((bsmResult.probDown - Number(downBestAsk)) / 2).toFixed(2),
-              });
-            } else {
-              // 买入点
-              Object.assign(buyParams, {
-                assetId: assetIdMapOutcome.Up,
-                outcome: OUTCOMES_ENUM.Up,
-                targetPrice: upBestAsk,
-              });
-              // 卖出点
-              Object.assign(sellParams, {
-                assetId: assetIdMapOutcome.Up,
-                outcome: OUTCOMES_ENUM.Up,
-                targetPrice: ((bsmResult.probUp - Number(upBestAsk)) / 2).toFixed(2),
-              });
-            }
-            const result = {
-              buyParams,
-              sellParams,
-            };
             resolved = true;
             resolve(result);
           } else {
@@ -125,21 +122,16 @@ export const findChance = async (params: {
               `
                 === 未找到机会 ===    
                 predictedNewPrice: ${predictedNewPrice},
+                curentPrice: ${polyPrice.value},
                 priceToBeat: ${priceToBeat},
                 upBestAsk: ${upBestAsk},
                 downBestAsk: ${downBestAsk},
-                priceGap: ${priceGap},
-                priceGapDelta: ${priceGapDelta},
-                deltaRate: ${deltaRate},
                 bsmResult: ${JSON.stringify(bsmResult)},
-                distance: ${distanceToNextInterval(slugIntervalTimestamp)},
                 calcCost: ${Date.now() - startTime}ms
               `
             );
           }
         }
-        prevPriceGap = priceGap;
-        first = false;
       });
     }),
     distanceToNextInterval(slugIntervalTimestamp)
