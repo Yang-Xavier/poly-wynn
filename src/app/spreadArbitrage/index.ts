@@ -164,12 +164,14 @@ const main = async () => {
             }
             logInfo(`卖出订单: ${JSON.stringify(soldOrder)}`);
             const { original_size, size_matched, price: soldPrice } = soldOrder;
+            const soldSize =
+              Number(size_matched) === 0 ? Number(original_size) : Number(size_matched);
             const profit =
-              Number(soldPrice) * Number(size_matched) - Number(boughtPrice) * Number(size_matched);
+              Number(soldPrice) * Number(soldSize) - Number(boughtPrice) * Number(soldSize);
             totalProfit += profit;
 
             const loggerData = {
-              size: Number(size_matched),
+              size: Number(soldSize),
               originalSize: Number(original_size),
               price: Number(soldPrice),
               originalPrice: price,
