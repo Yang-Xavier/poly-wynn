@@ -19,7 +19,6 @@ import { WATCH_POSITION_ACTION_ENUM } from "@shared/constants";
 
 const main = async () => {
   const config = getConfig();
-  let restartCount = 0;
   await clobApi.init();
 
   runIntervalFn(async () => {
@@ -28,11 +27,6 @@ const main = async () => {
     setTraceId(marketSlug);
 
     try {
-      restartCount++;
-      if (restartCount > 1) {
-        logInfo(`本回合策略重启第 ${restartCount} 次 ...`);
-      }
-
       if (Date.now() - slugIntervalTimestamp < config.delayToStart) {
         logInfo(`延迟开始...`);
         await waitFor(config.delayToStart - (Date.now() - slugIntervalTimestamp));
