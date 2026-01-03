@@ -61,7 +61,6 @@ export const findChance = async (params: {
               },
             ],
             priceToBeat,
-            0,
             distanceToNextInterval(slugIntervalTimestamp)
           );
           if (
