@@ -1,3 +1,4 @@
+import { WS_BN_PRICE_URL } from "@shared/constants";
 import { HighPerformanceWs, IWsLogger } from "./HighPerformanceWs";
 
 // 价格数据接口
@@ -21,7 +22,7 @@ export class BnPriceWs extends HighPerformanceWs {
   constructor(params: { logger: IWsLogger; symbol: string; windowTime?: number }) {
     // 确保symbol是小写
     const symbol = params.symbol.toLowerCase();
-    const url = `wss://stream.binance.com:9443/ws/${symbol}@trade`;
+    const url = `${WS_BN_PRICE_URL}/${symbol}@trade`;
 
     // 调用父类构造函数，窗口时间设置为 50ms（参考 watchBnPrice.ts）
     super({
@@ -79,7 +80,7 @@ export class BnPriceWs extends HighPerformanceWs {
             try {
               this.priceCallback(priceData);
             } catch (error) {
-              this.logger.logError("价格回调函数执行失败", error);
+              this.logger.logError(`[BnPrice] 价格回调函数执行失败 ${error}`, error);
             }
           }
           this.logger.customTypeLog("BnPriceWs", JSON.stringify(priceData));

@@ -7,7 +7,7 @@
  * 历史价格数据接口
  */
 export interface PriceTick {
-  price: number;
+  value: number;
   timestamp: number;
 }
 
@@ -77,12 +77,12 @@ function calculateVolatility(priceHistory: PriceTick[], lookbackSeconds: number 
   const sorted = [...priceHistory].sort((a, b) => a.timestamp - b.timestamp);
 
   // 如果指定了回看时间，只使用最近的数据
-  let prices = sorted.map((p) => p.price).filter((p) => p > 0);
+  let prices = sorted.map((p) => p.value).filter((p) => p > 0);
   if (lookbackSeconds > 0 && sorted.length > 1) {
     const cutoffTime = sorted[sorted.length - 1].timestamp - lookbackSeconds * 1000;
     prices = sorted
       .filter((p) => p.timestamp >= cutoffTime)
-      .map((p) => p.price)
+      .map((p) => p.value)
       .filter((p) => p > 0);
   }
 
@@ -281,7 +281,7 @@ function calculateConfidence(priceHistory: PriceTick[], timeToExpiryMs: number):
 /**
  * BSM模型主函数
  *
- * @param priceHistory 历史价格列表，格式：{price: number, timestamp: number}[]
+ * @param priceHistory 历史价格列表，格式：{value: number, timestamp: number}[]
  * @param strikePrice 对赌价格（执行价格）
  * @param timeToExpiryMs 剩余时间（毫秒）
  * @param riskFreeRate 无风险利率（年化），默认0（适用于加密货币市场）
@@ -314,7 +314,7 @@ export function calculateBSM(
 
   // 获取当前价格（最新的价格）
   const sorted = [...priceHistory].sort((a, b) => a.timestamp - b.timestamp);
-  const currentPrice = sorted[sorted.length - 1].price;
+  const currentPrice = sorted[sorted.length - 1].value;
 
   if (currentPrice <= 0) {
     return {

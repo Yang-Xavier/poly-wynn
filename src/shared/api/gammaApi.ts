@@ -1,9 +1,7 @@
-import { getGlobalConfig } from "@shared/config";
+import { GAMMA_HOST } from "@shared/constants";
 import proxy from "@shared/Proxy";
 import { awaitAxiosDataTo } from "@shared/utils/awaitTo";
 import { TMarketResponseData } from "@typings/gammaData";
-
-const GammaApiHost = getGlobalConfig().gammaHost;
 
 export default {
   /**
@@ -12,7 +10,7 @@ export default {
    * @returns Market 响应数据
    */
   getMarketBySlug: async (slug: string): Promise<TMarketResponseData | null> => {
-    const url = `${GammaApiHost}/markets/slug/${slug}`;
+    const url = `${GAMMA_HOST}/markets/slug/${slug}`;
     const [error, data] = await awaitAxiosDataTo(proxy.get(url));
     if (error) {
       return null;

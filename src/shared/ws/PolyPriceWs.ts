@@ -1,5 +1,5 @@
+import { WS_LIVE_DATA_URL } from "@shared/constants";
 import { HighPerformanceWs, IWsLogger } from "./HighPerformanceWs";
-import { getGlobalConfig } from "../config";
 
 // 订阅信息接口
 interface Subscription {
@@ -44,12 +44,10 @@ export class PolyPriceWs extends HighPerformanceWs {
    * @param logger Logger 实例
    */
   constructor(params: { logger: IWsLogger; windowTime?: number }) {
-    const globalConfig = getGlobalConfig();
-
     // 调用父类构造函数，窗口时间设置为 100ms
     super({
       logger: params.logger,
-      url: globalConfig.ws.liveDataUrl,
+      url: WS_LIVE_DATA_URL,
       windowTime: params.windowTime || 100, // 窗口时间 100ms
     });
 
@@ -94,7 +92,7 @@ export class PolyPriceWs extends HighPerformanceWs {
               this.priceCallback(priceData);
             } catch (error) {
               // 使用父类的 send 方法无法记录日志，这里简化处理
-              this.logger.logError("价格回调函数执行失败", error);
+              this.logger.logError("[PolyPrice] 价格回调函数执行失败", error);
             }
           }
           this.logger.customTypeLog("PolyPriceWs", JSON.stringify(priceData));

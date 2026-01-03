@@ -1,5 +1,5 @@
+import { WS_POLY_ORDER_BOOK_URL } from "@shared/constants";
 import { HighPerformanceWs, IWsLogger } from "./HighPerformanceWs";
-import { getGlobalConfig } from "../config";
 import { IMarketPushData } from "@typings/wsData";
 
 // 订单簿数据结构
@@ -28,12 +28,10 @@ export class PolyOrderBookWs extends HighPerformanceWs {
    * @param logger Logger 实例
    */
   constructor(params: { logger: IWsLogger; windowTime?: number }) {
-    const globalConfig = getGlobalConfig();
-
     // 调用父类构造函数，窗口时间设置为 50ms（参考 watchOrderBook.ts）
     super({
       logger: params.logger,
-      url: globalConfig.ws.marketDataUrl,
+      url: WS_POLY_ORDER_BOOK_URL,
       windowTime: params.windowTime || 50, // 窗口时间 50ms
     });
 

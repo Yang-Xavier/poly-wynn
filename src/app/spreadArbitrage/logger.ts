@@ -16,10 +16,7 @@ export const logError = (message: string, data?: any) => getLoggerModule().error
 export const logData = (message: string, data?: any) =>
   getLoggerModule().info(message, data, "data");
 
-export const logChance = (message: string, data?: any) =>
-  getLoggerModule().info(message, data, "chance");
-
-export const logStrategy = (message: string, data?: any) =>
-  getLoggerModule().info(message, data, "strategy");
+export const customTypeLog = (type: string, message: string, data?: any) =>
+  getLoggerModule().info(message, data, type);
 
 export const setTraceId = (traceId: string) => getLoggerModule().setTraceId(traceId);

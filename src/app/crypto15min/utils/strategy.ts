@@ -8,6 +8,7 @@ import { decideTailSweep } from "./decision";
 import { calcDiffEnough } from "./calc";
 import { getDataFlowInstances } from "@crypto15min/module/dataFlow";
 import { OrderBookData } from "@shared/ws/PolyOrderBookWs";
+import { PriceData } from "@shared/ws/BnPriceWs";
 
 const getOutcomeByAssetId = (market: MarketResponse, assetId: string) => {
   const { clobTokenIds, outcomes } = market;
@@ -124,18 +125,41 @@ export const watchPosition = async (
       let resolved = false;
       let prevGap = 0;
 
-      getDataFlowInstances()?.polyOrderBookWs.onOrderBookChange((data: OrderBookData) => {
+      getDataFlowInstances()?.polyPriceWs.onPriceChange((data: PriceData) => {
+        if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) {
+          return;
+        }
+        if (
+          (data.value > priceToBeat && outcome === OUTCOMES_ENUM.Up) ||
+          (data.value < priceToBeat && outcome === OUTCOMES_ENUM.Down)
+        ) {
+          resolved = true;
+          resolve(TOKEN_ACTION_ENUM.sell);
+          const latency = Date.now() - data?.timestamp;
+          customTypeLog(
+            "PolyOrderBookWs",
+            `[买入后价格检查(低于阈值💰) polyPriceWs] 
+                outcoum: ${outcome}, 
+                priceToBeat: ${priceToBeat}, 
+                currentPrice: ${data?.value}
+                latency: ${latency}
+            `
+          );
+        }
+      });
+
+      getDataFlowInstances()?.bnPriceWs.onPriceChange((bnData: PriceData) => {
         if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) {
           return;
         }
         const assetId = outcomes[outcome];
-        const bestAsk = data[assetId]?.bestAsk;
-        const latency = Date.now() - data[assetId]?.timestamp;
+        const latency = Date.now() - bnData?.timestamp;
         const polyData = getDataFlowInstances()?.polyPriceWs.getLatestPriceData();
-        const bnData = getDataFlowInstances()?.bnPriceWs.getLatestPriceData();
         const currentGap = bnData?.value - polyData?.value;
         const gapDelt = currentGap - prevGap;
         const ajustedPolyPrice = polyData?.value + gapDelt;
+        const bestAsk =
+          getDataFlowInstances()?.polyOrderBookWs.getLatestOrderBookData(assetId)?.bestAsk ?? 0;
 
         if (
           (ajustedPolyPrice < priceToBeat && outcome === OUTCOMES_ENUM.Up) ||
@@ -143,26 +167,66 @@ export const watchPosition = async (
         ) {
           customTypeLog(
             "PolyOrderBookWs",
-            `[买入后价格检查(低于阈值💰)] outcoum: ${outcome}, priceToBeat: ${priceToBeat}, currentPrice: ${polyData?.value}, ajustedPolyPrice: ${ajustedPolyPrice}, bestAsk: ${bestAsk}, assetId: ${assetId}, priceGap: ${currentGap}, latency: ${latency}`
+            `[买入后价格检查(低于阈值💰) bnPriceWs] 
+                outcoum: ${outcome}, 
+                priceToBeat: ${priceToBeat}, 
+                currentPrice: ${polyData?.value}, 
+                ajustedPolyPrice: ${ajustedPolyPrice}, 
+                bestAsk: ${bestAsk}, 
+                assetId: ${assetId}, 
+                priceGap: ${currentGap}, 
+                latency: ${latency},
+                distance: ${distanceToNextInterval(slugIntervalTimestamp)}
+            `
           );
-          resolved = true;
-          resolve(TOKEN_ACTION_ENUM.sell);
+          if (
+            distanceToNextInterval(slugIntervalTimestamp) >
+            globalConfig.stratgegy.priceDelayThreshold
+          ) {
+            resolved = true;
+            resolve(TOKEN_ACTION_ENUM.sell);
+          }
+        } else {
+          customTypeLog(
+            "PolyOrderBookWs",
+            `[买入后价格检查(高于阈值💰) bnPriceWs] 
+                outcoum: ${outcome}, 
+                priceToBeat: ${priceToBeat}, 
+                currentPrice: ${polyData?.value}, 
+                ajustedPolyPrice: ${ajustedPolyPrice}, 
+                bestAsk: ${bestAsk}, 
+                assetId: ${assetId}, 
+                priceGap: ${currentGap}, 
+                latency: ${latency},
+                distance: ${distanceToNextInterval(slugIntervalTimestamp)}
+            `
+          );
         }
+        prevGap = currentGap;
+      });
+
+      getDataFlowInstances()?.polyOrderBookWs.onOrderBookChange((data: OrderBookData) => {
+        if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) {
+          return;
+        }
+
+        const assetId = outcomes[outcome];
+        const bestAsk = data[assetId]?.bestAsk;
+        const latency = Date.now() - data[assetId]?.timestamp;
 
         if (bestAsk && bestAsk < globalConfig.stratgegy.sellProbabilityThreshold) {
           customTypeLog(
             "PolyOrderBookWs",
-            `[买入后概率检查(低于阈值📚)] outcoum: ${outcome}, priceToBeat: ${priceToBeat}, currentPrice: ${polyData?.value}, ajustedPolyPrice: ${ajustedPolyPrice}, bestAsk: ${bestAsk}, assetId: ${assetId}, priceGap: ${currentGap}, latency: ${latency}`
+            `[买入后概率检查(低于阈值📚) polyOrderBookWs] 
+                outcoum: ${outcome}, 
+                bestAsk: ${bestAsk}, 
+                assetId: ${assetId}, 
+                latency: ${latency}
+            `
           );
           resolved = true;
           resolve(TOKEN_ACTION_ENUM.sell);
-        } else {
-          customTypeLog(
-            "PolyOrderBookWs",
-            `[买入后概率检查(高于阈值📚)] outcoum: ${outcome}, priceToBeat: ${priceToBeat}, currentPrice: ${polyData?.value}, ajustedPolyPrice: ${ajustedPolyPrice}, bestAsk: ${bestAsk}, assetId: ${assetId}, priceGap: ${currentGap}, latency: ${latency}`
-          );
         }
-        prevGap = currentGap;
       });
     }),
     timeout > 0 ? timeout : 0
