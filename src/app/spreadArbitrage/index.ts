@@ -128,6 +128,10 @@ const main = async () => {
               loss: chance.stopLossPrice - chance.buyPrice,
               holdTime,
             });
+          } else if (action === WATCH_POSITION_ACTION_ENUM.hold) {
+            logInfo("hold", {
+              holdTime,
+            });
           }
         } else {
           logTrade("skip");
