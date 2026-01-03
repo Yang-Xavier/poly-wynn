@@ -6,6 +6,7 @@ import { calculateBSM } from "@shared/algorithm/bsm";
 import { customTypeLog } from "./logger";
 import { race } from "@shared/utils/race";
 import { OUTCOMES_ENUM } from "@crypto15min/utils/constans";
+import { predictSpreadChange } from "@shared/algorithm/spreadPredictor";
 
 export const findChance = async (params: {
   market: TMarketResponseData;
@@ -27,10 +28,10 @@ export const findChance = async (params: {
 
         const polyPrice = dataFlowInstances.polyPriceWs.getLatestPriceData();
         const upOrderbook = dataFlowInstances.polyOrderBookWs.getLatestOrderBookData(
-          assetIdMapOutcome.Up
+          assetIdMapOutcome[OUTCOMES_ENUM.Up]
         );
         const downOrderbook = dataFlowInstances.polyOrderBookWs.getLatestOrderBookData(
-          assetIdMapOutcome.Down
+          assetIdMapOutcome[OUTCOMES_ENUM.Down]
         );
 
         if (!polyPrice || !upOrderbook || !downOrderbook) return;
@@ -40,13 +41,22 @@ export const findChance = async (params: {
         const priceGap = bnPrice.value - polyPrice.value;
         const priceGapDelta = priceGap - prevPriceGap;
         const deltaRate = Math.abs(priceGapDelta / prevPriceGap);
-        if (!first && deltaRate > config.deltaRateThreshold) {
-          const priceHistory = dataFlowInstances.polyPriceWs.getPriceHistory();
+        const polyPriceHistory = dataFlowInstances.polyPriceWs.getPriceHistory();
+        const bnPriceHistory = dataFlowInstances.bnPriceWs.getPriceHistory();
+
+        if (bnPriceHistory.length > 50 && polyPriceHistory.length > 50) {
+          const { predictedNewPrice } = predictSpreadChange(
+            bnPriceHistory,
+            polyPriceHistory,
+            bnPrice.value,
+            polyPrice.value
+          );
+
           const bsmResult = calculateBSM(
             [
-              ...priceHistory,
+              ...polyPriceHistory,
               {
-                value: polyPrice.value + priceGapDelta,
+                value: predictedNewPrice,
                 timestamp: Date.now(),
               },
             ],
@@ -62,12 +72,14 @@ export const findChance = async (params: {
               "Chance",
               `
                 === 💡找到机会 ===    
-                bsmResult: ${JSON.stringify(bsmResult)},
+                predictedNewPrice: ${predictedNewPrice},
+                priceToBeat: ${priceToBeat},
                 upBestAsk: ${upBestAsk},
                 downBestAsk: ${downBestAsk},
                 priceGap: ${priceGap},
                 priceGapDelta: ${priceGapDelta},
                 deltaRate: ${deltaRate},
+                bsmResult: ${JSON.stringify(bsmResult)},
                 distance: ${distanceToNextInterval(slugIntervalTimestamp)}
               `
             );
@@ -112,28 +124,19 @@ export const findChance = async (params: {
               "Chance",
               `
                 === 未找到机会 ===    
-                bsmResult: ${JSON.stringify(bsmResult)},
+                predictedNewPrice: ${predictedNewPrice},
+                priceToBeat: ${priceToBeat},
                 upBestAsk: ${upBestAsk},
                 downBestAsk: ${downBestAsk},
                 priceGap: ${priceGap},
                 priceGapDelta: ${priceGapDelta},
                 deltaRate: ${deltaRate},
+                bsmResult: ${JSON.stringify(bsmResult)},
                 distance: ${distanceToNextInterval(slugIntervalTimestamp)}
               `
             );
           }
-        } else {
-          customTypeLog(
-            "Chance",
-            `
-              === 未找到机会 ===    
-              upBestAsk: ${upBestAsk},
-              downBestAsk: ${downBestAsk},
-              priceGap: ${priceGap},
-            `
-          );
         }
-
         prevPriceGap = priceGap;
         first = false;
       });
