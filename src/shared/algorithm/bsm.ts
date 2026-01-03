@@ -187,7 +187,7 @@ function calculateVolatilityStability(priceHistory: PriceTick[]): number {
  * 对数价格在到期时的分布：
  * ln(S_T) ~ N(ln(S_0) + (r - 0.5*σ²)*T, σ²*T)
  *
- * Up概率：P(S_T >= K) = 1 - N(d2)
+ * Up概率：P(S_T >= K) = N(d2)
  * 其中 d2 = (ln(S_0/K) + (r - 0.5*σ²)*T) / (σ*√T)
  */
 function calculateBSMProbability(params: BSMParams): { probUp: number; probDown: number } {
@@ -220,9 +220,9 @@ function calculateBSMProbability(params: BSMParams): { probUp: number; probDown:
 
   const d2 = (logS0K + (riskFreeRate - 0.5 * volatility * volatility) * timeToExpiry) / sigmaSqrtT;
 
-  // P(S_T >= K) = 1 - N(d2)
-  const probDown = normalCdf(d2);
-  const probUp = 1 - probDown;
+  // P(S_T >= K) = N(d2)
+  const probUp = normalCdf(d2);
+  const probDown = 1 - probUp;
 
   // 数值稳定性处理
   return {
