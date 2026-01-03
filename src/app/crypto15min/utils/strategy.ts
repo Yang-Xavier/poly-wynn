@@ -34,6 +34,8 @@ export const findChance = async (
   const globalConfig = getGlobalConfig();
   const outcomes = getAssetIdMapOutcome(market);
 
+  logInfo(`[findChance] outcomes: ${JSON.stringify(outcomes)}`);
+
   return await race(
     new Promise((resolve) => {
       let resolved = false;
