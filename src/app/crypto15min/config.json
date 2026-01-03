@@ -24,12 +24,12 @@
     "attenuationFactor": [2, 0.8],
     "buyingRetryCount": 5,
     "buyingMaxSplit": 3,
-    "buyingAmountFactor": 1,
-    "buyingMaxAmount": 100,
     "confidenceThreshold": 0.2,
     "limitBuyCount": 1,
     "breakProbabilityThreshold": 0.9,
 
+    "buyingAmountFactor": 0.2,
+    "buyingMaxAmount": 100,
     "sellProbabilityThreshold": 0.45,
     "bestAskThreshold": 0.95,
     "tailSweepConfig": {
