@@ -198,7 +198,7 @@ export const runPolyWynn = async () => {
             const watchingPriceChangeTimeout = distanceToNextInterval(slugIntervalTimestamp);
             let currentPrice = getDataFlowInstances()?.polyPriceWs.getLatestPriceData();
             logInfo(
-              `👀监控仓位... priceToBeat: ${priceToBeat}, currentPrice: ${currentPrice}, outcome: ${boughtOrder.outcome}, timeout: ${watchingPriceChangeTimeout}`
+              `👀监控仓位... priceToBeat: ${priceToBeat}, currentPrice: ${currentPrice?.value}, outcome: ${boughtOrder.outcome}, timeout: ${watchingPriceChangeTimeout}`
             );
             const action = await watchPosition(
               market,
@@ -209,7 +209,7 @@ export const runPolyWynn = async () => {
             );
             currentPrice = getDataFlowInstances()?.polyPriceWs.getLatestPriceData();
             logInfo(
-              `🤔监控仓位结果: ${action}, priceToBeat: ${priceToBeat}, currentPrice: ${currentPrice}, outcome: ${boughtOrder.outcome}`
+              `🤔监控仓位结果: ${action}, priceToBeat: ${priceToBeat}, currentPrice: ${currentPrice?.value}, outcome: ${boughtOrder.outcome}`
             );
 
             if (action === TOKEN_ACTION_ENUM.sell) {

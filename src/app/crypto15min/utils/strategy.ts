@@ -112,6 +112,7 @@ export const watchPosition = async (
   const result = await race(
     new Promise((resolve) => {
       let resolved = false;
+      let prevGap = 0;
 
       getDataFlowInstances()?.polyOrderBookWs.onOrderBookChange((data: OrderBookData) => {
         if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) {
@@ -122,21 +123,36 @@ export const watchPosition = async (
         const latency = Date.now() - data[assetId]?.timestamp;
         const polyData = getDataFlowInstances()?.polyPriceWs.getLatestPriceData();
         const bnData = getDataFlowInstances()?.bnPriceWs.getLatestPriceData();
-        const priceGap = bnData?.value - polyData?.value;
+        const currentGap = bnData?.value - polyData?.value;
+        const gapDelt = currentGap - prevGap;
+        const ajustedPolyPrice = polyData?.value + gapDelt;
+
+        if (
+          (ajustedPolyPrice < priceToBeat && outcome === OUTCOMES_ENUM.Up) ||
+          (ajustedPolyPrice > priceToBeat && outcome === OUTCOMES_ENUM.Down)
+        ) {
+          customTypeLog(
+            "PolyOrderBookWs",
+            `[买入后价格检查(低于阈值💰)] outcoum: ${outcome}, priceToBeat: ${priceToBeat}, currentPrice: ${polyData?.value}, ajustedPolyPrice: ${ajustedPolyPrice}, bestAsk: ${bestAsk}, assetId: ${assetId}, priceGap: ${currentGap}, latency: ${latency}`
+          );
+          resolved = true;
+          resolve(TOKEN_ACTION_ENUM.sell);
+        }
 
         if (bestAsk && bestAsk < globalConfig.stratgegy.sellProbabilityThreshold) {
           customTypeLog(
             "PolyOrderBookWs",
-            `[买入后概率检查(低于阈值📚)] outcoum: ${outcome}, priceToBeat: ${priceToBeat}, bestAsk: ${bestAsk}, assetId: ${assetId}, latency: ${latency}, priceGap: ${priceGap}`
+            `[买入后概率检查(低于阈值📚)] outcoum: ${outcome}, priceToBeat: ${priceToBeat}, currentPrice: ${polyData?.value}, ajustedPolyPrice: ${ajustedPolyPrice}, bestAsk: ${bestAsk}, assetId: ${assetId}, priceGap: ${currentGap}, latency: ${latency}`
           );
           resolved = true;
           resolve(TOKEN_ACTION_ENUM.sell);
         } else {
           customTypeLog(
             "PolyOrderBookWs",
-            `[买入后概率检查(高于阈值📚)] outcoum: ${outcome}, priceToBeat: ${priceToBeat}, bestAsk: ${bestAsk}, assetId: ${assetId}, latency: ${latency}, priceGap: ${priceGap}`
+            `[买入后概率检查(高于阈值📚)] outcoum: ${outcome}, priceToBeat: ${priceToBeat}, currentPrice: ${polyData?.value}, ajustedPolyPrice: ${ajustedPolyPrice}, bestAsk: ${bestAsk}, assetId: ${assetId}, priceGap: ${currentGap}, latency: ${latency}`
           );
         }
+        prevGap = currentGap;
       });
     }),
     timeout > 0 ? timeout : 0
