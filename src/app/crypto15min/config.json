@@ -1,5 +1,5 @@
 {
-  "marketTag": "btc",
+  "marketTag": "eth",
   "clobHost": "https://clob.polymarket.com",
   "gammaHost": "https://gamma-api.polymarket.com",
   "dataHost": "https://data-api.polymarket.com",
