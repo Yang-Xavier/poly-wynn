@@ -23,3 +23,12 @@ export interface LogChunk {
   logs: ParsedLog[];
 }
 
+// TraceId 汇总信息
+export interface TraceIdSummary {
+  traceId: string;
+  date: string;
+  logCount: number; // 该 traceId 下的日志条数
+  latestLog: ParsedLog | null; // 最新的日志
+  firstLog: ParsedLog | null; // 最早的日志
+}
+

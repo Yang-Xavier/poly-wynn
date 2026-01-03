@@ -17,21 +17,23 @@ export async function getChanceLogsHandler(
   try {
     const appName = "spreadArbitrage";
     const { date } = req.query;
-    const logs = getChanceLogs(appName, date);
+    const summaries = getChanceLogs(appName, date);
 
     // 获取基础 URL（用于生成链接）
     const protocol = req.protocol;
     const host = req.get("host");
     const baseUrl = `${protocol}://${host}`;
 
-    // 为每条日志添加链接
-    const logsWithLinks = logs.map((log) => {
-      const logUrl = `${baseUrl}/log?date=${log.date}&traceId=${encodeURIComponent(log.traceId)}&appName=${encodeURIComponent(appName)}`;
+    // 为每个 traceId 汇总信息添加链接
+    const summariesWithLinks = summaries.map((summary) => {
+      const logUrl = `${baseUrl}/log?date=${summary.date}&traceId=${encodeURIComponent(summary.traceId)}&appName=${encodeURIComponent(appName)}`;
+      const latestLogDisplay = summary.latestLog ? formatTradeLogForDisplay(summary.latestLog) : "无日志";
       return {
-        date: log.date,
-        traceId: log.traceId,
+        traceId: summary.traceId,
+        date: summary.date,
+        logCount: summary.logCount,
         logUrl: logUrl,
-        log: formatTradeLogForDisplay(log),
+        latestLog: latestLogDisplay,
       };
     });
 
@@ -122,38 +124,52 @@ export async function getChanceLogsHandler(
     .log-content .log-message {
       color: #ce9178 !important;
     }
+    .latest-log-label {
+      color: #b0b0b0;
+      font-size: 12px;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Chance 日志 - ${appName}</h1>
-    <div class="count">共 ${logsWithLinks.length} 条记录</div>
-    ${logsWithLinks
+    <div class="count">共 ${summariesWithLinks.length} 个 TraceID，总计 ${summariesWithLinks.reduce((sum, s) => sum + s.logCount, 0)} 条日志</div>
+    ${summariesWithLinks
       .map(
         (item) => `
       <div class="log-item">
-        <div class="meta">日期: ${item.date} | TraceID: ${item.traceId} | <a href="${item.logUrl}">查看详情</a></div>
-        <div class="log-content">${(() => {
-          // 解析日志行，用颜色区分 "=>" 前后的内容
-          const arrowIndex = item.log.indexOf(' => ');
-          if (arrowIndex > 0) {
-            const prefix = item.log.substring(0, arrowIndex)
-              .replace(/&/g, '&amp;')
-              .replace(/</g, '&lt;')
-              .replace(/>/g, '&gt;');
-            const message = item.log.substring(arrowIndex + 4)
-              .replace(/&/g, '&amp;')
-              .replace(/</g, '&lt;')
-              .replace(/>/g, '&gt;');
-            return `<span class="log-prefix">${prefix}</span><span class="log-arrow"> => </span><span class="log-message">${message}</span>`;
-          } else {
-            const escaped = item.log
-              .replace(/&/g, '&amp;')
-              .replace(/</g, '&lt;')
-              .replace(/>/g, '&gt;');
-            return escaped;
-          }
-        })()}</div>
+        <div class="meta">
+          <strong>TraceID:</strong> ${item.traceId} | 
+          <strong>日期:</strong> ${item.date} | 
+          <strong>日志条数:</strong> ${item.logCount} | 
+          <a href="${item.logUrl}">查看详情</a>
+        </div>
+        <div class="log-content">
+          <div class="latest-log-label">最新日志：</div>
+          ${(() => {
+            // 解析日志行，用颜色区分 "=>" 前后的内容
+            const arrowIndex = item.latestLog.indexOf(' => ');
+            if (arrowIndex > 0) {
+              const prefix = item.latestLog.substring(0, arrowIndex)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+              const message = item.latestLog.substring(arrowIndex + 4)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+              return `<span class="log-prefix">${prefix}</span><span class="log-arrow"> => </span><span class="log-message">${message}</span>`;
+            } else {
+              const escaped = item.latestLog
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+              return escaped;
+            }
+          })()}
+        </div>
       </div>
     `
       )

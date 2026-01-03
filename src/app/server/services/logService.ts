@@ -1,6 +1,6 @@
 import * as path from "path";
 import * as fs from "fs";
-import { ParsedLog, LogChunk } from "../types";
+import { ParsedLog, LogChunk, TraceIdSummary } from "../types";
 import {
   parseLogFile,
   getLogFilePath,
@@ -73,30 +73,42 @@ export function getTradeLogs(appName: string, date?: string): ParsedLog[] {
 }
 
 /**
- * 获取指定 appName 和 date 的所有 traceId 的 Chance 日志（聚合）
+ * 获取指定 appName 和 date 的所有 traceId 的汇总信息（按 traceId 分组）
  */
-export function getChanceLogs(appName: string, date?: string): ParsedLog[] {
+export function getChanceLogs(appName: string, date?: string): TraceIdSummary[] {
   const targetDate = date && isValidDateString(date) ? date : getTodayDateString();
   const traceIdDirs = getTraceIdDirs(appName, targetDate);
   
-  const allLogs: ParsedLog[] = [];
+  const summaries: TraceIdSummary[] = [];
   
   // 遍历所有 traceId 目录，读取 Chance.log
   for (const traceId of traceIdDirs) {
     const chanceLogPath = getLogFilePath(appName, targetDate, traceId, "Chance");
     const logs = parseLogFile(chanceLogPath);
-    allLogs.push(...logs);
+    
+    if (logs.length > 0) {
+      // 按时间戳排序
+      logs.sort((a, b) => {
+        if (a.timestamp && b.timestamp) {
+          return a.timestamp.localeCompare(b.timestamp);
+        }
+        return 0;
+      });
+      
+      summaries.push({
+        traceId,
+        date: targetDate,
+        logCount: logs.length,
+        latestLog: logs[logs.length - 1], // 最新的日志
+        firstLog: logs[0], // 最早的日志
+      });
+    }
   }
   
-  // 按时间戳排序
-  allLogs.sort((a, b) => {
-    if (a.timestamp && b.timestamp) {
-      return a.timestamp.localeCompare(b.timestamp);
-    }
-    return 0;
-  });
+  // 按 traceId 排序
+  summaries.sort((a, b) => a.traceId.localeCompare(b.traceId));
   
-  return allLogs;
+  return summaries;
 }
 
 /**
