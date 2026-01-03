@@ -117,7 +117,7 @@ const main = async () => {
           const { original_size, size_matched, price: boughtPrice } = boughtOrder;
           // 记录买入信息
           logTrade("buy", {
-            size: Number(size_matched),
+            size: Number(size_matched) === 0 ? Number(original_size) : Number(size_matched),
             originalSize: Number(original_size),
             price: Number(boughtPrice),
             originalPrice: chance.buyPrice,
