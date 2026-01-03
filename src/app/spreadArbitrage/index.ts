@@ -103,6 +103,7 @@ const main = async () => {
             // 进入下一次循环
             continue;
           }
+          logInfo(`查询买入订单: ${buyResult.orderID}`);
           const boughtOrder = await mustGetOrder(
             buyResult.orderID,
             distanceToNextInterval(slugIntervalTimestamp)
@@ -135,10 +136,14 @@ const main = async () => {
 
           const holdTime = Date.now() - buyTime;
           if (action === WATCH_POSITION_ACTION_ENUM.sell) {
-            const { size_matched: boughtSize, price: boughtPrice } = boughtOrder;
+            const {
+              size_matched: boughtSize,
+              original_size: boughtOriginalSize,
+              price: boughtPrice,
+            } = boughtOrder;
             const sellResult = await mustSell(
               chance.assetId,
-              Number(boughtSize),
+              Number(boughtSize) === 0 ? Number(boughtOriginalSize) : Number(boughtSize),
               distanceToNextInterval(slugIntervalTimestamp)
             );
             if (!sellResult || !sellResult.orderID) {
@@ -146,6 +151,7 @@ const main = async () => {
               // 进入下一次循环
               continue;
             }
+            logInfo(`查询卖出订单: ${sellResult.orderID}`);
             const soldOrder = await mustGetOrder(
               sellResult.orderID,
               distanceToNextInterval(slugIntervalTimestamp)
@@ -184,7 +190,7 @@ const main = async () => {
         }
       }
     } catch (error) {
-      logError(`策略执行失败: ${error}`);
+      logInfo(`策略执行失败: ${error}`);
     }
 
     dataFlow.destroy();

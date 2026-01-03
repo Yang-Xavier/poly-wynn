@@ -51,7 +51,9 @@ export const mustSell = async (assetId: string, amount: number, timeout: number 
   let retryCount = 0;
   while (new Date().getTime() - startTime < timeout) {
     try {
+      logInfo(`卖出...`);
       const resp = await clobApi.postMarketOrder({ tokenID: assetId, side: Side.SELL, amount });
+      logInfo(`卖出完成...`, { resp });
       if (resp.orderID) {
         return resp;
       }
