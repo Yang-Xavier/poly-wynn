@@ -122,10 +122,10 @@ app.get("/", (req: Request, res: Response) => {
         </a>
       </div>
       <div class="route-item">
-        <a href="${baseUrl}/spreadArbitrage/logs" class="route-link">
-          <div class="route-title">🎯 SpreadArbitrage Chance 日志</div>
-          <div class="route-path">/spreadArbitrage/logs</div>
-          <div class="route-desc">查看 spreadArbitrage 应用的机会日志</div>
+        <a href="${baseUrl}/spreadArbitrage/trade" class="route-link">
+          <div class="route-title">📊 SpreadArbitrage Trade 日志</div>
+          <div class="route-path">/spreadArbitrage/trade</div>
+          <div class="route-desc">查看 spreadArbitrage 应用的交易日志</div>
           <div class="route-example">?date=${today} (可选，默认今天)</div>
         </a>
       </div>
