@@ -82,10 +82,6 @@ export class PolyOrderBookWs extends HighPerformanceWs {
           const bestAsk = asks && asks.length > 0 ? Number(asks[asks.length - 1].price) : null;
           const bestBid = bids && bids.length > 0 ? Number(bids[bids.length - 1].price) : null;
 
-          if (bestAsk === null || bestBid === null) {
-            continue;
-          }
-
           const timestampNum = Number(timestamp) || Date.now();
 
           // 更新当前窗口订单簿中该资产的数据（使用最新的数据，包含 timestamp）
@@ -103,6 +99,8 @@ export class PolyOrderBookWs extends HighPerformanceWs {
         }
       }
     }
+
+    this.logger.customTypeLog("PolyOrderBookWs", JSON.stringify(currentWindowOrderBook));
 
     // 如果当前窗口有订单簿数据，处理窗口结束逻辑
     if (Object.keys(currentWindowOrderBook).length > 0) {
@@ -124,8 +122,6 @@ export class PolyOrderBookWs extends HighPerformanceWs {
           }
         }
       }
-
-      this.logger.customTypeLog("PolyOrderBookWs", JSON.stringify(currentWindowOrderBook));
     }
   }
 
