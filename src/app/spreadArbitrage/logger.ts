@@ -43,7 +43,8 @@ export const logTrade = (
     balance: "🏠",
     skip: "⏭️",
   };
-  let msg = "\n------------------------------------------------------------";
+  let msg = `
+  ------------------------------------------------------------`;
   if (tradeType === "buy") {
     msg += `
     action: ${label[tradeType]}${tradeType};
@@ -74,7 +75,7 @@ export const logTrade = (
     profit: ${data.totalProfit}
     `;
   }
-  msg += "------------------------------------------------------------\n";
+  msg += `------------------------------------------------------------`;
   customTypeLog("trade", msg);
 };
 
