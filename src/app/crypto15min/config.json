@@ -1,5 +1,5 @@
 {
-  "marketTag": "eth",
+  "marketTag": "btc",
   "clobHost": "https://clob.polymarket.com",
   "gammaHost": "https://gamma-api.polymarket.com",
   "dataHost": "https://data-api.polymarket.com",
@@ -28,7 +28,7 @@
     "limitBuyCount": 1,
     "breakProbabilityThreshold": 0.9,
 
-    "buyingAmountFactor": 1,
+    "buyingAmountFactor": 0.2,
     "buyingMaxAmount": 100,
     "sellProbabilityThreshold": 0.45,
     "bestAskThreshold": 0.95,
