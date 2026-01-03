@@ -106,6 +106,7 @@ const main = async () => {
             price: chance.buyPrice,
             originalPrice: chance.buyPrice,
           });
+          const buyTime = Date.now();
           buyAccount++;
 
           logInfo(`监听仓位...`);
@@ -115,6 +116,7 @@ const main = async () => {
           });
           logInfo(`监听仓位返回结果: ${sellAction}`);
 
+          const holdTime = Date.now() - buyTime;
           if (sellAction === WATCH_POSITION_ACTION_ENUM.sellInProfit) {
             logTrade("sell", {
               size: buyAmount / chance.buyPrice,
@@ -122,6 +124,7 @@ const main = async () => {
               price: chance.stopProfitPrice,
               originalPrice: chance.stopProfitPrice,
               profit: chance.stopProfitPrice - chance.buyPrice,
+              holdTime,
             });
           } else if (sellAction === WATCH_POSITION_ACTION_ENUM.sellInProfit) {
             logTrade("sell", {
@@ -130,6 +133,7 @@ const main = async () => {
               price: chance.stopLossPrice,
               originalPrice: chance.stopLossPrice,
               loss: chance.stopLossPrice - chance.buyPrice,
+              holdTime,
             });
           }
         }

@@ -31,6 +31,7 @@ export const logTrade = (
     profit?: number;
     loss?: number;
     balance?: number;
+    holdTime?: number;
   }
 ) => {
   const label = {
@@ -40,7 +41,13 @@ export const logTrade = (
   };
   let msg = `${label[tradeType]}${tradeType} => `;
   if (tradeType === "buy" || tradeType === "sell") {
-    msg += `original: ${data.originalSize}@${data.originalPrice}; matched: ${data.size}@${data.price}; ${data.profit ? `💡profit: ${data.profit}` : ""} ${data.loss ? `🈚️loss: ${data.loss}` : ""}`;
+    msg += `original: ${data.originalSize}@${data.originalPrice}; matched: ${data.size}@${data.price}; 
+    ------------------------------------------------------------
+    ${data.profit ? `💡profit: ${data.profit}` : ""} 
+    ${data.loss ? `🈚️loss: ${data.loss}` : ""}
+    ${data.holdTime ? `holdTime: ${data.holdTime}` : ""}  
+    ------------------------------------------------------------
+    `;
   } else if (tradeType === "balance") {
     msg += data.balance;
   }
