@@ -112,6 +112,7 @@ const main = async () => {
             // 进入下一次循环
             continue;
           }
+          logInfo(`买入订单: ${JSON.stringify(boughtOrder)}`);
           const { original_size, size_matched, price: boughtPrice } = boughtOrder;
           // 记录买入信息
           logTrade("buy", {
@@ -154,6 +155,7 @@ const main = async () => {
               // 进入下一次循环
               continue;
             }
+            logInfo(`卖出订单: ${JSON.stringify(soldOrder)}`);
             const { original_size, size_matched, price: soldPrice } = soldOrder;
             const loggerData = {
               size: Number(size_matched),

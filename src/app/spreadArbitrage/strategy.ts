@@ -160,7 +160,7 @@ export const watchPosition = async (params: { chance: IChance; slugIntervalTimes
     new Promise((resolve) => {
       dataFlowInstances.polyOrderBookWs.onOrderBookChange((orderBook) => {
         if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) return;
-        const bestBid = orderBook[assetId].bestBid;
+        const bestBid = orderBook[assetId]?.bestBid;
         if (bestBid && (Number(bestBid) <= stopLossPrice || Number(bestBid) >= stopProfitPrice)) {
           resolved = true;
           resolve({ action: WATCH_POSITION_ACTION_ENUM.sell, price: bestBid });
