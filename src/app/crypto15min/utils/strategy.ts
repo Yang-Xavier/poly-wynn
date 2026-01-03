@@ -148,62 +148,62 @@ export const watchPosition = async (
         }
       });
 
-      getDataFlowInstances()?.bnPriceWs.onPriceChange((bnData: PriceData) => {
-        if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) {
-          return;
-        }
-        const assetId = outcomes[outcome];
-        const latency = Date.now() - bnData?.timestamp;
-        const polyData = getDataFlowInstances()?.polyPriceWs.getLatestPriceData();
-        const currentGap = bnData?.value - polyData?.value;
-        const gapDelt = currentGap - prevGap;
-        const ajustedPolyPrice = polyData?.value + gapDelt;
-        const bestAsk =
-          getDataFlowInstances()?.polyOrderBookWs.getLatestOrderBookData(assetId)?.bestAsk ?? 0;
+      //   getDataFlowInstances()?.bnPriceWs.onPriceChange((bnData: PriceData) => {
+      //     if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) {
+      //       return;
+      //     }
+      //     const assetId = outcomes[outcome];
+      //     const latency = Date.now() - bnData?.timestamp;
+      //     const polyData = getDataFlowInstances()?.polyPriceWs.getLatestPriceData();
+      //     const currentGap = bnData?.value - polyData?.value;
+      //     const gapDelt = currentGap - prevGap;
+      //     const ajustedPolyPrice = polyData?.value + gapDelt;
+      //     const bestAsk =
+      //       getDataFlowInstances()?.polyOrderBookWs.getLatestOrderBookData(assetId)?.bestAsk ?? 0;
 
-        if (
-          (ajustedPolyPrice < priceToBeat && outcome === OUTCOMES_ENUM.Up) ||
-          (ajustedPolyPrice > priceToBeat && outcome === OUTCOMES_ENUM.Down)
-        ) {
-          customTypeLog(
-            "PolyOrderBookWs",
-            `[买入后价格检查(低于阈值💰) bnPriceWs] 
-                outcoum: ${outcome}, 
-                priceToBeat: ${priceToBeat}, 
-                currentPrice: ${polyData?.value}, 
-                ajustedPolyPrice: ${ajustedPolyPrice}, 
-                bestAsk: ${bestAsk}, 
-                assetId: ${assetId}, 
-                priceGap: ${currentGap}, 
-                latency: ${latency},
-                distance: ${distanceToNextInterval(slugIntervalTimestamp)}
-            `
-          );
-          if (
-            distanceToNextInterval(slugIntervalTimestamp) >
-            globalConfig.stratgegy.priceDelayThreshold
-          ) {
-            resolved = true;
-            resolve(TOKEN_ACTION_ENUM.sell);
-          }
-        } else {
-          customTypeLog(
-            "PolyOrderBookWs",
-            `[买入后价格检查(高于阈值💰) bnPriceWs] 
-                outcoum: ${outcome}, 
-                priceToBeat: ${priceToBeat}, 
-                currentPrice: ${polyData?.value}, 
-                ajustedPolyPrice: ${ajustedPolyPrice}, 
-                bestAsk: ${bestAsk}, 
-                assetId: ${assetId}, 
-                priceGap: ${currentGap}, 
-                latency: ${latency},
-                distance: ${distanceToNextInterval(slugIntervalTimestamp)}
-            `
-          );
-        }
-        prevGap = currentGap;
-      });
+      //     if (
+      //       (ajustedPolyPrice < priceToBeat && outcome === OUTCOMES_ENUM.Up) ||
+      //       (ajustedPolyPrice > priceToBeat && outcome === OUTCOMES_ENUM.Down)
+      //     ) {
+      //       customTypeLog(
+      //         "PolyOrderBookWs",
+      //         `[买入后价格检查(低于阈值💰) bnPriceWs]
+      //             outcoum: ${outcome},
+      //             priceToBeat: ${priceToBeat},
+      //             currentPrice: ${polyData?.value},
+      //             ajustedPolyPrice: ${ajustedPolyPrice},
+      //             bestAsk: ${bestAsk},
+      //             assetId: ${assetId},
+      //             priceGap: ${currentGap},
+      //             latency: ${latency},
+      //             distance: ${distanceToNextInterval(slugIntervalTimestamp)}
+      //         `
+      //       );
+      //       if (
+      //         distanceToNextInterval(slugIntervalTimestamp) >
+      //         globalConfig.stratgegy.priceDelayThreshold
+      //       ) {
+      //         resolved = true;
+      //         resolve(TOKEN_ACTION_ENUM.sell);
+      //       }
+      //     } else {
+      //       customTypeLog(
+      //         "PolyOrderBookWs",
+      //         `[买入后价格检查(高于阈值💰) bnPriceWs]
+      //             outcoum: ${outcome},
+      //             priceToBeat: ${priceToBeat},
+      //             currentPrice: ${polyData?.value},
+      //             ajustedPolyPrice: ${ajustedPolyPrice},
+      //             bestAsk: ${bestAsk},
+      //             assetId: ${assetId},
+      //             priceGap: ${currentGap},
+      //             latency: ${latency},
+      //             distance: ${distanceToNextInterval(slugIntervalTimestamp)}
+      //         `
+      //       );
+      //     }
+      //     prevGap = currentGap;
+      //   });
 
       getDataFlowInstances()?.polyOrderBookWs.onOrderBookChange((data: OrderBookData) => {
         if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) {
