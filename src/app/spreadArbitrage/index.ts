@@ -121,7 +121,7 @@ const main = async () => {
               profit: chance.stopProfitPrice - chance.buyPrice,
               holdTime,
             });
-          } else if (action === WATCH_POSITION_ACTION_ENUM.sellInProfit) {
+          } else if (action === WATCH_POSITION_ACTION_ENUM.sellInLoss) {
             logTrade("sell", {
               size: buyAmount / chance.buyPrice,
               originalSize: buyAmount / chance.buyPrice,
