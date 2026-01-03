@@ -166,10 +166,10 @@ export const watchPosition = async (params: {
         const bestBid = orderBook[assetId].bestBid;
         if (bestBid && Number(bestBid) < stopLossPrice) {
           resolved = true;
-          resolve(WATCH_POSITION_ACTION_ENUM.sellInLoss);
+          resolve({ action: WATCH_POSITION_ACTION_ENUM.sellInLoss, price: bestBid });
         } else if (bestBid && Number(bestBid) > stopProfitPrice) {
           resolved = true;
-          resolve(WATCH_POSITION_ACTION_ENUM.sellInProfit);
+          resolve({ action: WATCH_POSITION_ACTION_ENUM.sellInProfit, price: bestBid });
         }
       });
     }),

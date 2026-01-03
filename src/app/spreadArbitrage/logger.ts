@@ -19,11 +19,11 @@ export const logData = (message: string, data?: any) =>
 export const customTypeLog = (type: string, message: string, data?: any) =>
   getLoggerModule().info(message, data, type);
 
-type TradeType = "buy" | "sell" | "balance";
+type TradeType = "buy" | "sell" | "balance" | "skip";
 
 export const logTrade = (
   tradeType: TradeType,
-  data: {
+  data?: {
     size?: number;
     originalSize?: number;
     price?: number;
@@ -38,18 +38,29 @@ export const logTrade = (
     buy: "✅",
     sell: "💰",
     balance: "🏠",
+    skip: "⏭️",
   };
-  let msg = `${label[tradeType]}${tradeType} => `;
+  let msg = "";
   if (tradeType === "buy" || tradeType === "sell") {
-    msg += `original: ${data.originalSize}@${data.originalPrice}; matched: ${data.size}@${data.price}; 
+    msg += `
     ------------------------------------------------------------
+    action: ${label[tradeType]}${tradeType}
+    original: ${data.originalSize}@${data.originalPrice}; 
+    matched: ${data.size}@${data.price}; 
     ${data.profit ? `💡profit: ${data.profit}` : ""} 
     ${data.loss ? `🈚️loss: ${data.loss}` : ""}
     ${data.holdTime ? `holdTime: ${data.holdTime}` : ""}  
     ------------------------------------------------------------
     `;
   } else if (tradeType === "balance") {
-    msg += data.balance;
+    msg += `
+    ------------------------------------------------------------
+    action: ${label[tradeType]}${tradeType}
+    balance: ${data.balance}
+    ------------------------------------------------------------
+    `;
+  } else if (tradeType === "skip") {
+    msg = `${label[tradeType]}${tradeType}`;
   }
   customTypeLog("trade", msg);
 };

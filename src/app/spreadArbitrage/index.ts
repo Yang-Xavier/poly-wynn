@@ -27,9 +27,9 @@ const main = async () => {
     setTraceId(marketSlug);
 
     try {
-      if (Date.now() - slugIntervalTimestamp < config.delayToStart) {
+      if (Date.now() - slugIntervalTimestamp * 1000 < config.delayToStart) {
         logInfo(`延迟开始...`);
-        await waitFor(config.delayToStart - (Date.now() - slugIntervalTimestamp));
+        await waitFor(config.delayToStart - (Date.now() - slugIntervalTimestamp * 1000));
         logInfo(`延迟结束...`);
       }
 
@@ -79,9 +79,8 @@ const main = async () => {
         const balance = await getAccountBalanceWithRetry();
         logInfo(`获取账户余额成功: ${balance}`);
 
-        const buyAmount = Math.min(
-          Number(balance) * config.buyingAmountFactor,
-          config.maxBuyAmount
+        const buyAmount = Number(
+          Math.min(Number(balance) * config.buyingAmountFactor, config.maxBuyAmount).toFixed(2)
         );
         logInfo(`计算购买金额: ${buyAmount}`);
 
@@ -104,32 +103,35 @@ const main = async () => {
           buyAccount++;
 
           logInfo(`监听仓位...`);
-          const sellAction = await watchPosition({
+          const { action, price } = await watchPosition({
             chance,
             slugIntervalTimestamp,
           });
-          logInfo(`监听仓位返回结果: ${sellAction}`);
+          logInfo(`监听仓位返回结果: ${action}`);
 
           const holdTime = Date.now() - buyTime;
-          if (sellAction === WATCH_POSITION_ACTION_ENUM.sellInProfit) {
+          if (action === WATCH_POSITION_ACTION_ENUM.sellInProfit) {
             logTrade("sell", {
               size: buyAmount / chance.buyPrice,
               originalSize: buyAmount / chance.buyPrice,
-              price: chance.stopProfitPrice,
-              originalPrice: chance.stopProfitPrice,
+              price: price,
+              originalPrice: price,
               profit: chance.stopProfitPrice - chance.buyPrice,
               holdTime,
             });
-          } else if (sellAction === WATCH_POSITION_ACTION_ENUM.sellInProfit) {
+          } else if (action === WATCH_POSITION_ACTION_ENUM.sellInProfit) {
             logTrade("sell", {
               size: buyAmount / chance.buyPrice,
               originalSize: buyAmount / chance.buyPrice,
-              price: chance.stopLossPrice,
-              originalPrice: chance.stopLossPrice,
+              price: price,
+              originalPrice: price,
               loss: chance.stopLossPrice - chance.buyPrice,
               holdTime,
             });
           }
+        } else {
+          logTrade("skip");
+          await waitFor(distanceToNextInterval(slugIntervalTimestamp));
         }
       }
     } catch (error) {
