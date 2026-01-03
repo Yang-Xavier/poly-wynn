@@ -36,8 +36,8 @@ export const findChance = async (params: {
 
         if (!polyPrice || !upOrderbook || !downOrderbook) return;
 
-        const upBestAsk = upOrderbook?.bestAsk;
-        const downBestAsk = downOrderbook?.bestAsk;
+        const upBestAsk = upOrderbook[assetIdMapOutcome[OUTCOMES_ENUM.Up]].bestAsk;
+        const downBestAsk = downOrderbook[assetIdMapOutcome[OUTCOMES_ENUM.Down]].bestAsk;
         const priceGap = bnPrice.value - polyPrice.value;
         const priceGapDelta = priceGap - prevPriceGap;
         const deltaRate = Math.abs(priceGapDelta / prevPriceGap);

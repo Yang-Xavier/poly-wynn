@@ -5,7 +5,7 @@ export { LogLevel } from "@shared/Logger";
 // 创建 logger 实例
 const logger = new Logger({
   appName: "spreadArbitrage",
-  enableConsole: true,
+  enableConsole: false,
 });
 
 // 导出 logger 相关函数
