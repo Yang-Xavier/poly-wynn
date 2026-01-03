@@ -24,7 +24,12 @@ const DEFAULT_CONFIG: Required<Omit<LoggerConfig, "traceId" | "appName">> & {
   appName?: string;
 } = {
   logDir: "./logs",
-  enableConsole: false,
+  enableConsole:
+    process.env.ENABLE_CONSOLE !== undefined
+      ? process.env.ENABLE_CONSOLE === "true"
+      : process.env.NODE_ENV === "production"
+        ? false
+        : true,
   flushInterval: 2000, // 2秒自动刷新，在进程空闲时批量写入
 };
 

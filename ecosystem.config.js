@@ -9,6 +9,7 @@ module.exports = {
         LOGGER_DISABLE_CONSOLE: "true",
         // 将 PASSWORD 传递给子进程
         ...(process.env.PASSWORD && { PASSWORD: process.env.PASSWORD }),
+        NODE_ENV: process.env.NODE_ENV || "production",
       },
       out_file: "./logs/pm2-start-out.log",
       error_file: "./logs/pm2-start-error.log",
@@ -36,6 +37,7 @@ module.exports = {
       cwd: __dirname,
       env: {
         LOGGER_DISABLE_CONSOLE: "true",
+        NODE_ENV: process.env.NODE_ENV || "production",
         ...(process.env.PASSWORD && { PASSWORD: process.env.PASSWORD }),
       },
       out_file: "./logs/spreadArbitrage-out.log",

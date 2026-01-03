@@ -135,6 +135,7 @@ const main = async () => {
           }
         } else {
           logTrade("skip");
+          logInfo(`未找到机会，等待下一轮策略开始...`);
           await waitFor(distanceToNextInterval(slugIntervalTimestamp));
         }
       }
