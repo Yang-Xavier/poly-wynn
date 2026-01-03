@@ -80,14 +80,22 @@ export const findChance = async (
             );
 
             if (tailSweepResult.shouldBet && isDiffEnough) {
-              resolved = true;
-              resolve({
-                tokenId: outcomes[tailSweepResult.side],
-                outcome: tailSweepResult.side,
-                cryptoPrice: currentPrice,
-                bestAsk,
-                priceToBeat,
-              });
+              if (
+                data[outcomes[tailSweepResult.side]]?.bestAsk >
+                globalConfig.stratgegy.bestAskThreshold
+              ) {
+                // 再次确认是否可以买入
+                resolved = true;
+                resolve({
+                  tokenId: outcomes[tailSweepResult.side],
+                  outcome: tailSweepResult.side,
+                  cryptoPrice: currentPrice,
+                  bestAsk,
+                  priceToBeat,
+                });
+              } else {
+                customTypeLog("PolyOrderBookWs", "=======预测结果和实际订单簿情况不一致========");
+              }
             }
           }
         });
