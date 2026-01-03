@@ -5,15 +5,23 @@ import { getConfig } from "./config";
 import { calculateProbability } from "@shared/algorithm/bsm";
 import { customTypeLog } from "./logger";
 import { race } from "@shared/utils/race";
-import { OUTCOMES_ENUM } from "@shared/constants";
+import { OUTCOMES_ENUM, WATCH_POSITION_ACTION_ENUM } from "@shared/constants";
 import { predictSpreadChange } from "@shared/algorithm/spreadPredictor";
 import { calculateStopLoss } from "./calc";
+
+interface IFindChanceResult {
+  assetId: string;
+  outcome: OUTCOMES_ENUM;
+  buyPrice: number;
+  stopProfitPrice: number;
+  stopLossPrice: number;
+}
 
 export const findChance = async (params: {
   market: TMarketResponseData;
   priceToBeat: number;
   slugIntervalTimestamp: number;
-}) => {
+}): Promise<IFindChanceResult | null> => {
   const { market, priceToBeat, slugIntervalTimestamp } = params;
   const assetIdMapOutcome = getAssetIdMapOutcome(market);
   const dataFlowInstances = dataFlow.getInstances();
@@ -135,5 +143,35 @@ export const findChance = async (params: {
       });
     }),
     distanceToNextInterval(slugIntervalTimestamp)
+  );
+};
+
+export const watchPosition = async (params: {
+  chance: IFindChanceResult;
+  slugIntervalTimestamp: number;
+}) => {
+  const { chance, slugIntervalTimestamp } = params;
+  const { assetId, stopProfitPrice, stopLossPrice } = chance;
+  const dataFlowInstances = dataFlow.getInstances();
+  let resolved = false;
+
+  return await race(
+    new Promise((resolve) => {
+      dataFlowInstances.polyOrderBookWs.onOrderBookChange((orderBook) => {
+        if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) return;
+        const bestBid = orderBook[assetId].bestBid;
+        if (bestBid && Number(bestBid) < stopLossPrice) {
+          resolved = true;
+          resolve(WATCH_POSITION_ACTION_ENUM.sellInLoss);
+        } else if (bestBid && Number(bestBid) > stopProfitPrice) {
+          resolved = true;
+          resolve(WATCH_POSITION_ACTION_ENUM.sellInProfit);
+        }
+      });
+    }),
+    distanceToNextInterval(slugIntervalTimestamp),
+    () => {
+      return WATCH_POSITION_ACTION_ENUM.hold;
+    }
   );
 };

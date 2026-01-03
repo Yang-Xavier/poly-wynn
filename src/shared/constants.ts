@@ -22,3 +22,9 @@ export enum OUTCOMES_ENUM {
   Up = "Up",
   Down = "Down",
 }
+
+export enum WATCH_POSITION_ACTION_ENUM {
+  sellInProfit = "sellInProfit",
+  sellInLoss = "sellInLoss",
+  hold = "hold",
+}

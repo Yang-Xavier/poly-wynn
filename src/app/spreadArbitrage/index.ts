@@ -12,7 +12,7 @@ import { TMarketResponseData } from "@typings/gammaData";
 import { getAccountBalanceWithRetry } from "./utils/account";
 import clobApi from "@shared/api/clobApi";
 import dataFlow from "./utils/dataFlow";
-import { findChance } from "./strategy";
+import { findChance, watchPosition } from "./strategy";
 import { getPriceToBeat } from "./utils/getPriceToBeat";
 import { waitFor } from "@crypto15min/utils/tools";
 
@@ -85,6 +85,13 @@ const main = async () => {
         slugIntervalTimestamp,
       });
       logInfo(`找到机会: ${JSON.stringify(chance)}`);
+
+      logInfo(`监听仓位...`);
+      const sellAction = await watchPosition({
+        chance,
+        slugIntervalTimestamp,
+      });
+      logInfo(`监听仓位返回结果: ${sellAction}`);
 
       logInfo(`等待下一轮策略开始...`);
       await waitFor(distanceToNextInterval(slugIntervalTimestamp));

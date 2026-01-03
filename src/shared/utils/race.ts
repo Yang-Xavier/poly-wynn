@@ -1,7 +1,7 @@
-export const race = async (promise: Promise<any>, timeout: number) => {
+export const race = async (promise: Promise<any>, timeout: number, onTimeout?: () => void) => {
   const timeoutPromise = new Promise((resolve, reject) => {
     setTimeout(() => {
-      resolve(null);
+      resolve(onTimeout?.() ?? null);
     }, timeout);
   });
   const result = await Promise.race([promise, timeoutPromise]);
