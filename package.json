@@ -11,6 +11,7 @@
     "crypto15min:redeem": "bun src/boostApp.ts crypto15min:redeem",
     "crypto15min:debug": "bun src/boostApp.ts crypto15min:debug",
     "server:start": "bun src/app/server/index.ts",
+    "spreadArbitrage:start": "bun src/app/spreadArbitrage/index.ts",
     "format": "prettier --write \"src/**/*.{ts,js,json}\"",
     "deploy": "bash ./scripts/deploy.sh",
     "prepare": "husky"

@@ -73,6 +73,33 @@ export function getTradeLogs(appName: string, date?: string): ParsedLog[] {
 }
 
 /**
+ * 获取指定 appName 和 date 的所有 traceId 的 Chance 日志（聚合）
+ */
+export function getChanceLogs(appName: string, date?: string): ParsedLog[] {
+  const targetDate = date && isValidDateString(date) ? date : getTodayDateString();
+  const traceIdDirs = getTraceIdDirs(appName, targetDate);
+  
+  const allLogs: ParsedLog[] = [];
+  
+  // 遍历所有 traceId 目录，读取 Chance.log
+  for (const traceId of traceIdDirs) {
+    const chanceLogPath = getLogFilePath(appName, targetDate, traceId, "Chance");
+    const logs = parseLogFile(chanceLogPath);
+    allLogs.push(...logs);
+  }
+  
+  // 按时间戳排序
+  allLogs.sort((a, b) => {
+    if (a.timestamp && b.timestamp) {
+      return a.timestamp.localeCompare(b.timestamp);
+    }
+    return 0;
+  });
+  
+  return allLogs;
+}
+
+/**
  * 根据 appName, date, traceId 获取所有类型的日志文件
  */
 export function getLogsByTraceId(

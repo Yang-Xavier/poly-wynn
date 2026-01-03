@@ -9,7 +9,7 @@ export const getAccountBalanceWithRetry = async () => {
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const balance = await getAccountBalance(FUNDER_ADDRESS, USDC_ADDRESS);
+      const { balance } = await getAccountBalance(FUNDER_ADDRESS, USDC_ADDRESS);
       logInfo(`getAccountBalanceWithRetry success: ${balance}`);
       return balance;
     } catch (error) {

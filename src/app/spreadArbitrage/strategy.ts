@@ -61,7 +61,7 @@ export const findChance = async (params: {
             customTypeLog(
               "Chance",
               `
-                === 找到机会 ===    
+                === 💡找到机会 ===    
                 bsmResult: ${JSON.stringify(bsmResult)},
                 upBestAsk: ${upBestAsk},
                 downBestAsk: ${downBestAsk},
@@ -107,7 +107,31 @@ export const findChance = async (params: {
             };
             resolved = true;
             resolve(result);
+          } else {
+            customTypeLog(
+              "Chance",
+              `
+                === 未找到机会 ===    
+                bsmResult: ${JSON.stringify(bsmResult)},
+                upBestAsk: ${upBestAsk},
+                downBestAsk: ${downBestAsk},
+                priceGap: ${priceGap},
+                priceGapDelta: ${priceGapDelta},
+                deltaRate: ${deltaRate},
+                distance: ${distanceToNextInterval(slugIntervalTimestamp)}
+              `
+            );
           }
+        } else {
+          customTypeLog(
+            "Chance",
+            `
+              === 未找到机会 ===    
+              upBestAsk: ${upBestAsk},
+              downBestAsk: ${downBestAsk},
+              priceGap: ${priceGap},
+            `
+          );
         }
 
         prevPriceGap = priceGap;

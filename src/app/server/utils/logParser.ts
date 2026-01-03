@@ -77,7 +77,7 @@ export function parseLogLine(line: string): ParsedLog | null {
 }
 
 /**
- * 读取日志文件并解析所有行
+ * 读取日志文件并解析所有行（支持多行日志）
  */
 export function parseLogFile(filePath: string): ParsedLog[] {
   if (!fs.existsSync(filePath)) {
@@ -85,14 +85,56 @@ export function parseLogFile(filePath: string): ParsedLog[] {
   }
 
   const content = fs.readFileSync(filePath, "utf-8");
-  const lines = content.split("\n").filter((line) => line.trim());
+  const allLines = content.split("\n");
 
   const parsedLogs: ParsedLog[] = [];
-  for (const line of lines) {
-    const parsed = parseLogLine(line);
-    if (parsed) {
-      parsedLogs.push(parsed);
+  let currentLog: { timestamp: string; date: string; traceId: string; lines: string[] } | null = null;
+
+  for (const line of allLines) {
+    // 检查是否是新的日志行（以时间戳开头）
+    const timestampMatch = line.match(/^\[([^\]]+)\]/);
+    
+    if (timestampMatch) {
+      // 保存之前的日志
+      if (currentLog) {
+        parsedLogs.push({
+          date: currentLog.date,
+          traceId: currentLog.traceId,
+          rawLine: currentLog.lines.join("\n"),
+          timestamp: currentLog.timestamp,
+        });
+      }
+      
+      // 开始新的日志
+      const timestamp = timestampMatch[1];
+      const date = extractDateFromLogTimestamp(timestamp);
+      const traceIdMatch = line.match(/\[TraceID:\s*([^\]]+)\]/);
+      const traceId = traceIdMatch ? traceIdMatch[1] : "";
+      
+      if (date) {
+        currentLog = {
+          timestamp,
+          date,
+          traceId,
+          lines: [line],
+        };
+      } else {
+        currentLog = null;
+      }
+    } else if (currentLog) {
+      // 继续当前日志的多行内容
+      currentLog.lines.push(line);
     }
+  }
+
+  // 保存最后一条日志
+  if (currentLog) {
+    parsedLogs.push({
+      date: currentLog.date,
+      traceId: currentLog.traceId,
+      rawLine: currentLog.lines.join("\n"),
+      timestamp: currentLog.timestamp,
+    });
   }
 
   return parsedLogs;

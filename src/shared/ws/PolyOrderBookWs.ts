@@ -91,9 +91,9 @@ export class PolyOrderBookWs extends HighPerformanceWs {
         }
       } catch (error) {
         if (this.logger.logError) {
-          this.logger.logError("处理窗口消息失败", error);
+          this.logger.logError(`[PolyOrderBookWs] 处理窗口消息失败 ${error}`, error);
         } else {
-          this.logger.logInfo("处理窗口消息失败", error);
+          this.logger.logInfo(`[PolyOrderBookWs] 处理窗口消息失败 ${error}`, error);
         }
       }
     }
@@ -113,9 +113,9 @@ export class PolyOrderBookWs extends HighPerformanceWs {
           this.orderBookCallback(currentWindowOrderBook);
         } catch (error) {
           if (this.logger.logError) {
-            this.logger.logError("订单簿回调函数执行失败", error);
+            this.logger.logError(`[PolyOrderBookWs] 订单簿回调函数执行失败 ${error}`, error);
           } else {
-            this.logger.logInfo("订单簿回调函数执行失败", error);
+            this.logger.logInfo(`[PolyOrderBookWs] 订单簿回调函数执行失败 ${error}`, error);
           }
         }
       }

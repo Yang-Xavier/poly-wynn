@@ -99,7 +99,7 @@ export class PolyPriceWs extends HighPerformanceWs {
         }
       } catch (error) {
         // 使用父类的 send 方法无法记录日志，这里简化处理
-        this.logger.logError("处理窗口消息失败", error);
+        this.logger.logError(`[PolyPriceWs] 处理窗口消息失败 ${error}`, error);
       }
     });
   }

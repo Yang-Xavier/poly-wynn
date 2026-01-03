@@ -86,7 +86,7 @@ export class BnPriceWs extends HighPerformanceWs {
           this.logger.customTypeLog("BnPriceWs", JSON.stringify(priceData));
         }
       } catch (error) {
-        this.logger.logError("处理窗口消息失败", error);
+        this.logger.logError(`[BnPriceWs] 处理窗口消息失败 ${error}`, error);
       }
     });
   }
@@ -148,7 +148,7 @@ export class BnPriceWs extends HighPerformanceWs {
 
       return null;
     } catch (error) {
-      this.logger.logError("解析最新消息失败", error);
+      this.logger.logError(`[BnPriceWs] 解析最新消息失败 ${error}`, error);
       return null;
     }
   }

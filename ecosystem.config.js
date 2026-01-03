@@ -29,5 +29,21 @@ module.exports = {
       watch: false,
       max_memory_restart: "500M",
     },
+    {
+      name: "spreadArbitrage",
+      script: "bun",
+      args: "src/app/spreadArbitrage/index.ts",
+      cwd: __dirname,
+      env: {
+        LOGGER_DISABLE_CONSOLE: "true",
+        ...(process.env.PASSWORD && { PASSWORD: process.env.PASSWORD }),
+      },
+      out_file: "./logs/spreadArbitrage-out.log",
+      error_file: "./logs/spreadArbitrage-error.log",
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: "500M",
+    },
   ],
 };
