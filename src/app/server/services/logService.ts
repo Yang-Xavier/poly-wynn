@@ -230,9 +230,15 @@ function formatTradeLog(rawLine: string): string {
 }
 
 /**
- * 格式化 trade 日志（不添加链接，链接在控制器中添加）
+ * 格式化 trade 日志显示
+ * 对于多行日志，直接返回完整内容；对于单行日志，进行格式化处理
  */
 export function formatTradeLogForDisplay(log: ParsedLog): string {
+  // 如果日志包含多行（有换行符），直接返回完整内容
+  if (log.rawLine.includes("\n")) {
+    return log.rawLine;
+  }
+  // 单行日志，使用格式化函数处理
   return formatTradeLog(log.rawLine);
 }
 

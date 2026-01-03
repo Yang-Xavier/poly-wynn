@@ -46,10 +46,10 @@ export const logTrade = (
     ------------------------------------------------------------
     action: ${label[tradeType]}${tradeType}
     original: ${data.originalSize}@${data.originalPrice}; 
-    matched: ${data.size}@${data.price}; 
+    matched: ${data.size}@${data.price};
+    ${data.holdTime ? `holdTime: ${data.holdTime}` : ""}  
     ${data.profit ? `💡profit: ${data.profit}` : ""} 
     ${data.loss ? `🈚️loss: ${data.loss}` : ""}
-    ${data.holdTime ? `holdTime: ${data.holdTime}` : ""}  
     ------------------------------------------------------------
     `;
   } else if (tradeType === "balance") {

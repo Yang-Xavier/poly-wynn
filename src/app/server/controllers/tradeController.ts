@@ -136,23 +136,43 @@ export async function getTradeLogsHandler(
       <div class="log-item">
         <div class="meta">日期: ${item.date} | 市场链接: <a href="${item.traceIdUrl}" target="_blank">${item.traceId}</a> | <a href="${item.logUrl}">查看详情</a></div>
         <div class="log-content">${(() => {
-          // 解析日志行，用颜色区分 "=>" 前后的内容
-          const arrowIndex = item.log.indexOf(' => ');
-          if (arrowIndex > 0) {
-            const prefix = item.log.substring(0, arrowIndex)
-              .replace(/&/g, '&amp;')
-              .replace(/</g, '&lt;')
-              .replace(/>/g, '&gt;');
-            const message = item.log.substring(arrowIndex + 4)
-              .replace(/&/g, '&amp;')
-              .replace(/</g, '&lt;')
-              .replace(/>/g, '&gt;');
-            return `<span class="log-prefix">${prefix}</span><span class="log-arrow"> => </span><span class="log-message">${message}</span>`;
+          // 转义 HTML 特殊字符
+          const escaped = item.log
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+          
+          // 如果是多行日志，直接显示完整内容
+          if (item.log.includes('\n')) {
+            // 处理多行日志，为每行添加颜色区分
+            const lines = item.log.split('\n');
+            return lines.map((line, index) => {
+              const lineEscaped = line
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+              
+              if (index === 0) {
+                // 第一行（时间戳行），用颜色区分 "=>" 前后的内容
+                const arrowIndex = lineEscaped.indexOf(' => ');
+                if (arrowIndex > 0) {
+                  const prefix = lineEscaped.substring(0, arrowIndex);
+                  const message = lineEscaped.substring(arrowIndex + 4);
+                  return `<span class="log-prefix">${prefix}</span><span class="log-arrow"> => </span><span class="log-message">${message}</span>`;
+                }
+                return lineEscaped;
+              }
+              // 其他行，使用普通样式，保留缩进
+              return lineEscaped ? `<div style="color: #ce9178; margin-left: 20px; white-space: pre;">${lineEscaped}</div>` : '<br>';
+            }).join('');
           } else {
-            const escaped = item.log
-              .replace(/&/g, '&amp;')
-              .replace(/</g, '&lt;')
-              .replace(/>/g, '&gt;');
+            // 单行日志，用颜色区分 "=>" 前后的内容
+            const arrowIndex = escaped.indexOf(' => ');
+            if (arrowIndex > 0) {
+              const prefix = escaped.substring(0, arrowIndex);
+              const message = escaped.substring(arrowIndex + 4);
+              return `<span class="log-prefix">${prefix}</span><span class="log-arrow"> => </span><span class="log-message">${message}</span>`;
+            }
             return escaped;
           }
         })()}</div>
