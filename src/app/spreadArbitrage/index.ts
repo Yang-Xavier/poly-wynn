@@ -84,7 +84,7 @@ const main = async () => {
         //   Math.min(Number(balance) * config.buyingAmountFactor, config.maxBuyAmount).toFixed(2)
         // );
 
-        const buyAmount = 10;
+        const buyAmount = 2;
 
         logInfo(`计算购买金额: ${buyAmount}`);
 
