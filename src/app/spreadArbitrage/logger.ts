@@ -19,7 +19,7 @@ export const logData = (message: string, data?: any) =>
 export const customTypeLog = (type: string, message: string, data?: any) =>
   getLoggerModule().info(message, data, type);
 
-type TradeType = "buy" | "sell" | "balance" | "skip";
+type TradeType = "buy" | "sell" | "balance" | "skip" | "profit";
 
 export const logTrade = (
   tradeType: TradeType,
@@ -34,6 +34,7 @@ export const logTrade = (
     stopProfitPrice?: number;
     stopLossPrice?: number;
     holdTime?: number;
+    totalProfit?: number;
   }
 ) => {
   const label = {
@@ -67,6 +68,10 @@ export const logTrade = (
   } else if (tradeType === "skip") {
     msg += `
     ${label[tradeType]}${tradeType}
+    `;
+  } else if (tradeType === "profit") {
+    msg += `
+    profit: ${data.totalProfit}
     `;
   }
   msg += "------------------------------------------------------------\n";

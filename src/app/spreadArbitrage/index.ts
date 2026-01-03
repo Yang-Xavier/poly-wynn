@@ -26,6 +26,7 @@ const main = async () => {
     const slugIntervalTimestamp = get15MinIntervalTimestamp();
     const marketSlug = getMarketSlug15Min(config.marketTag, slugIntervalTimestamp);
     setTraceId(marketSlug);
+    let totalProfit = 0;
 
     try {
       if (Date.now() - slugIntervalTimestamp * 1000 < config.delayToStart) {
@@ -163,14 +164,16 @@ const main = async () => {
             }
             logInfo(`卖出订单: ${JSON.stringify(soldOrder)}`);
             const { original_size, size_matched, price: soldPrice } = soldOrder;
+            const profit =
+              Number(soldPrice) * Number(size_matched) - Number(boughtPrice) * Number(size_matched);
+            totalProfit += profit;
+
             const loggerData = {
               size: Number(size_matched),
               originalSize: Number(original_size),
               price: Number(soldPrice),
               originalPrice: price,
-              profit:
-                Number(boughtPrice) * Number(size_matched) -
-                Number(soldPrice) * Number(size_matched),
+              profit,
               holdTime,
             };
             logTrade("sell", loggerData);
@@ -192,7 +195,9 @@ const main = async () => {
     } catch (error) {
       logInfo(`策略执行失败: ${error}`);
     }
-
+    logTrade("profit", {
+      totalProfit,
+    });
     dataFlow.destroy();
   }, 1000);
 };
