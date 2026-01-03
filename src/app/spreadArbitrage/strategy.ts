@@ -9,7 +9,7 @@ import { OUTCOMES_ENUM, WATCH_POSITION_ACTION_ENUM } from "@shared/constants";
 import { predictSpreadChange } from "@shared/algorithm/spreadPredictor";
 import { calculateStopLoss } from "./calc";
 
-interface IFindChanceResult {
+export interface IChance {
   assetId: string;
   outcome: OUTCOMES_ENUM;
   buyPrice: number;
@@ -21,7 +21,7 @@ export const findChance = async (params: {
   market: TMarketResponseData;
   priceToBeat: number;
   slugIntervalTimestamp: number;
-}): Promise<IFindChanceResult | null> => {
+}): Promise<IChance | null> => {
   const { market, priceToBeat, slugIntervalTimestamp } = params;
   const assetIdMapOutcome = getAssetIdMapOutcome(market);
   const dataFlowInstances = dataFlow.getInstances();
@@ -150,10 +150,7 @@ export const findChance = async (params: {
   );
 };
 
-export const watchPosition = async (params: {
-  chance: IFindChanceResult;
-  slugIntervalTimestamp: number;
-}) => {
+export const watchPosition = async (params: { chance: IChance; slugIntervalTimestamp: number }) => {
   const { chance, slugIntervalTimestamp } = params;
   const { assetId, stopProfitPrice, stopLossPrice } = chance;
   const dataFlowInstances = dataFlow.getInstances();
@@ -164,12 +161,9 @@ export const watchPosition = async (params: {
       dataFlowInstances.polyOrderBookWs.onOrderBookChange((orderBook) => {
         if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) return;
         const bestBid = orderBook[assetId].bestBid;
-        if (bestBid && Number(bestBid) < stopLossPrice) {
+        if (bestBid && (Number(bestBid) <= stopLossPrice || Number(bestBid) >= stopProfitPrice)) {
           resolved = true;
-          resolve({ action: WATCH_POSITION_ACTION_ENUM.sellInLoss, price: bestBid });
-        } else if (bestBid && Number(bestBid) > stopProfitPrice) {
-          resolved = true;
-          resolve({ action: WATCH_POSITION_ACTION_ENUM.sellInProfit, price: bestBid });
+          resolve({ action: WATCH_POSITION_ACTION_ENUM.sell, price: bestBid });
         }
       });
     }),

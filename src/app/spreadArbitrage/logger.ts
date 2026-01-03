@@ -30,7 +30,7 @@ export const logTrade = (
     originalPrice?: number;
     profit?: number;
     loss?: number;
-    balance?: number;
+    balance?: number | string;
     stopProfitPrice?: number;
     stopLossPrice?: number;
     holdTime?: number;
@@ -42,27 +42,34 @@ export const logTrade = (
     balance: "🏠",
     skip: "⏭️",
   };
-  let msg = "\n------------------------------------------------------------\n";
+  let msg = "\n------------------------------------------------------------";
   if (tradeType === "buy") {
-    msg += `action: ${label[tradeType]}${tradeType};
+    msg += `
+    action: ${label[tradeType]}${tradeType};
     original: ${data.originalSize}@${data.originalPrice}; 
     matched: ${data.size}@${data.price};
     stopProfitPrice: ${data.stopProfitPrice};
-    stopLossPrice: ${data.stopLossPrice};`;
+    stopLossPrice: ${data.stopLossPrice};
+    `;
   } else if (tradeType === "sell") {
-    msg += `action: ${label[tradeType]}${tradeType};
+    msg += `
+    action: ${label[tradeType]}${tradeType};
     original: ${data.originalSize}@${data.originalPrice}; 
     matched: ${data.size}@${data.price};
-    holdTime: ${data.holdTime};`;
-    data.profit ? (msg += `\n\tprofit: ${data.profit}`) : "";
-    data.loss ? (msg += `\n\tloss: ${data.loss}`) : "";
+    holdTime: ${data.holdTime};
+    profit: ${data.profit}
+    `;
   } else if (tradeType === "balance") {
-    msg += `action: ${label[tradeType]}${tradeType};
-    balance: ${data.balance}`;
+    msg += `
+    action: ${label[tradeType]}${tradeType};
+    balance: ${data.balance}
+    `;
   } else if (tradeType === "skip") {
-    msg += `${label[tradeType]}${tradeType}`;
+    msg += `
+    ${label[tradeType]}${tradeType}
+    `;
   }
-  msg += "\n------------------------------------------------------------\n";
+  msg += "------------------------------------------------------------\n";
   customTypeLog("trade", msg);
 };
 

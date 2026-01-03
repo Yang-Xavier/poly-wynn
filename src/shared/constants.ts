@@ -27,4 +27,5 @@ export enum WATCH_POSITION_ACTION_ENUM {
   sellInProfit = "sellInProfit",
   sellInLoss = "sellInLoss",
   hold = "hold",
+  sell = "sell",
 }
