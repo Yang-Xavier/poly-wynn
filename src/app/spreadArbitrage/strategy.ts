@@ -2,7 +2,7 @@ import { distanceToNextInterval, getAssetIdMapOutcome } from "@shared/marketUtil
 import { TMarketResponseData } from "@typings/gammaData";
 import dataFlow from "./utils/dataFlow";
 import { getConfig } from "./config";
-import { calculateBSM } from "@shared/algorithm/bsm";
+import { calculateProbability } from "@shared/algorithm/bsm";
 import { customTypeLog } from "./logger";
 import { race } from "@shared/utils/race";
 import { OUTCOMES_ENUM } from "@crypto15min/utils/constans";
@@ -52,7 +52,7 @@ export const findChance = async (params: {
             polyPrice.value
           );
 
-          const bsmResult = calculateBSM(
+          const bsmResult = calculateProbability(
             [
               ...polyPriceHistory,
               {
