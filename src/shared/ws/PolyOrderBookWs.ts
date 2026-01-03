@@ -100,10 +100,9 @@ export class PolyOrderBookWs extends HighPerformanceWs {
       }
     }
 
-    this.logger.customTypeLog("PolyOrderBookWs", JSON.stringify(currentWindowOrderBook));
-
     // 如果当前窗口有订单簿数据，处理窗口结束逻辑
     if (Object.keys(currentWindowOrderBook).length > 0) {
+      this.logger.customTypeLog("PolyOrderBookWs", JSON.stringify(currentWindowOrderBook));
       // 添加到缓存
       const orderBookHistoryCache = this.cacheController.getCache("orderBookHistory");
       if (orderBookHistoryCache) {
