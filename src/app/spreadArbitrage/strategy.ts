@@ -90,7 +90,10 @@ export const findChance = async (params: {
                 ? bsmResult.probUp - Number(upBestAsk)
                 : bsmResult.probDown - Number(downBestAsk);
 
-            const stopProfitPrice = Number((probAdvantage * config.predictProbFactor).toFixed(2));
+            const stopProfitPrice = (
+              probAdvantage * config.stopProfitFactor +
+              Number(buyPrice)
+            ).toFixed(2);
 
             // 计算科学的止损点
             const stopLossPrice = calculateStopLoss({
@@ -119,6 +122,7 @@ export const findChance = async (params: {
                 upBestAsk: ${upBestAsk},
                 downBestAsk: ${downBestAsk},
                 bsmResult: ${JSON.stringify(bsmResult)},
+                chance: ${JSON.stringify(result)},
                 calcCost: ${Date.now() - startTime}ms
               `
             );

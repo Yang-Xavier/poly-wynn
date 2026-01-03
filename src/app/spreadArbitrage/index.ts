@@ -32,6 +32,12 @@ const main = async () => {
         logInfo(`本回合策略重启第 ${restartCount} 次 ...`);
       }
 
+      if (Date.now() - slugIntervalTimestamp < config.delayToStart) {
+        logInfo(`延迟开始...`);
+        await waitFor(config.delayToStart - (Date.now() - slugIntervalTimestamp));
+        logInfo(`延迟结束...`);
+      }
+
       logInfo(`获取市场信息: ${marketSlug} ...`);
       const market: TMarketResponseData | null = await gammaApi.getMarketBySlug(marketSlug);
       logInfo(`获取市场信息成功!`);
