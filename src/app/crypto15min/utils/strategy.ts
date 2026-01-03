@@ -130,8 +130,8 @@ export const watchPosition = async (
           return;
         }
         if (
-          (data.value > priceToBeat && outcome === OUTCOMES_ENUM.Up) ||
-          (data.value < priceToBeat && outcome === OUTCOMES_ENUM.Down)
+          (data.value > priceToBeat && outcome === OUTCOMES_ENUM.Down) ||
+          (data.value < priceToBeat && outcome === OUTCOMES_ENUM.Up)
         ) {
           resolved = true;
           resolve(TOKEN_ACTION_ENUM.sell);
