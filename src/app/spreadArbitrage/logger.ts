@@ -19,4 +19,32 @@ export const logData = (message: string, data?: any) =>
 export const customTypeLog = (type: string, message: string, data?: any) =>
   getLoggerModule().info(message, data, type);
 
+type TradeType = "buy" | "sell" | "balance";
+
+export const logTrade = (
+  tradeType: TradeType,
+  data: {
+    size?: number;
+    originalSize?: number;
+    price?: number;
+    originalPrice?: number;
+    profit?: number;
+    loss?: number;
+    balance?: number;
+  }
+) => {
+  const label = {
+    buy: "✅",
+    sell: "💰",
+    balance: "🏠",
+  };
+  let msg = `${label[tradeType]}${tradeType} => `;
+  if (tradeType === "buy" || tradeType === "sell") {
+    msg += `original: ${data.originalSize}@${data.originalPrice}; matched: ${data.size}@${data.price}; ${data.profit ? `💡profit: ${data.profit}` : ""} ${data.loss ? `🈚️loss: ${data.loss}` : ""}`;
+  } else if (tradeType === "balance") {
+    msg += data.balance;
+  }
+  customTypeLog("trade", msg);
+};
+
 export const setTraceId = (traceId: string) => getLoggerModule().setTraceId(traceId);

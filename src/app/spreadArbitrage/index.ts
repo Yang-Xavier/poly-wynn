@@ -1,7 +1,7 @@
 import { runIntervalFn } from "@shared/utils/runInterval";
 
 import { getConfig } from "./config";
-import { logInfo, logError, setTraceId, customTypeLog } from "./logger";
+import { logInfo, logError, setTraceId, customTypeLog, logTrade } from "./logger";
 import {
   distanceToNextInterval,
   get15MinIntervalTimestamp,
@@ -15,6 +15,7 @@ import dataFlow from "./utils/dataFlow";
 import { findChance, watchPosition } from "./strategy";
 import { getPriceToBeat } from "./utils/getPriceToBeat";
 import { waitFor } from "@crypto15min/utils/tools";
+import { WATCH_POSITION_ACTION_ENUM } from "@shared/constants";
 
 const main = async () => {
   const config = getConfig();
@@ -77,30 +78,62 @@ const main = async () => {
       );
       logInfo(`获取对赌价格成功: ${priceToBeat}`);
 
-      logInfo(`获取账户余额 ...`);
-      const balance = await getAccountBalanceWithRetry();
-      logInfo(`获取账户余额成功: ${balance}`);
+      logInfo(`策略开始...`);
+      let buyAccount = 0;
+      while (distanceToNextInterval(slugIntervalTimestamp) > 0) {
+        logInfo(`获取账户余额 ...`);
+        const balance = await getAccountBalanceWithRetry();
+        logInfo(`获取账户余额成功: ${balance}`);
 
-      const buyAmount = Math.min(Number(balance) * config.buyingAmountFactor, config.maxBuyAmount);
-      logInfo(`计算购买金额: ${buyAmount}`);
+        const buyAmount = Math.min(
+          Number(balance) * config.buyingAmountFactor,
+          config.maxBuyAmount
+        );
+        logInfo(`计算购买金额: ${buyAmount}`);
 
-      logInfo(`寻找机会...`);
-      const chance = await findChance({
-        market,
-        priceToBeat,
-        slugIntervalTimestamp,
-      });
-      logInfo(`找到机会: ${JSON.stringify(chance)}`);
+        logInfo(`寻找机会...`);
+        const chance = await findChance({
+          market,
+          priceToBeat,
+          slugIntervalTimestamp,
+        });
+        if (chance) {
+          logInfo(`找到机会: ${JSON.stringify(chance)}`);
+          logInfo(`本局买入次数: ${buyAccount}`);
+          logTrade("buy", {
+            size: buyAmount / chance.buyPrice,
+            originalSize: buyAmount / chance.buyPrice,
+            price: chance.buyPrice,
+            originalPrice: chance.buyPrice,
+          });
+          buyAccount++;
 
-      logInfo(`监听仓位...`);
-      const sellAction = await watchPosition({
-        chance,
-        slugIntervalTimestamp,
-      });
-      logInfo(`监听仓位返回结果: ${sellAction}`);
+          logInfo(`监听仓位...`);
+          const sellAction = await watchPosition({
+            chance,
+            slugIntervalTimestamp,
+          });
+          logInfo(`监听仓位返回结果: ${sellAction}`);
 
-      logInfo(`等待下一轮策略开始...`);
-      await waitFor(distanceToNextInterval(slugIntervalTimestamp));
+          if (sellAction === WATCH_POSITION_ACTION_ENUM.sellInProfit) {
+            logTrade("sell", {
+              size: buyAmount / chance.buyPrice,
+              originalSize: buyAmount / chance.buyPrice,
+              price: chance.stopProfitPrice,
+              originalPrice: chance.stopProfitPrice,
+              profit: chance.stopProfitPrice - chance.buyPrice,
+            });
+          } else if (sellAction === WATCH_POSITION_ACTION_ENUM.sellInProfit) {
+            logTrade("sell", {
+              size: buyAmount / chance.buyPrice,
+              originalSize: buyAmount / chance.buyPrice,
+              price: chance.stopLossPrice,
+              originalPrice: chance.stopLossPrice,
+              loss: chance.stopLossPrice - chance.buyPrice,
+            });
+          }
+        }
+      }
     } catch (error) {
       logError(`策略执行失败: ${error}`);
     }
