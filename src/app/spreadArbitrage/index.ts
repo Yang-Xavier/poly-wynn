@@ -98,6 +98,8 @@ const main = async () => {
             originalSize: buyAmount / chance.buyPrice,
             price: chance.buyPrice,
             originalPrice: chance.buyPrice,
+            stopProfitPrice: chance.stopProfitPrice,
+            stopLossPrice: chance.stopLossPrice,
           });
           const buyTime = Date.now();
           buyAccount++;
