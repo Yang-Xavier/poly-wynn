@@ -73,7 +73,7 @@ export const findChance = async (
               distance
             );
             customTypeLog(
-              "strategy",
+              "PolyOrderBookWs",
               `[-- 扫尾盘数据策略数据 (📚订单簿变动触发) --] ${JSON.stringify({ priceToBeat, currentPrice, isDiffEnough, avaliableValue, ...tailSweepResult })}`
             );
 
@@ -126,14 +126,14 @@ export const watchPosition = async (
 
         if (bestAsk && bestAsk < globalConfig.stratgegy.sellProbabilityThreshold) {
           customTypeLog(
-            "strategy",
+            "PolyOrderBookWs",
             `[买入后概率检查(低于阈值📚)] outcoum: ${outcome}, priceToBeat: ${priceToBeat}, bestAsk: ${bestAsk}, assetId: ${assetId}, latency: ${latency}, priceGap: ${priceGap}`
           );
           resolved = true;
           resolve(TOKEN_ACTION_ENUM.sell);
         } else {
           customTypeLog(
-            "strategy",
+            "PolyOrderBookWs",
             `[买入后概率检查(高于阈值📚)] outcoum: ${outcome}, priceToBeat: ${priceToBeat}, bestAsk: ${bestAsk}, assetId: ${assetId}, latency: ${latency}, priceGap: ${priceGap}`
           );
         }
