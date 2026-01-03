@@ -25,7 +25,7 @@ export const findChance = async (params: {
     new Promise((resolve) => {
       dataFlowInstances.bnPriceWs.onPriceChange((bnPrice) => {
         if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) return;
-
+        const startTime = Date.now();
         const polyPrice = dataFlowInstances.polyPriceWs.getLatestPriceData();
         const upOrderbook = dataFlowInstances.polyOrderBookWs.getLatestOrderBookData(
           assetIdMapOutcome[OUTCOMES_ENUM.Up]
@@ -80,7 +80,8 @@ export const findChance = async (params: {
                 priceGapDelta: ${priceGapDelta},
                 deltaRate: ${deltaRate},
                 bsmResult: ${JSON.stringify(bsmResult)},
-                distance: ${distanceToNextInterval(slugIntervalTimestamp)}
+                distance: ${distanceToNextInterval(slugIntervalTimestamp)},
+                calcCost: ${Date.now() - startTime}ms
               `
             );
             const buyParams = {};
@@ -132,7 +133,8 @@ export const findChance = async (params: {
                 priceGapDelta: ${priceGapDelta},
                 deltaRate: ${deltaRate},
                 bsmResult: ${JSON.stringify(bsmResult)},
-                distance: ${distanceToNextInterval(slugIntervalTimestamp)}
+                distance: ${distanceToNextInterval(slugIntervalTimestamp)},
+                calcCost: ${Date.now() - startTime}ms
               `
             );
           }
