@@ -72,7 +72,7 @@ export const logTrade = (
     `;
   } else if (tradeType === "profit") {
     msg += `
-    profit: ${data.totalProfit}
+    totalProfit: ${data.totalProfit}
     `;
   }
   msg += `------------------------------------------------------------`;
