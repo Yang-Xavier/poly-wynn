@@ -98,29 +98,37 @@ const main = async () => {
         if (chance) {
           logInfo(`找到机会: ${JSON.stringify(chance)}`);
           logInfo(`本局买入次数: ${buyAccount}`);
-          const buyResult = await buy(chance.assetId, chance.buyPrice, buyAmount);
-          if (!buyResult || !buyResult.orderID) {
-            logInfo(`买入失败`);
-            // 进入下一次循环
-            continue;
-          }
-          logInfo(`查询买入订单: ${buyResult.orderID}`);
-          const boughtOrder = await mustGetOrder(
-            buyResult.orderID,
-            distanceToNextInterval(slugIntervalTimestamp)
-          );
-          if (!boughtOrder) {
-            logInfo(`买入订单不存在`);
-            // 进入下一次循环
-            continue;
-          }
-          logInfo(`买入订单: ${JSON.stringify(boughtOrder)}`);
-          const { original_size, size_matched, price: boughtPrice } = boughtOrder;
-          // 记录买入信息
+          //   const buyResult = await buy(chance.assetId, chance.buyPrice, buyAmount);
+          //   if (!buyResult || !buyResult.orderID) {
+          //     logInfo(`买入失败`);
+          //     // 进入下一次循环
+          //     continue;
+          //   }
+          //   logInfo(`查询买入订单: ${buyResult.orderID}`);
+          //   const boughtOrder = await mustGetOrder(
+          //     buyResult.orderID,
+          //     distanceToNextInterval(slugIntervalTimestamp)
+          //   );
+          //   if (!boughtOrder) {
+          //     logInfo(`买入订单不存在`);
+          //     // 进入下一次循环
+          //     continue;
+          //   }
+          //   logInfo(`买入订单: ${JSON.stringify(boughtOrder)}`);
+          //   const { original_size, size_matched, price: boughtPrice } = boughtOrder;
+          //   // 记录买入信息
+          //   logTrade("buy", {
+          //     size: Number(size_matched) === 0 ? Number(original_size) : Number(size_matched),
+          //     originalSize: Number(original_size),
+          //     price: Number(boughtPrice),
+          //     originalPrice: chance.buyPrice,
+          //     stopProfitPrice: chance.stopProfitPrice,
+          //     stopLossPrice: chance.stopLossPrice,
+          //   });
           logTrade("buy", {
-            size: Number(size_matched) === 0 ? Number(original_size) : Number(size_matched),
-            originalSize: Number(original_size),
-            price: Number(boughtPrice),
+            size: 1,
+            originalSize: 1,
+            price: chance.buyPrice,
             originalPrice: chance.buyPrice,
             stopProfitPrice: chance.stopProfitPrice,
             stopLossPrice: chance.stopLossPrice,
@@ -137,48 +145,58 @@ const main = async () => {
 
           const holdTime = Date.now() - buyTime;
           if (action === WATCH_POSITION_ACTION_ENUM.sell) {
-            const {
-              size_matched: boughtSize,
-              original_size: boughtOriginalSize,
-              price: boughtPrice,
-            } = boughtOrder;
-            const sellResult = await mustSell(
-              chance.assetId,
-              Number(boughtSize) === 0 ? Number(boughtOriginalSize) : Number(boughtSize),
-              distanceToNextInterval(slugIntervalTimestamp)
-            );
-            if (!sellResult || !sellResult.orderID) {
-              logInfo(`卖出失败`);
-              // 进入下一次循环
-              continue;
-            }
-            logInfo(`查询卖出订单: ${sellResult.orderID}`);
-            const soldOrder = await mustGetOrder(
-              sellResult.orderID,
-              distanceToNextInterval(slugIntervalTimestamp)
-            );
-            if (!soldOrder) {
-              logInfo(`卖出订单不存在`);
-              // 进入下一次循环
-              continue;
-            }
-            logInfo(`卖出订单: ${JSON.stringify(soldOrder)}`);
-            const { original_size, size_matched, price: soldPrice } = soldOrder;
-            const soldSize =
-              Number(size_matched) === 0 ? Number(original_size) : Number(size_matched);
-            const profit =
-              Number(soldPrice) * Number(soldSize) - Number(boughtPrice) * Number(soldSize);
-            totalProfit += profit;
+            // const {
+            //   size_matched: boughtSize,
+            //   original_size: boughtOriginalSize,
+            //   price: boughtPrice,
+            // } = boughtOrder;
+            // const sellResult = await mustSell(
+            //   chance.assetId,
+            //   Number(boughtSize) === 0 ? Number(boughtOriginalSize) : Number(boughtSize),
+            //   distanceToNextInterval(slugIntervalTimestamp)
+            // );
+            // if (!sellResult || !sellResult.orderID) {
+            //   logInfo(`卖出失败`);
+            //   // 进入下一次循环
+            //   continue;
+            // }
+            // logInfo(`查询卖出订单: ${sellResult.orderID}`);
+            // const soldOrder = await mustGetOrder(
+            //   sellResult.orderID,
+            //   distanceToNextInterval(slugIntervalTimestamp)
+            // );
+            // if (!soldOrder) {
+            //   logInfo(`卖出订单不存在`);
+            //   // 进入下一次循环
+            //   continue;
+            // }
+            // logInfo(`卖出订单: ${JSON.stringify(soldOrder)}`);
+            // const { original_size, size_matched, price: soldPrice } = soldOrder;
+            // const soldSize =
+            //   Number(size_matched) === 0 ? Number(original_size) : Number(size_matched);
+            // const profit =
+            //   Number(soldPrice) * Number(soldSize) - Number(boughtPrice) * Number(soldSize);
+            // totalProfit += profit;
 
-            const loggerData = {
-              size: Number(soldSize),
-              originalSize: Number(original_size),
-              price: Number(soldPrice),
+            // const loggerData = {
+            //   size: Number(soldSize),
+            //   originalSize: Number(original_size),
+            //   price: Number(soldPrice),
+            //   originalPrice: price,
+            //   profit,
+            //   holdTime,
+            // };
+            // logTrade("sell", loggerData);
+
+            logTrade("sell", {
+              size: 1,
+              originalSize: 1,
+              price: price,
               originalPrice: price,
-              profit,
+              profit: price - chance.buyPrice,
               holdTime,
-            };
-            logTrade("sell", loggerData);
+            });
+
             await waitFor(5 * 1000);
             await logAccountBalance();
           } else if (action === WATCH_POSITION_ACTION_ENUM.hold) {
