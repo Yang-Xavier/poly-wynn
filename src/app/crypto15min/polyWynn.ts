@@ -282,7 +282,7 @@ export const runPolyWynn = async () => {
             logInfo(
               `对赌结果: ${redeemOrder.outcome === finalOutcome ? "🎉Won" : "💩Lost"}, 市场最终结果: ${finalOutcome}`
             );
-            logTrade(redeemOrder.outcome === finalOutcome ? "won" : "lost", redeemOrder);
+            logTrade(redeemOrder.outcome === finalOutcome ? "won" : "lost");
           } else {
             logInfo(`市场未关闭, 对赌结果未知`);
           }
