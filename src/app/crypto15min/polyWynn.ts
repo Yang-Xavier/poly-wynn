@@ -26,6 +26,7 @@ import { getPriceToBeat } from "@crypto15min/utils/getPriceToBeat";
 import { getAccountBalance, logAccountBalance } from "@crypto15min/utils/account";
 import { OUTCOMES_ENUM } from "@crypto15min/utils/constans";
 import { destroyDataFlow, getDataFlowInstances, initializeDataFlow } from "./module/dataFlow";
+import dataRecord from "./module/dataRecord";
 
 const init = async () => {
   const clobModule = getClobModule();
@@ -47,6 +48,7 @@ export const runPolyWynn = async () => {
     const slugIntervalTimestamp = get15MinIntervalTimestamp();
     const marketSlug = getMarketSlug15Min(globalConfig.marketTag, slugIntervalTimestamp);
     setTraceId(`${marketSlug}`);
+    dataRecord.setTraceId(`${globalConfig.marketTag}`);
 
     logInfo(`初始化数据流...`);
     initializeDataFlow({

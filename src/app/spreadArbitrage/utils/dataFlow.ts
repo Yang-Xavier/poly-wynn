@@ -2,6 +2,7 @@ import { BnPriceWs } from "@shared/ws/BnPriceWs";
 import { PolyPriceWs } from "@shared/ws/PolyPriceWs";
 import { PolyOrderBookWs } from "@shared/ws/PolyOrderBookWs";
 import { IWsLogger } from "@shared/ws/HighPerformanceWs";
+import { DataRecords } from "@shared/DataRecords";
 
 /**
  * 数据流实例接口
@@ -15,7 +16,11 @@ export interface DataFlowInstances {
 // 全局变量：存储数据流实例（单例）
 let dataFlowInstances: DataFlowInstances | null = null;
 
-const initialize = (params: { logger: IWsLogger; symbol: string }): DataFlowInstances => {
+const initialize = (params: {
+  logger: IWsLogger;
+  symbol: string;
+  dataRecord: DataRecords;
+}): DataFlowInstances => {
   const { logger } = params;
 
   // 创建币安价格 WebSocket 实例
@@ -23,18 +28,21 @@ const initialize = (params: { logger: IWsLogger; symbol: string }): DataFlowInst
     logger,
     symbol: `${params.symbol}usdc`,
     windowTime: 100,
+    dataRecord: params.dataRecord,
   });
 
   // 创建 Polymarket 价格 WebSocket 实例
   const polyPriceWs = new PolyPriceWs({
     logger,
     windowTime: 100,
+    dataRecord: params.dataRecord,
   });
 
   // 创建 Polymarket 订单簿 WebSocket 实例
   const polyOrderBookWs = new PolyOrderBookWs({
     logger,
     windowTime: 50,
+    dataRecord: params.dataRecord,
   });
 
   dataFlowInstances = {

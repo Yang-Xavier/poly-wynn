@@ -1,5 +1,6 @@
 import { WS_LIVE_DATA_URL } from "@shared/constants";
 import { HighPerformanceWs, IWsLogger } from "./HighPerformanceWs";
+import { DataRecords } from "@shared/DataRecords";
 
 // 订阅信息接口
 interface Subscription {
@@ -43,12 +44,13 @@ export class PolyPriceWs extends HighPerformanceWs {
    * 构造函数
    * @param logger Logger 实例
    */
-  constructor(params: { logger: IWsLogger; windowTime?: number }) {
+  constructor(params: { logger: IWsLogger; windowTime?: number; dataRecord?: DataRecords }) {
     // 调用父类构造函数，窗口时间设置为 100ms
     super({
       logger: params.logger,
       url: WS_LIVE_DATA_URL,
       windowTime: params.windowTime || 100, // 窗口时间 100ms
+      dataRecord: params.dataRecord,
     });
 
     // 创建 priceHistory 缓存：maxSize=10000，不设置过期时间
@@ -95,7 +97,12 @@ export class PolyPriceWs extends HighPerformanceWs {
               this.logger.logError("[PolyPrice] 价格回调函数执行失败", error);
             }
           }
-          this.logger.customTypeLog("PolyPriceWs", JSON.stringify(priceData));
+          this.dataRecord?.record(
+            "PolyPriceWs",
+            Object.assign(priceData, {
+              latency: Date.now() - priceData.timestamp,
+            })
+          );
         }
       } catch (error) {
         // 使用父类的 send 方法无法记录日志，这里简化处理

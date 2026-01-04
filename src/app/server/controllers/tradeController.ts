@@ -24,15 +24,36 @@ export async function getTradeLogsHandler(
     const host = req.get("host");
     const baseUrl = `${protocol}://${host}`;
 
+    // 格式化时间戳为 "yyyy-mm-dd HH:mm:ss.SSS" 格式（北京时间）
+    const formatTimestampForUrl = (timestamp?: string): string | null => {
+      if (!timestamp) return null;
+      
+      // timestamp 格式可能是 "[2026-01-04 22:13:06.703]" 或 "2026-01-04 22:13:06.703"
+      const match = timestamp.match(/(\d{4}-\d{2}-\d{2})\s+(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?/);
+      if (match) {
+        const [, date, hour, minute, second, millisecond = '000'] = match;
+        return `${date} ${hour}:${minute}:${second}.${millisecond.padEnd(3, '0')}`;
+      }
+      return null;
+    };
+
     // 为每条日志添加链接
     const logsWithLinks = logs.map((log) => {
       const polymarketUrl = `https://polymarket.com/event/${encodeURIComponent(log.traceId)}`;
       const logUrl = `${baseUrl}/log?date=${log.date}&traceId=${encodeURIComponent(log.traceId)}&appName=${encodeURIComponent(appName)}`;
+      
+      // 格式化时间戳用于 data 路由
+      const timeStr = formatTimestampForUrl(log.timestamp);
+      const dataUrl = timeStr 
+        ? `${baseUrl}/data/${encodeURIComponent(appName)}?date=${log.date}&traceId=${encodeURIComponent(log.traceId)}&time=${encodeURIComponent(timeStr)}`
+        : `${baseUrl}/data/${encodeURIComponent(appName)}?date=${log.date}&traceId=${encodeURIComponent(log.traceId)}`;
+      
       return {
         date: log.date,
         traceId: log.traceId,
         traceIdUrl: polymarketUrl,
         logUrl: logUrl,
+        dataUrl: dataUrl,
         log: formatTradeLogForDisplay(log),
       };
     });
@@ -134,7 +155,7 @@ export async function getTradeLogsHandler(
       .map(
         (item) => `
       <div class="log-item">
-        <div class="meta">日期: ${item.date} | 市场链接: <a href="${item.traceIdUrl}" target="_blank">${item.traceId}</a> | <a href="${item.logUrl}">查看详情</a></div>
+        <div class="meta">日期: ${item.date} | 市场链接: <a href="${item.traceIdUrl}" target="_blank">${item.traceId}</a> | <a href="${item.logUrl}">查看详情</a> | <a href="${item.dataUrl}">查看数据</a></div>
         <div class="log-content">${(() => {
           // 转义 HTML 特殊字符
           const escaped = item.log

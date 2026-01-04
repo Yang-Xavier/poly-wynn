@@ -16,7 +16,8 @@ import { findChance, watchPosition } from "./strategy";
 import { getPriceToBeat } from "./utils/getPriceToBeat";
 import { waitFor } from "@crypto15min/utils/tools";
 import { WATCH_POSITION_ACTION_ENUM } from "@shared/constants";
-import { buy, mustGetOrder, mustSell } from "./utils/order";
+// import { buy, mustGetOrder, mustSell } from "./utils/order";
+import dataRecord from "./dataRecord";
 
 const main = async () => {
   const config = getConfig();
@@ -26,15 +27,12 @@ const main = async () => {
     const slugIntervalTimestamp = get15MinIntervalTimestamp();
     const marketSlug = getMarketSlug15Min(config.marketTag, slugIntervalTimestamp);
     setTraceId(marketSlug);
+    dataRecord.setTraceId(marketSlug);
+
     let totalProfit = 0;
 
     try {
-      if (Date.now() - slugIntervalTimestamp * 1000 < config.delayToStart) {
-        logInfo(`延迟开始...`);
-        await waitFor(config.delayToStart - (Date.now() - slugIntervalTimestamp * 1000));
-        logInfo(`延迟结束...`);
-      }
-
+      dataRecord.cleanOldData(3);
       logInfo(`获取市场信息: ${marketSlug} ...`);
       const market: TMarketResponseData | null = await gammaApi.getMarketBySlug(marketSlug);
       logInfo(`获取市场信息成功!`);
@@ -46,6 +44,7 @@ const main = async () => {
           logError,
           customTypeLog,
         },
+        dataRecord,
         symbol: config.marketTag,
       });
       logInfo(`初始化数据流成功!`);
@@ -65,6 +64,12 @@ const main = async () => {
         .getInstances()
         ?.polyOrderBookWs.subscribeOrderBook(JSON.parse(market.clobTokenIds) as string[]);
       logInfo(`订阅 Polymarket 订单簿成功!`);
+
+      if (Date.now() - slugIntervalTimestamp * 1000 < config.delayToStart) {
+        logInfo(`延迟开始策略...`);
+        await waitFor(config.delayToStart - (Date.now() - slugIntervalTimestamp * 1000));
+        logInfo(`策略执行...`);
+      }
 
       logInfo(`获取对赌价格...`);
       const priceToBeat = await getPriceToBeat(
@@ -221,6 +226,7 @@ const main = async () => {
       totalProfit,
     });
     dataFlow.destroy();
+    dataRecord.close();
   }, 1000);
 };
 

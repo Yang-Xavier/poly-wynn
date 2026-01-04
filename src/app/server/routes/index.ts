@@ -1,6 +1,7 @@
 import { Router } from "express";
 import tradeRouter from "./trade";
 import logRouter from "./log";
+import dataRouter from "./data";
 
 const router = Router();
 
@@ -10,6 +11,7 @@ const router = Router();
  * 注意：具体路由要在参数路由之前注册
  */
 router.use("/log", logRouter); // /log?date=xxx&traceId=xxx&appName=xxx
+router.use("/data", dataRouter); // /data/:appName?date=xxx&traceId=xxx
 router.use("/", tradeRouter); // /:appName/trade
 
 export default router;

@@ -1,6 +1,7 @@
 import { WS_POLY_ORDER_BOOK_URL } from "@shared/constants";
 import { HighPerformanceWs, IWsLogger } from "./HighPerformanceWs";
 import { IMarketPushData } from "@typings/wsData";
+import { DataRecords } from "@shared/DataRecords";
 
 // 订单簿数据结构
 export interface OrderBookData extends Record<
@@ -27,12 +28,13 @@ export class PolyOrderBookWs extends HighPerformanceWs {
    * 构造函数
    * @param logger Logger 实例
    */
-  constructor(params: { logger: IWsLogger; windowTime?: number }) {
+  constructor(params: { logger: IWsLogger; windowTime?: number; dataRecord?: DataRecords }) {
     // 调用父类构造函数，窗口时间设置为 50ms（参考 watchOrderBook.ts）
     super({
       logger: params.logger,
       url: WS_POLY_ORDER_BOOK_URL,
       windowTime: params.windowTime || 50, // 窗口时间 50ms
+      dataRecord: params.dataRecord,
     });
 
     // 创建 orderBookHistory 缓存：maxSize=10000，不设置过期时间
@@ -80,7 +82,7 @@ export class PolyOrderBookWs extends HighPerformanceWs {
           const bestAsk = asks && asks.length > 0 ? Number(asks[asks.length - 1].price) : null;
           const bestBid = bids && bids.length > 0 ? Number(bids[bids.length - 1].price) : null;
 
-          const timestampNum = Number(timestamp) || Date.now();
+          const timestampNum = Number(timestamp);
 
           // 更新当前窗口订单簿中该资产的数据（使用最新的数据，包含 timestamp）
           currentWindowOrderBook[asset_id] = {
@@ -100,7 +102,12 @@ export class PolyOrderBookWs extends HighPerformanceWs {
 
     // 如果当前窗口有订单簿数据，处理窗口结束逻辑
     if (Object.keys(currentWindowOrderBook).length > 0) {
-      this.logger.customTypeLog("PolyOrderBookWs", JSON.stringify(currentWindowOrderBook));
+      this.dataRecord?.record(
+        "PolyOrderBookWs",
+        Object.assign(currentWindowOrderBook, {
+          timestamp: Date.now(),
+        })
+      );
       // 添加到缓存
       const orderBookHistoryCache = this.cacheController.getCache("orderBookHistory");
       if (orderBookHistoryCache) {

@@ -1,5 +1,6 @@
 import WebSocket from "ws";
 import { CacheController } from "../Cache";
+import { DataRecords } from "../DataRecords";
 
 /**
  * Logger 接口定义
@@ -18,6 +19,7 @@ export interface IWsLogger {
  */
 export class HighPerformanceWs {
   protected logger: IWsLogger;
+  protected dataRecord: DataRecords | undefined;
   private ws: WebSocket | null = null;
   private url: string;
   private windowTime: number; // 聚合窗口时间（毫秒）
@@ -47,11 +49,18 @@ export class HighPerformanceWs {
    * @param logger Logger 实例，包含 logInfo、logData、logError 等方法
    * @param url WebSocket 服务器地址
    * @param windowTime 聚合窗口时间（毫秒），在此时间窗口内的消息会被聚合成列表
+   * @param dataRecord DataRecords 实例，用于数据记录（可选）
    */
-  constructor(params: { logger: IWsLogger; url: string; windowTime: number }) {
+  constructor(params: {
+    logger: IWsLogger;
+    url: string;
+    windowTime: number;
+    dataRecord?: DataRecords;
+  }) {
     this.logger = params.logger;
     this.url = params.url;
     this.windowTime = params.windowTime;
+    this.dataRecord = params.dataRecord;
 
     // 初始化缓存控制器
     this.cacheController = new CacheController<any>();

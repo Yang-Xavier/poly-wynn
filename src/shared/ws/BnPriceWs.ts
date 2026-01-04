@@ -1,5 +1,6 @@
 import { WS_BN_PRICE_URL } from "@shared/constants";
 import { HighPerformanceWs, IWsLogger } from "./HighPerformanceWs";
+import { DataRecords } from "@shared/DataRecords";
 
 // 价格数据接口
 export interface PriceData {
@@ -19,7 +20,12 @@ export class BnPriceWs extends HighPerformanceWs {
    * @param logger Logger 实例
    * @param symbol 交易对符号，如 'btcusdt'（会自动转换为小写）
    */
-  constructor(params: { logger: IWsLogger; symbol: string; windowTime?: number }) {
+  constructor(params: {
+    logger: IWsLogger;
+    symbol: string;
+    windowTime?: number;
+    dataRecord?: DataRecords;
+  }) {
     // 确保symbol是小写
     const symbol = params.symbol.toLowerCase();
     const url = `${WS_BN_PRICE_URL}/${symbol}@trade`;
@@ -29,6 +35,7 @@ export class BnPriceWs extends HighPerformanceWs {
       logger: params.logger,
       url,
       windowTime: params.windowTime || 100, // 窗口时间 50ms
+      dataRecord: params.dataRecord,
     });
 
     // 创建 priceHistory 缓存：maxSize=10000，不设置过期时间
@@ -83,7 +90,13 @@ export class BnPriceWs extends HighPerformanceWs {
               this.logger.logError(`[BnPrice] 价格回调函数执行失败 ${error}`, error);
             }
           }
-          this.logger.customTypeLog("BnPriceWs", JSON.stringify(priceData));
+
+          this.dataRecord?.record(
+            "BnPriceWs",
+            Object.assign(priceData, {
+              latency: Date.now() - timestamp,
+            })
+          );
         }
       } catch (error) {
         this.logger.logError(`[BnPriceWs] 处理窗口消息失败 ${error}`, error);
