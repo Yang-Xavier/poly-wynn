@@ -29,7 +29,7 @@
     "breakProbabilityThreshold": 0.9,
 
     "priceDelayThreshold": 2200,
-    "buyingAmountFactor": 0.51,
+    "buyingAmountFactor": 1,
     "buyingMaxAmount": 100,
     "sellProbabilityThreshold": 0.45,
     "bestAskThreshold": 0.95,

@@ -188,12 +188,14 @@ const main = async () => {
             // };
             // logTrade("sell", loggerData);
 
+            const profit = price - chance.buyPrice;
+            totalProfit += profit;
             logTrade("sell", {
               size: 1,
               originalSize: 1,
               price: price,
               originalPrice: price,
-              profit: price - chance.buyPrice,
+              profit,
               holdTime,
             });
 
