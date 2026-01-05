@@ -214,6 +214,10 @@ const main = async () => {
             tradeReport.addReport("result", {
               result: "skipped",
             });
+          } else {
+            tradeReport.addReport("result", {
+              result: tradeReport.calcProfit() > 0 ? "won" : "lost",
+            });
           }
         }
       }

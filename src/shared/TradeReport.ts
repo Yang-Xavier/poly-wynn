@@ -112,7 +112,7 @@ export default class TradeReport {
     this.saveDateReport();
   }
 
-  protected calcProfit() {
+  calcProfit() {
     let profit = 0;
     if (this.traceReport.trades && this.traceReport.trades.length > 0) {
       this.traceReport.trades.forEach((trade) => {
