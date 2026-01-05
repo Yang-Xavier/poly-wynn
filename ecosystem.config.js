@@ -33,8 +33,8 @@ module.exports = {
     },
     {
       name: "web-server",
-      script: "bun",
-      args: "npm run web:server:prod",
+      script: "npm",
+      args: "run web:server:prod",
       cwd: __dirname,
       env: {
         WEB_PORT: process.env.WEB_PORT || 8080,
