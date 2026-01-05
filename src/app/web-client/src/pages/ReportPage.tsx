@@ -156,7 +156,8 @@ function ReportPage() {
                       💰 {report.balance.toFixed(2)}
                       {report.profit !== undefined && (
                         <span className="profit">
-                          {" "}(收益: {report.profit > 0 ? "+" : ""}
+                          {" "}
+                          (收益: {report.profit > 0 ? "+" : ""}
                           {report.profit.toFixed(2)})
                         </span>
                       )}
@@ -165,15 +166,12 @@ function ReportPage() {
                 </div>
 
                 <div className="trades-section">
-                  {report.trades.map((trade, tradeIndex) => (
+                  {report.trades?.map((trade, tradeIndex) => (
                     <div key={tradeIndex} className="trade-item">
                       <span className="trade-timestamp">
                         {formatTradeTimestamp(trade.timestamp)}
                       </span>
-                      <span
-                        className="trade-action"
-                        data-action={trade.action.toLowerCase()}
-                      >
+                      <span className="trade-action" data-action={trade.action.toLowerCase()}>
                         {trade.action}
                       </span>
                       <span className="trade-outcome">{trade.outcome}</span>
@@ -184,9 +182,7 @@ function ReportPage() {
                   ))}
                 </div>
 
-                <div className="report-timestamp">
-                  {formatTimestamp(report.timestamp)}
-                </div>
+                <div className="report-timestamp">{formatTimestamp(report.timestamp)}</div>
               </div>
             ))}
           </div>
@@ -197,4 +193,3 @@ function ReportPage() {
 }
 
 export default ReportPage;
-
