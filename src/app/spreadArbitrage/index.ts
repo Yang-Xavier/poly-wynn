@@ -1,7 +1,7 @@
 import { runIntervalFn } from "@shared/utils/runInterval";
 
 import { getConfig } from "./config";
-import { logInfo, logError, setTraceId, customTypeLog } from "./logger";
+import { logInfo, logError, setTraceId, customTypeLog, cleanOldLogs } from "./logger";
 import {
   distanceToNextInterval,
   get15MinIntervalTimestamp,
@@ -33,7 +33,6 @@ const main = async () => {
     let totalProfit = 0;
 
     try {
-      dataRecord.cleanOldData(3);
       logInfo(`获取市场信息: ${marketSlug} ...`);
       const market: TMarketResponseData | null = await gammaApi.getMarketBySlug(marketSlug);
       logInfo(`获取市场信息成功!`);
@@ -220,8 +219,16 @@ const main = async () => {
     } catch (error) {
       logInfo(`策略执行失败: ${error}`);
     }
+    logInfo(`销毁数据流...`);
     dataFlow.destroy();
+    logInfo(`保存数据...`);
+    dataRecord.saveToJson();
     dataRecord.close();
+
+    logInfo(`清理日志/数据记录/交易报告...`);
+    cleanOldLogs(7);
+    dataRecord.cleanOldData(7);
+    tradeReport.cleanOldReports(30);
   }, 1000);
 };
 

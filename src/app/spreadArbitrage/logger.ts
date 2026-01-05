@@ -20,3 +20,5 @@ export const customTypeLog = (type: string, message: string, data?: any) =>
   getLoggerModule().info(message, data, type);
 
 export const setTraceId = (traceId: string) => getLoggerModule().setTraceId(traceId);
+
+export const cleanOldLogs = (days: number) => getLoggerModule().cleanOldLogs(days);

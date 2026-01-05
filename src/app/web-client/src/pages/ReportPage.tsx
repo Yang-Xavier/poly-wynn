@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import "./ReportPage.css";
 
@@ -29,6 +29,7 @@ interface ReportResponse {
 
 function ReportPage() {
   const { dappName, date } = useParams<{ dappName: string; date?: string }>();
+  const navigate = useNavigate();
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +66,13 @@ function ReportPage() {
           setError("报告数据格式错误");
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "获取报告失败");
+        // 如果是 404 错误，显示友好的提示
+        if (axios.isAxiosError(err) && err.response?.status === 404) {
+          setReports([]);
+          setError(null);
+        } else {
+          setError(err instanceof Error ? err.message : "获取报告失败");
+        }
       } finally {
         setLoading(false);
       }
@@ -149,7 +156,14 @@ function ReportPage() {
             {reports.map((report, index) => (
               <div key={`${report.traceId}-${index}`} className="report-item">
                 <div className="report-header-row">
-                  <span className="trace-id">[{report.traceId}]</span>
+                  <a
+                    href={`https://polymarket.com/event/${report.traceId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="trace-id"
+                  >
+                    [{report.traceId}]
+                  </a>
                   {getResultBadge(report.result)}
                   {report.balance !== undefined && (
                     <span className="balance">
@@ -165,24 +179,53 @@ function ReportPage() {
                   )}
                 </div>
 
-                <div className="trades-section">
-                  {report.trades?.map((trade, tradeIndex) => (
-                    <div key={tradeIndex} className="trade-item">
-                      <span className="trade-timestamp">
-                        {formatTradeTimestamp(trade.timestamp)}
-                      </span>
-                      <span className="trade-action" data-action={trade.action.toLowerCase()}>
-                        {trade.action}
-                      </span>
-                      <span className="trade-outcome">{trade.outcome}</span>
-                      <span className="trade-details">
-                        {trade.amount}@{trade.price.toFixed(2)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                {report.trades?.length > 0 && (
+                  <div className="trades-section">
+                    {report.trades.map((trade, tradeIndex) => (
+                      <div key={tradeIndex} className="trade-item">
+                        <span className="trade-timestamp">
+                          {formatTradeTimestamp(trade.timestamp)}
+                        </span>
+                        <span className="trade-action" data-action={trade.action.toLowerCase()}>
+                          {trade.action}
+                        </span>
+                        <span className="trade-outcome">{trade.outcome}</span>
+                        <span className="trade-details">
+                          {trade.amount.toFixed(2)}@{trade.price.toFixed(2)}
+                        </span>
+                        <button
+                          className="trade-view-data-btn"
+                          onClick={() => {
+                            if (dappName) {
+                              navigate(`/data/${dappName}/${report.traceId}/${trade.timestamp}`);
+                            }
+                          }}
+                          title="查看数据"
+                        >
+                          查看数据
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
-                <div className="report-timestamp">{formatTimestamp(report.timestamp)}</div>
+                <div className="report-footer">
+                  <button
+                    className="report-view-log-btn"
+                    onClick={() => {
+                      if (dappName) {
+                        const reportDate = date || getCurrentDate();
+                        navigate(`/logs/${dappName}/${reportDate}/${report.traceId}`);
+                      }
+                    }}
+                    title="查看日志"
+                  >
+                    查看日志
+                  </button>
+                  <div className="report-timestamp">
+                    最后更新时间: {formatTimestamp(report.timestamp)}
+                  </div>
+                </div>
               </div>
             ))}
           </div>

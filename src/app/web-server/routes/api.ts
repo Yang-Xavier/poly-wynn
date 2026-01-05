@@ -37,14 +37,14 @@ router.get("/data", async (ctx) => {
 
   try {
     const dataDir = path.join(process.cwd(), "data");
-    const filePath = path.join(dataDir, appName as string, date as string, `${traceId}_data.json`);
+    const filePath = path.join(dataDir, appName as string, `${date}_${traceId}_data.json`);
 
     if (!fs.existsSync(filePath)) {
       ctx.status = 404;
       ctx.body = {
         success: false,
         error: "数据文件不存在",
-        path: filePath,
+        filename: `${date}_${traceId}_data.json`,
       };
       return;
     }
@@ -91,7 +91,7 @@ router.get("/report", async (ctx) => {
       ctx.body = {
         success: false,
         error: "报告文件不存在",
-        path: filePath,
+        filename: `${date}_report.json`,
       };
       return;
     }
@@ -115,7 +115,7 @@ router.get("/report", async (ctx) => {
 /**
  * 获取日志文件
  * GET /api/log?appName=xxx&date=xxx&traceId=xxx
- * 返回 logs/appName/date/traceId/ 目录下所有 .log 文件，按文件名（去掉 .log 后缀）分类返回
+ * 返回 logs/appName/ 目录下所有匹配 date_traceId_*.log 格式的文件，按 type 分类返回
  */
 router.get("/log", async (ctx) => {
   const { appName, date, traceId } = ctx.query;
@@ -131,7 +131,7 @@ router.get("/log", async (ctx) => {
 
   try {
     const logsDir = path.join(process.cwd(), "logs");
-    const logDirPath = path.join(logsDir, appName as string, date as string, traceId as string);
+    const logDirPath = path.join(logsDir, appName as string);
 
     if (!fs.existsSync(logDirPath)) {
       ctx.status = 404;
@@ -143,9 +143,12 @@ router.get("/log", async (ctx) => {
       return;
     }
 
-    // 读取目录下所有 .log 文件
+    // 构建文件名前缀：date_traceId_
+    const filePrefix = `${date}_${traceId}_`;
+
+    // 读取目录下所有匹配 date_traceId_*.log 格式的文件
     const files = fs.readdirSync(logDirPath);
-    const logFiles = files.filter((file) => file.endsWith(".log"));
+    const logFiles = files.filter((file) => file.startsWith(filePrefix) && file.endsWith(".log"));
 
     if (logFiles.length === 0) {
       ctx.body = {
@@ -155,21 +158,23 @@ router.get("/log", async (ctx) => {
       return;
     }
 
-    // 按文件名（去掉 .log 后缀）分类读取日志内容
+    // 按文件名中提取的 type 分类读取日志内容
     // 使用 utf-8 编码读取，确保保留所有换行符（\n）和原始格式
     const logs: Record<string, string> = {};
     for (const file of logFiles) {
-      const type = file.replace(/\.log$/, "");
+      // 从文件名 date_traceId_type.log 中提取 type
+      // 去掉前缀 date_traceId_ 和后缀 .log
+      const type = file.replace(filePrefix, "").replace(/\.log$/, "");
       const filePath = path.join(logDirPath, file);
       // 读取文件内容，保留所有换行符和原始格式
       let content = fs.readFileSync(filePath, { encoding: "utf-8", flag: "r" });
-      
+
       // 确保每行之间都有换行符：如果文件内容不为空且末尾没有换行符，添加一个
       // 同时确保内容中的每一行都以换行符结尾（除了最后一行）
       if (content && !content.endsWith("\n")) {
         content += "\n";
       }
-      
+
       logs[type] = content;
     }
 
@@ -187,4 +192,3 @@ router.get("/log", async (ctx) => {
 });
 
 export default router;
-

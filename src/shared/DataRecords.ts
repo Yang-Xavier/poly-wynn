@@ -15,11 +15,11 @@ const DEFAULT_CONFIG: Required<Omit<DataRecordsConfig, "appName">> = {
  * 数据记录器 - 用于记录数据到 JSON 文件
  *
  * 特性：
- * - 支持按 appName、date、traceId_data.json 组织文件结构
- * - 文件路径：data/appName/date/traceId_data.json
+ * - 支持按 appName、date_traceId_data.json 组织文件结构
+ * - 文件路径：data/appName/date_traceId_data.json
  * - 数据存储在内存中，格式为 {dataName: [data1, data2, ...]}
  * - 调用 saveToJson 方法时一次性写入 JSON 文件
- * - 日期按北京时间（UTC+8）计算
+ * - 日期在 setTraceId 时按北京时间（UTC+8）计算并保存，后续保存文件时使用该日期
  * - 支持清理旧数据
  */
 export class DataRecords {
@@ -27,6 +27,8 @@ export class DataRecords {
   private traceId: string = "";
   // 存储数据：traceId -> {dataName: [data1, data2, ...]}
   private dataStorage: Map<string, Record<string, any[]>> = new Map();
+  // 存储每个 traceId 对应的日期文件夹名称：traceId -> dateFolder
+  private traceIdDateMap: Map<string, string> = new Map();
 
   constructor(config: DataRecordsConfig) {
     if (!config.appName) {
@@ -57,30 +59,34 @@ export class DataRecords {
 
   /**
    * 获取数据文件的完整路径
-   * 目录结构：data/appName/date/traceId_data.json
+   * 目录结构：data/appName/date_traceId_data.json
    */
   private getDataFilePath(dateFolder: string, traceId: string): string {
     // appName 目录
     const appNameDir = path.join(this.config.dataDir, this.config.appName);
-    // 日期目录
-    const dateDir = path.join(appNameDir, dateFolder);
-    // 确保日期目录存在
-    if (!fs.existsSync(dateDir)) {
-      fs.mkdirSync(dateDir, { recursive: true });
+    // 确保 appName 目录存在
+    if (!fs.existsSync(appNameDir)) {
+      fs.mkdirSync(appNameDir, { recursive: true });
     }
-    // 文件名：traceId_data.json
-    const fileName = `${traceId}_data.json`;
-    return path.join(dateDir, fileName);
+    // 文件名：date_traceId_data.json
+    const fileName = `${dateFolder}_${traceId}_data.json`;
+    return path.join(appNameDir, fileName);
   }
 
   /**
    * 设置 traceId
+   * 在设置时会计算并保存当前日期，后续保存文件时使用该日期
    */
   setTraceId(traceId: string): void {
     this.traceId = traceId;
     // 如果该 traceId 还没有数据存储，初始化它
     if (!this.dataStorage.has(traceId)) {
       this.dataStorage.set(traceId, {});
+    }
+    // 计算并保存当前日期（如果该 traceId 还没有日期，则设置）
+    if (!this.traceIdDateMap.has(traceId)) {
+      const dateFolder = this.getDateFolderName();
+      this.traceIdDateMap.set(traceId, dateFolder);
     }
   }
 
@@ -126,13 +132,18 @@ export class DataRecords {
       return null; // 没有数据，不创建文件
     }
 
+    // 获取该 traceId 对应的日期（在 setTraceId 时已计算）
+    const dateFolder = this.traceIdDateMap.get(targetTraceId);
+    if (!dateFolder) {
+      throw new Error(`traceId ${targetTraceId} 没有对应的日期，请先调用 setTraceId 设置 traceId`);
+    }
+
     // 获取文件路径
-    const dateFolder = this.getDateFolderName();
     const filePath = this.getDataFilePath(dateFolder, targetTraceId);
 
     try {
       // 将数据对象序列化为 JSON（格式化输出，使用 2 个空格缩进）
-      const jsonContent = JSON.stringify(traceData, null, 2);
+      const jsonContent = JSON.stringify(traceData);
 
       // 同步写入文件
       fs.writeFileSync(filePath, jsonContent, "utf8");
@@ -146,16 +157,9 @@ export class DataRecords {
   }
 
   /**
-   * 获取当前 traceId
-   */
-  getTraceId(): string {
-    return this.traceId;
-  }
-
-  /**
    * 清理指定天数之前的数据
    * @param days 保留最近N天的数据，N天之前的数据将被删除
-   * @returns 返回被删除的日期文件夹数量
+   * @returns 返回被删除的文件数量
    */
   cleanOldData(days: number): number {
     if (days < 0) {
@@ -196,49 +200,46 @@ export class DataRecords {
         return 0;
       }
 
-      // 读取 appName 目录下的所有文件和文件夹（日期目录）
-      const dateEntries = fs.readdirSync(appNamePath, { withFileTypes: true });
+      // 读取 appName 目录下的所有文件
+      const files = fs.readdirSync(appNamePath);
 
-      for (const dateEntry of dateEntries) {
-        // 只处理目录（日期目录）
-        if (!dateEntry.isDirectory()) {
+      for (const fileName of files) {
+        // 检查文件名是否符合格式：date_traceId_data.json
+        // 匹配格式：YYYY-MM-DD_traceId_data.json
+        const fileMatch = fileName.match(/^(\d{4})-(\d{2})-(\d{2})_(.+)_data\.json$/);
+        if (!fileMatch) {
+          // 如果文件名不符合格式，跳过
           continue;
         }
 
-        const folderName = dateEntry.name;
-        // 检查文件夹名称是否符合日期格式 YYYY-MM-DD
-        const dateMatch = folderName.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        if (!dateMatch) {
-          // 如果不是日期格式的文件夹，跳过
-          continue;
-        }
+        const dateStr = `${fileMatch[1]}-${fileMatch[2]}-${fileMatch[3]}`;
 
-        // 如果是当前使用的数据文件夹，跳过
-        if (folderName === currentDateFolder) {
+        // 如果是当前日期的文件，跳过
+        if (dateStr === currentDateFolder) {
           continue;
         }
 
         // 解析日期（按北京时区解析）
-        const year = parseInt(dateMatch[1], 10);
-        const month = parseInt(dateMatch[2], 10) - 1; // 月份从0开始
-        const day = parseInt(dateMatch[3], 10);
+        const year = parseInt(fileMatch[1], 10);
+        const month = parseInt(fileMatch[2], 10) - 1; // 月份从0开始
+        const day = parseInt(fileMatch[3], 10);
 
         // 创建北京时区当天的0点（使用UTC时间表示）
-        const folderDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+        const fileDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
         // 转换为UTC时间戳（减去8小时偏移，使其对应北京时区的0点）
-        const folderDateUTC = folderDate.getTime() - 8 * 60 * 60 * 1000;
+        const fileDateUTC = fileDate.getTime() - 8 * 60 * 60 * 1000;
 
-        // 如果文件夹日期早于截止时间，删除该文件夹
-        if (folderDateUTC < cutoffTime) {
-          const folderPath = path.join(appNamePath, folderName);
+        // 如果文件日期早于截止时间，删除该文件
+        if (fileDateUTC < cutoffTime) {
+          const filePath = path.join(appNamePath, fileName);
 
           try {
-            // 递归删除文件夹及其内容
-            fs.rmSync(folderPath, { recursive: true, force: true });
+            // 删除文件
+            fs.unlinkSync(filePath);
             deletedCount++;
-            console.log(`已删除旧数据文件夹: ${this.config.appName}/${folderName}`);
+            console.log(`已删除旧数据文件: ${this.config.appName}/${fileName}`);
           } catch (error) {
-            console.error(`删除数据文件夹失败: ${this.config.appName}/${folderName}`, error);
+            console.error(`删除数据文件失败: ${this.config.appName}/${fileName}`, error);
           }
         }
       }
@@ -256,6 +257,8 @@ export class DataRecords {
   close(): void {
     // 清空数据存储
     this.dataStorage.clear();
+    // 清空日期映射
+    this.traceIdDateMap.clear();
     this.traceId = "";
   }
 }

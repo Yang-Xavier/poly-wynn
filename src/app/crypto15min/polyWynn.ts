@@ -42,8 +42,6 @@ export const runPolyWynn = async () => {
   const globalConfig = getGlobalConfig();
 
   runIntervalFn(async () => {
-    getLoggerModule().cleanOldLogs(3);
-
     let buyCount = 0;
     const slugIntervalTimestamp = get15MinIntervalTimestamp();
     const marketSlug = getMarketSlug15Min(globalConfig.marketTag, slugIntervalTimestamp);
@@ -319,7 +317,14 @@ export const runPolyWynn = async () => {
     }
 
     logInfo(`销毁数据流...`);
-
     destroyDataFlow();
+    logInfo(`保存数据...`);
+    dataRecord.saveToJson();
+    dataRecord.close();
+
+    logInfo(`清理日志/数据记录/交易报告...`);
+    getLoggerModule().cleanOldLogs(7);
+    dataRecord.cleanOldData(7);
+    tradeReport.cleanOldReports(30);
   });
 };

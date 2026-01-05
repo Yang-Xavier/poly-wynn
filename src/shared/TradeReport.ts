@@ -37,6 +37,8 @@ export default class TradeReport {
   private reportDir: string = "./report";
   private dateReport: ReportFile | null = null;
   private loadedDate: string | null = null;
+  // 存储每个 traceId 对应的日期文件夹名称：traceId -> dateFolder
+  private traceIdDateMap: Map<string, string> = new Map();
 
   protected traceReport: ReportData | null = null;
 
@@ -46,6 +48,11 @@ export default class TradeReport {
 
   setTraceId(traceId: string) {
     this.traceId = traceId;
+    // 计算并保存当前日期（如果该 traceId 还没有日期，则设置）
+    if (!this.traceIdDateMap.has(traceId)) {
+      const dateFolder = this.getDateFolderName();
+      this.traceIdDateMap.set(traceId, dateFolder);
+    }
     // 加载当日报告，以便在 addReport 时可以查找或创建对应的 report
     this.loadDateReport();
     // 查找是否已存在相同 traceId 的 report
@@ -120,8 +127,15 @@ export default class TradeReport {
   }
 
   protected loadDateReport() {
-    // 获取当前日期
-    const currentDate = this.getDateFolderName();
+    if (!this.traceId) {
+      throw new Error("请先调用 setTraceId 设置 traceId");
+    }
+
+    // 获取该 traceId 对应的日期（在 setTraceId 时已计算）
+    const currentDate = this.traceIdDateMap.get(this.traceId);
+    if (!currentDate) {
+      throw new Error(`traceId ${this.traceId} 没有对应的日期，请先调用 setTraceId 设置 traceId`);
+    }
 
     // 如果已经加载过当日的报告，直接返回
     if (this.dateReport && this.loadedDate === currentDate) {
@@ -190,7 +204,16 @@ export default class TradeReport {
    * 目录结构：report/appName/date_report.json
    */
   private getReportFilePath(): string {
-    const dateFolder = this.getDateFolderName();
+    if (!this.traceId) {
+      throw new Error("请先调用 setTraceId 设置 traceId");
+    }
+
+    // 获取该 traceId 对应的日期（在 setTraceId 时已计算）
+    const dateFolder = this.traceIdDateMap.get(this.traceId);
+    if (!dateFolder) {
+      throw new Error(`traceId ${this.traceId} 没有对应的日期，请先调用 setTraceId 设置 traceId`);
+    }
+
     // appName 目录
     const appNameDir = path.join(this.reportDir, this.appName);
     // 确保 appName 目录存在
