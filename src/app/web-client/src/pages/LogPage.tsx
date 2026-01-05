@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import "./LogPage.css";
 
@@ -17,7 +17,7 @@ function LogPage() {
     date: string;
     traceId: string;
   }>();
-
+  const navigate = useNavigate();
   const [logs, setLogs] = useState<{ [logType: string]: string }>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -85,7 +85,20 @@ function LogPage() {
           <div className="logs-list">
             {logTypes.map((logType) => (
               <div key={logType} className="log-item">
-                <h2 className="log-type-title">{logType}</h2>
+                <div className="log-type-header">
+                  <h2 className="log-type-title">{logType}</h2>
+                  <button
+                    className="log-view-data-btn"
+                    onClick={() => {
+                      if (appName) {
+                        navigate(`/data/${appName}/${traceId}`);
+                      }
+                    }}
+                    title="查看数据"
+                  >
+                    查看数据
+                  </button>
+                </div>
                 <div className="log-content-wrapper">
                   <pre className="log-text">{logs[logType]}</pre>
                 </div>
