@@ -4,6 +4,7 @@ import { logError, logInfo } from "./logger";
 import { distanceToNextInterval, waitFor } from "@crypto15min/utils/tools";
 import { getGlobalConfig } from "@crypto15min/utils/config";
 import { getGammaDataModule } from "./gammaData";
+import tradeReport from "@crypto15min/utils/tradeReport";
 
 export const buy = async ({
   tokenId,
@@ -30,10 +31,19 @@ export const buy = async ({
         orderType: OrderType.FAK,
       });
       if (orderID) {
-        await waitFor(1000);
+        const timestamp = Date.now();
         logInfo(`购买完成...`, { orderID });
+        await waitFor(1000);
         result = await clobModule.getOrder({
           orderId: orderID,
+        });
+
+        tradeReport.addReport("trade", {
+          action: "buy",
+          price: Number(result?.price),
+          amount: Number(result?.size_matched || result?.original_size),
+          outcome: result?.outcome,
+          timestamp,
         });
       }
       logInfo(`购买结果: ${JSON.stringify(result || {})}`);
@@ -121,9 +131,18 @@ export const mustSell = async ({
         orderType: OrderType.FAK,
       });
       if (resp.orderID) {
+        const timestamp = Date.now();
         await waitFor(1000);
+        logInfo(`卖出完成...`, { orderID: resp.orderID });
         result = await clobModule.getOrder({
           orderId: resp.orderID,
+        });
+        tradeReport.addReport("trade", {
+          action: "sell",
+          price: Number(result?.price),
+          amount: Number(result?.size_matched || result?.original_size || amount),
+          outcome: result?.outcome,
+          timestamp,
         });
       }
     } catch (e) {

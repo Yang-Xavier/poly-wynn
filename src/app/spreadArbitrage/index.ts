@@ -1,7 +1,7 @@
 import { runIntervalFn } from "@shared/utils/runInterval";
 
 import { getConfig } from "./config";
-import { logInfo, logError, setTraceId, customTypeLog, logTrade } from "./logger";
+import { logInfo, logError, setTraceId, customTypeLog } from "./logger";
 import {
   distanceToNextInterval,
   get15MinIntervalTimestamp,
@@ -18,6 +18,7 @@ import { waitFor } from "@crypto15min/utils/tools";
 import { WATCH_POSITION_ACTION_ENUM } from "@shared/constants";
 // import { buy, mustGetOrder, mustSell } from "./utils/order";
 import dataRecord from "./dataRecord";
+import tradeReport from "./tradeReport";
 
 const main = async () => {
   const config = getConfig();
@@ -130,13 +131,12 @@ const main = async () => {
           //     stopProfitPrice: chance.stopProfitPrice,
           //     stopLossPrice: chance.stopLossPrice,
           //   });
-          logTrade("buy", {
-            size: 1,
-            originalSize: 1,
+          tradeReport.addReport("trade", {
+            action: "buy",
+            timestamp: Date.now(),
             price: chance.buyPrice,
-            originalPrice: chance.buyPrice,
-            stopProfitPrice: chance.stopProfitPrice,
-            stopLossPrice: chance.stopLossPrice,
+            amount: 1,
+            outcome: chance.outcome,
           });
           const buyTime = Date.now();
           buyAccount++;
@@ -195,15 +195,13 @@ const main = async () => {
 
             const profit = price - chance.buyPrice;
             totalProfit += profit;
-            logTrade("sell", {
-              size: 1,
-              originalSize: 1,
+            tradeReport.addReport("trade", {
+              action: "sell",
+              timestamp: Date.now(),
               price: price,
-              originalPrice: price,
-              profit,
-              holdTime,
+              amount: 1,
+              outcome: chance.outcome,
             });
-
             await waitFor(5 * 1000);
             await logAccountBalance();
           } else if (action === WATCH_POSITION_ACTION_ENUM.hold) {
@@ -213,18 +211,15 @@ const main = async () => {
           }
         } else {
           if (buyAccount <= 0) {
-            logTrade("skip");
-            logInfo(`未找到机会，等待下一轮策略开始...`);
+            tradeReport.addReport("result", {
+              result: "skipped",
+            });
           }
-          await waitFor(distanceToNextInterval(slugIntervalTimestamp));
         }
       }
     } catch (error) {
       logInfo(`策略执行失败: ${error}`);
     }
-    logTrade("profit", {
-      totalProfit,
-    });
     dataFlow.destroy();
     dataRecord.close();
   }, 1000);

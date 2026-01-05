@@ -78,7 +78,14 @@ export const findChance = async (
             );
             customTypeLog(
               "PolyOrderBookWs",
-              `[-- 扫尾盘数据策略数据 (📚订单簿变动触发) --] ${JSON.stringify({ priceToBeat, currentPrice, isDiffEnough, avaliableValue, ...tailSweepResult })}`
+              `[-- 扫尾盘数据策略数据 (📚订单簿变动触发) --] ${JSON.stringify({
+                priceToBeat,
+                currentPrice,
+                isDiffEnough,
+                avaliableValue,
+                bestAsk: data[outcomes[tailSweepResult.side]]?.bestAsk,
+                ...tailSweepResult,
+              })}`
             );
 
             if (tailSweepResult.shouldBet && isDiffEnough) {

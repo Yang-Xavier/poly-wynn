@@ -1,4 +1,5 @@
-import { logError, logInfo, logTrade } from "../logger";
+import tradeReport from "../tradeReport";
+import { logError, logInfo } from "../logger";
 import { FUNDER_ADDRESS, USDC_ADDRESS } from "@shared/constants";
 import { waitFor } from "@shared/utils/waitFor";
 import { getAccountBalance } from "@shared/web3/account";
@@ -23,8 +24,8 @@ export const getAccountBalanceWithRetry = async () => {
 
 export const logAccountBalance = async () => {
   const balance = await getAccountBalanceWithRetry();
-  logTrade("balance", {
-    balance,
+  tradeReport.addReport("balance", {
+    balance: Number(balance),
   });
   logInfo(`account balance: ${balance}`);
 };

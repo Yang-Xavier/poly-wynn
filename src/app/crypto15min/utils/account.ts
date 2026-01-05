@@ -1,7 +1,8 @@
 import { createPublicClient, http, parseAbi, Address, formatUnits } from "viem";
 import { polygon } from "viem/chains";
 import { getGlobalConfig } from "./config";
-import { getLoggerModule, logError, logInfo, LogLevel, logTrade } from "@crypto15min/module/logger";
+import { logInfo } from "@crypto15min/module/logger";
+import tradeReport from "./tradeReport";
 
 // 通用 ERC20 ABI（只包含查询余额&精度）
 const erc20Abi = parseAbi([
@@ -74,5 +75,8 @@ export const logAccountBalance = async () => {
     globalConfig.account.funderAddress,
     globalConfig.account.balanceTokenAddress
   );
-  logTrade("balance", null, formatted);
+  logInfo("balance", formatted);
+  tradeReport.addReport("balance", {
+    balance: Number(formatted),
+  });
 };

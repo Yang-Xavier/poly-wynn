@@ -15,7 +15,6 @@ import {
   getLoggerModule,
   logError,
   logInfo,
-  logTrade,
   setTraceId,
   logData,
   customTypeLog,
@@ -27,6 +26,7 @@ import { getAccountBalance, logAccountBalance } from "@crypto15min/utils/account
 import { OUTCOMES_ENUM } from "@crypto15min/utils/constans";
 import { destroyDataFlow, getDataFlowInstances, initializeDataFlow } from "./module/dataFlow";
 import dataRecord from "./module/dataRecord";
+import tradeReport from "./utils/tradeReport";
 
 const init = async () => {
   const clobModule = getClobModule();
@@ -48,7 +48,8 @@ export const runPolyWynn = async () => {
     const slugIntervalTimestamp = get15MinIntervalTimestamp();
     const marketSlug = getMarketSlug15Min(globalConfig.marketTag, slugIntervalTimestamp);
     setTraceId(`${marketSlug}`);
-    dataRecord.setTraceId(`${globalConfig.marketTag}`);
+    dataRecord.setTraceId(`${marketSlug}`);
+    tradeReport.setTraceId(`${marketSlug}`);
 
     logInfo(`初始化数据流...`);
     initializeDataFlow({
@@ -115,7 +116,9 @@ export const runPolyWynn = async () => {
         Number(balance) * globalConfig.stratgegy.buyingAmountFactor
       );
       logInfo(`💰账户余额: ${balance}, 购买金额: ${positionAmount}`);
-      logTrade("balance", null, balance);
+      tradeReport.addReport("balance", {
+        balance: Number(balance),
+      });
 
       if (Number(balance) <= 1) {
         logInfo(`账户余额小于1, 跳过本局购买,等待下一轮开始...`);
@@ -187,7 +190,9 @@ export const runPolyWynn = async () => {
             }
           } else if (!boughtOrder) {
             logInfo(`🈚️没有找到机会, 跳过本局购买,等待下一轮开始...`);
-            logTrade("skip");
+            tradeReport.addReport("result", {
+              result: "skipped",
+            });
             await waitFor(distanceToNextInterval(slugIntervalTimestamp));
           }
 
@@ -195,7 +200,7 @@ export const runPolyWynn = async () => {
             buyCount += 1;
             // 购买成功
             if (tokenChanceDetails) {
-              logTrade("buy", boughtOrder);
+              logInfo("buy", boughtOrder);
             }
             const watchingPriceChangeTimeout = distanceToNextInterval(slugIntervalTimestamp);
             let currentPrice = getDataFlowInstances()?.polyPriceWs.getLatestPriceData();
@@ -225,10 +230,16 @@ export const runPolyWynn = async () => {
                 });
                 if (sellResult) {
                   logInfo(`卖出成功: ${JSON.stringify(sellResult)}`);
-                  logTrade("sell", sellResult);
+                  logInfo("sell", sellResult);
+                  tradeReport.addReport("result", {
+                    result: "sold",
+                  });
                 } else {
                   logInfo("卖出失败");
-                  logTrade("lost", boughtOrder);
+                  logInfo("lost", boughtOrder);
+                  tradeReport.addReport("result", {
+                    result: "lost",
+                  });
                 }
               } catch (error) {
                 logError(`卖出失败: ${error}`);
@@ -284,7 +295,11 @@ export const runPolyWynn = async () => {
             logInfo(
               `对赌结果: ${redeemOrder.outcome === finalOutcome ? "🎉Won" : "💩Lost"}, 市场最终结果: ${finalOutcome}`
             );
-            logTrade(redeemOrder.outcome === finalOutcome ? "won" : "lost");
+            tradeReport.addReport("result", {
+              result: redeemOrder.outcome === finalOutcome ? "won" : "lost",
+            });
+
+            logInfo(redeemOrder.outcome === finalOutcome ? "won" : "lost");
           } else {
             logInfo(`市场未关闭, 对赌结果未知`);
           }

@@ -3,43 +3,30 @@ import * as path from "path";
 
 export interface DataRecordsConfig {
   appName: string; // 应用名称，必填
-  bufferSize?: number; // 缓冲区大小，达到此数量时触发写入，默认 100
-  flushInterval?: number; // 刷新间隔（毫秒），默认 5000
   dataDir?: string; // 数据目录，默认为 './data'
 }
 
 // 默认配置
 const DEFAULT_CONFIG: Required<Omit<DataRecordsConfig, "appName">> = {
-  bufferSize: 100,
-  flushInterval: 5000,
   dataDir: "./data",
 };
 
-// 缓冲区数据项
-interface BufferItem {
-  dataName: string;
-  traceId: string;
-  serializedData: string; // 已序列化的数据
-}
-
 /**
- * 数据记录器 - 用于批量记录数据到文件
+ * 数据记录器 - 用于记录数据到 JSON 文件
  *
  * 特性：
- * - 支持按 appName、date、traceId_dataName 组织文件结构
- * - 文件路径：data/appName/date/traceId_dataName.data
- * - 使用缓冲区机制，达到一定数量或时间间隔时批量写入
+ * - 支持按 appName、date、traceId_data.json 组织文件结构
+ * - 文件路径：data/appName/date/traceId_data.json
+ * - 数据存储在内存中，格式为 {dataName: [data1, data2, ...]}
+ * - 调用 saveToJson 方法时一次性写入 JSON 文件
  * - 日期按北京时间（UTC+8）计算
  * - 支持清理旧数据
  */
 export class DataRecords {
   private config: Required<DataRecordsConfig>;
   private traceId: string = "";
-  private buffer: BufferItem[] = [];
-  private flushTimer: NodeJS.Timeout | null = null;
-  private isFlushing: boolean = false;
-  private fileStreams: Map<string, fs.WriteStream> = new Map(); // 存储不同文件的写入流
-  private streamDates: Map<string, string> = new Map(); // 存储每个流的当前日期
+  // 存储数据：traceId -> {dataName: [data1, data2, ...]}
+  private dataStorage: Map<string, Record<string, any[]>> = new Map();
 
   constructor(config: DataRecordsConfig) {
     if (!config.appName) {
@@ -51,9 +38,6 @@ export class DataRecords {
     if (!fs.existsSync(this.config.dataDir)) {
       fs.mkdirSync(this.config.dataDir, { recursive: true });
     }
-
-    // 启动自动刷新定时器
-    this.startAutoFlush();
   }
 
   /**
@@ -73,9 +57,9 @@ export class DataRecords {
 
   /**
    * 获取数据文件的完整路径
-   * 目录结构：data/appName/date/traceId_dataName.data
+   * 目录结构：data/appName/date/traceId_data.json
    */
-  private getDataFilePath(dateFolder: string, dataName: string, traceId: string): string {
+  private getDataFilePath(dateFolder: string, traceId: string): string {
     // appName 目录
     const appNameDir = path.join(this.config.dataDir, this.config.appName);
     // 日期目录
@@ -84,100 +68,19 @@ export class DataRecords {
     if (!fs.existsSync(dateDir)) {
       fs.mkdirSync(dateDir, { recursive: true });
     }
-    // 文件名：traceId_dataName.data
-    const fileName = `${traceId}_${dataName}.data`;
+    // 文件名：traceId_data.json
+    const fileName = `${traceId}_data.json`;
     return path.join(dateDir, fileName);
-  }
-
-  /**
-   * 生成文件流的唯一键
-   */
-  private getStreamKey(dataName: string, traceId: string): string {
-    return `${dataName}_${traceId}`;
-  }
-
-  /**
-   * 获取或创建指定文件的写入流
-   */
-  private getOrCreateFileStream(dataName: string, traceId: string): fs.WriteStream {
-    const streamKey = this.getStreamKey(dataName, traceId);
-    const date = this.getDateFolderName();
-    const currentDate = this.streamDates.get(streamKey);
-
-    // 如果日期变化或文件流不存在，需要重新创建
-    if (!currentDate || currentDate !== date || !this.fileStreams.has(streamKey)) {
-      // 如果已存在文件流，先关闭它
-      const existingStream = this.fileStreams.get(streamKey);
-      if (existingStream) {
-        existingStream.end();
-      }
-
-      // 创建新的文件流
-      const filePath = this.getDataFilePath(date, dataName, traceId);
-      const newStream = fs.createWriteStream(filePath, { flags: "a" });
-      this.fileStreams.set(streamKey, newStream);
-      this.streamDates.set(streamKey, date);
-      return newStream;
-    }
-
-    return this.fileStreams.get(streamKey)!;
-  }
-
-  /**
-   * 启动自动刷新定时器
-   */
-  private startAutoFlush(): void {
-    if (this.flushTimer) {
-      clearInterval(this.flushTimer);
-    }
-    this.flushTimer = setInterval(() => {
-      if (this.buffer.length > 0 && !this.isFlushing) {
-        this.flush();
-      }
-    }, this.config.flushInterval);
   }
 
   /**
    * 设置 traceId
    */
   setTraceId(traceId: string): void {
-    const oldTraceId = this.traceId;
-    if (oldTraceId === traceId) {
-      return; // traceId 没有变化，不需要做任何处理
-    }
-
     this.traceId = traceId;
-
-    // 如果 traceId 变化，需要先刷新缓冲区，然后关闭旧的文件流
-    if (oldTraceId && this.buffer.length > 0) {
-      // 临时设置回旧的 traceId 以刷新旧数据
-      this.traceId = oldTraceId;
-      this.flush();
-      this.traceId = traceId;
-    }
-
-    // 关闭所有与旧 traceId 相关的文件流
-    const streamsToClose: string[] = [];
-    for (const streamKey of this.fileStreams.keys()) {
-      // streamKey 格式：dataName_traceId
-      // 需要从后面解析以正确分离 traceId（因为 dataName 可能包含下划线）
-      const lastUnderscoreIndex = streamKey.lastIndexOf("_");
-      if (lastUnderscoreIndex === -1) {
-        continue;
-      }
-      const streamTraceId = streamKey.substring(lastUnderscoreIndex + 1);
-      if (oldTraceId && streamTraceId === oldTraceId) {
-        streamsToClose.push(streamKey);
-      }
-    }
-
-    for (const streamKey of streamsToClose) {
-      const stream = this.fileStreams.get(streamKey);
-      if (stream) {
-        stream.end();
-        this.fileStreams.delete(streamKey);
-        this.streamDates.delete(streamKey);
-      }
+    // 如果该 traceId 还没有数据存储，初始化它
+    if (!this.dataStorage.has(traceId)) {
+      this.dataStorage.set(traceId, {});
     }
   }
 
@@ -191,131 +94,55 @@ export class DataRecords {
       throw new Error("请先调用 setTraceId 设置 traceId");
     }
 
-    // 序列化数据
-    let serializedData: string;
+    // 获取或创建当前 traceId 的数据存储
+    if (!this.dataStorage.has(this.traceId)) {
+      this.dataStorage.set(this.traceId, {});
+    }
+    const traceData = this.dataStorage.get(this.traceId)!;
+
+    // 如果该 dataName 不存在，初始化数组
+    if (!traceData[dataName]) {
+      traceData[dataName] = [];
+    }
+
+    // 将数据添加到对应 dataName 的数组中
+    traceData[dataName].push(data);
+  }
+
+  /**
+   * 将指定 traceId 的数据保存到 JSON 文件
+   * @param traceId 要保存的 traceId，如果不提供则使用当前 traceId
+   * @returns 返回保存的文件路径，如果数据为空则返回 null
+   */
+  saveToJson(traceId?: string): string | null {
+    const targetTraceId = traceId || this.traceId;
+    if (!targetTraceId) {
+      throw new Error("请提供 traceId 或先调用 setTraceId 设置 traceId");
+    }
+
+    // 获取该 traceId 的数据
+    const traceData = this.dataStorage.get(targetTraceId);
+    if (!traceData || Object.keys(traceData).length === 0) {
+      return null; // 没有数据，不创建文件
+    }
+
+    // 获取文件路径
+    const dateFolder = this.getDateFolderName();
+    const filePath = this.getDataFilePath(dateFolder, targetTraceId);
+
     try {
-      serializedData = JSON.stringify(data);
+      // 将数据对象序列化为 JSON（格式化输出，使用 2 个空格缩进）
+      const jsonContent = JSON.stringify(traceData, null, 2);
+
+      // 同步写入文件
+      fs.writeFileSync(filePath, jsonContent, "utf8");
+
+      return filePath;
     } catch (error) {
-      throw new Error(`数据序列化失败: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `保存 JSON 文件失败: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
-
-    // 添加到缓冲区
-    this.buffer.push({
-      dataName,
-      traceId: this.traceId,
-      serializedData,
-    });
-
-    // 如果缓冲区达到指定大小，立即刷新
-    if (this.buffer.length >= this.config.bufferSize) {
-      if (!this.isFlushing) {
-        this.flush();
-      }
-    }
-  }
-
-  /**
-   * 刷新缓冲区，将数据写入文件
-   */
-  private flush(): void {
-    if (this.isFlushing || this.buffer.length === 0) {
-      return;
-    }
-
-    this.isFlushing = true;
-
-    // 使用 setImmediate 确保在下一个事件循环中执行，不阻塞主线程
-    setImmediate(() => {
-      try {
-        // 按 (dataName, traceId) 分组数据
-        const groupedData = new Map<string, string[]>();
-
-        for (const item of this.buffer) {
-          const streamKey = this.getStreamKey(item.dataName, item.traceId);
-          if (!groupedData.has(streamKey)) {
-            groupedData.set(streamKey, []);
-          }
-          groupedData.get(streamKey)!.push(item.serializedData);
-        }
-
-        // 清空缓冲区
-        this.buffer = [];
-
-        // 写入文件
-        let hasBackpressure = false;
-        for (const [streamKey, dataList] of groupedData.entries()) {
-          // streamKey 格式：dataName_traceId
-          // 需要从后面解析以正确分离 traceId（因为 dataName 可能包含下划线）
-          const lastUnderscoreIndex = streamKey.lastIndexOf("_");
-          if (lastUnderscoreIndex === -1) {
-            continue;
-          }
-          const dataName = streamKey.substring(0, lastUnderscoreIndex);
-          const traceId = streamKey.substring(lastUnderscoreIndex + 1);
-          const stream = this.getOrCreateFileStream(dataName, traceId);
-
-          // 将数据写入文件，每行一个数据
-          const content = dataList.map((data) => data + "\n").join("");
-          const canWrite = stream.write(content);
-
-          // 如果写入缓冲区已满，等待 drain 事件
-          if (!canWrite) {
-            hasBackpressure = true;
-            // 设置 drain 事件监听器，等待缓冲区有空间后继续
-            stream.once("drain", () => {
-              this.isFlushing = false;
-              // 继续刷新，处理可能新加入的数据
-              if (this.buffer.length > 0) {
-                this.flush();
-              }
-            });
-            // 跳出循环，等待 drain 事件
-            break;
-          }
-        }
-
-        // 如果没有遇到背压，重置刷新状态
-        if (!hasBackpressure) {
-          this.isFlushing = false;
-        }
-      } catch (error) {
-        console.error("数据写入失败:", error);
-        this.isFlushing = false;
-      }
-    });
-  }
-
-  /**
-   * 手动刷新缓冲区
-   */
-  async flushNow(): Promise<void> {
-    return new Promise((resolve) => {
-      if (this.buffer.length === 0) {
-        resolve();
-        return;
-      }
-
-      // 如果正在刷新，等待完成
-      if (this.isFlushing) {
-        const checkInterval = setInterval(() => {
-          if (!this.isFlushing) {
-            clearInterval(checkInterval);
-            resolve();
-          }
-        }, 10);
-        return;
-      }
-
-      this.flush();
-
-      // 等待刷新完成
-      const checkInterval = setInterval(() => {
-        if (!this.isFlushing && this.buffer.length === 0) {
-          clearInterval(checkInterval);
-          resolve();
-        }
-      }, 10);
-    });
   }
 
   /**
@@ -339,9 +166,6 @@ export class DataRecords {
     if (!fs.existsSync(this.config.dataDir)) {
       return 0;
     }
-
-    // 先刷新缓冲区，确保所有数据都已写入
-    this.flushNow();
 
     // 获取北京时区的当前日期（UTC+8）
     const now = new Date();
@@ -427,24 +251,11 @@ export class DataRecords {
   }
 
   /**
-   * 关闭所有文件流并清理资源
+   * 清理资源
    */
   close(): void {
-    // 停止自动刷新定时器
-    if (this.flushTimer) {
-      clearInterval(this.flushTimer);
-      this.flushTimer = null;
-    }
-
-    // 刷新所有剩余的数据
-    this.flushNow();
-
-    // 关闭所有文件流
-    for (const [key, stream] of this.fileStreams.entries()) {
-      stream.end();
-    }
-    this.fileStreams.clear();
-    this.streamDates.clear();
-    this.buffer = [];
+    // 清空数据存储
+    this.dataStorage.clear();
+    this.traceId = "";
   }
 }

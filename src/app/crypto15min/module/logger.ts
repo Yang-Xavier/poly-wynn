@@ -16,22 +16,4 @@ export const logData = (message: string, data?: any) =>
 export const customTypeLog = (type: string, message: string, data?: any) =>
   getLoggerModule().info(message, data, type);
 
-export const logTrade = (
-  tradeType: "buy" | "sell" | "redeem" | "lost" | "balance" | "won" | "skip",
-  data?: any,
-  message?: string
-) => {
-  const label = {
-    buy: "✅",
-    sell: "❌",
-    redeem: "👍🏻",
-    lost: "🈚️",
-    balance: "💰",
-    won: "🎉",
-    skip: "⏭️",
-  };
-
-  getLoggerModule().info(`${label[tradeType]} ${tradeType} ${message ?? ""}`, data, "trade");
-};
-
 export const setTraceId = (traceId: string) => getLoggerModule().setTraceId(traceId);
