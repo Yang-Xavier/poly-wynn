@@ -29,6 +29,7 @@ const main = async () => {
     const marketSlug = getMarketSlug15Min(config.marketTag, slugIntervalTimestamp);
     setTraceId(marketSlug);
     dataRecord.setTraceId(marketSlug);
+    tradeReport.setTraceId(marketSlug);
 
     let totalProfit = 0;
 

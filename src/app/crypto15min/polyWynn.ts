@@ -45,9 +45,9 @@ export const runPolyWynn = async () => {
     let buyCount = 0;
     const slugIntervalTimestamp = get15MinIntervalTimestamp();
     const marketSlug = getMarketSlug15Min(globalConfig.marketTag, slugIntervalTimestamp);
-    setTraceId(`${marketSlug}`);
-    dataRecord.setTraceId(`${marketSlug}`);
-    tradeReport.setTraceId(`${marketSlug}`);
+    setTraceId(marketSlug);
+    dataRecord.setTraceId(marketSlug);
+    tradeReport.setTraceId(marketSlug);
 
     logInfo(`初始化数据流...`);
     initializeDataFlow({

@@ -356,7 +356,7 @@ export class Logger {
    * @param data 可选数据
    * @param type 可选日志类型，用于区分不同的日志文件
    */
-  private log(level: LogLevel, message: string, data?: any, type?: string): void {
+  private log(level: LogLevel, message: string, data: any = undefined, type: string = "app"): void {
     const formattedMessage = this.formatMessage(level, message, data, type);
 
     // 输出到控制台
