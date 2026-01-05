@@ -184,6 +184,7 @@
   text-transform: uppercase;
   font-size: 0.875rem;
   line-height: 1.5;
+  min-width: 2.3rem;
 }
 
 .trade-action[data-action="buy"] {
@@ -199,6 +200,7 @@
   color: #3498db;
   font-size: 0.875rem;
   line-height: 1.5;
+  min-width: 2.5rem;
 }
 
 .trade-details {
