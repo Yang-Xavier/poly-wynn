@@ -1,3 +1,3 @@
-import BaseTradeReport from "@shared/BaseTradeReport";
+import TradeReport from "@shared/TradeReport";
 
-export default new BaseTradeReport("spreadArbitrage");
+export default new TradeReport("spreadArbitrage");

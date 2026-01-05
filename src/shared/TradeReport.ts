@@ -31,40 +31,143 @@ type ReportFile = {
   reports: ReportData[];
 };
 
-export default class BaseTradeReport {
-  private trades: Trade[];
-  private result: string = "waiting...";
-  private balance: number;
+export default class TradeReport {
   private traceId: string;
   private appName: string;
   private reportDir: string = "./report";
+  private dateReport: ReportFile | null = null;
+  private loadedDate: string | null = null;
+
+  protected traceReport: ReportData | null = null;
 
   constructor(appName: string) {
     this.appName = appName;
   }
 
   setTraceId(traceId: string) {
-    this.reset();
     this.traceId = traceId;
-    this.updateReport();
+    // 加载当日报告，以便在 addReport 时可以查找或创建对应的 report
+    this.loadDateReport();
+    // 查找是否已存在相同 traceId 的 report
+    if (this.dateReport) {
+      const existingReport = this.dateReport.reports.find((report) => report.traceId === traceId);
+      if (existingReport) {
+        this.traceReport = existingReport;
+      } else {
+        this.traceReport = {
+          timestamp: Date.now(),
+          traceId: traceId,
+          trades: [],
+          result: "waiting...",
+          balance: 0,
+          profit: 0,
+        };
+        this.dateReport.reports.push(this.traceReport);
+        this.saveDateReport();
+      }
+    }
   }
 
   addReport<T extends TradeReportType>(
     type: T,
     data: T extends "trade" ? Trade : T extends "result" ? Result : Balance
   ) {
+    if (!this.traceId) {
+      throw new Error("请先调用 setTraceId 设置 traceId");
+    }
+
+    // 根据 type 更新 traceReport
     switch (type) {
       case "trade":
-        this.trades.push(data as Trade);
+        const trade = data as Trade;
+        if (!this.traceReport.trades) {
+          this.traceReport.trades = [];
+        }
+        if (!this.traceReport.trades.find((t) => t.timestamp === trade.timestamp)) {
+          this.traceReport.trades.push(trade);
+        }
         break;
       case "result":
-        this.result = (data as Result).result;
+        this.traceReport.result = (data as Result).result;
         break;
       case "balance":
-        this.balance = (data as Balance).balance;
+        this.traceReport.balance = (data as Balance).balance;
         break;
     }
-    this.updateReport();
+
+    // 更新 timestamp
+    this.traceReport.timestamp = Date.now();
+
+    // 计算 profit
+    this.traceReport.profit = this.calcProfit();
+
+    // 保存到文件
+    this.saveDateReport();
+  }
+
+  protected calcProfit() {
+    let profit = 0;
+    if (this.traceReport.trades && this.traceReport.trades.length > 0) {
+      this.traceReport.trades.forEach((trade) => {
+        if (trade.action === "sell") {
+          profit += trade.amount * trade.price;
+        } else if (trade.action === "buy") {
+          profit -= trade.amount * trade.price;
+        }
+      });
+    }
+    return profit;
+  }
+
+  protected loadDateReport() {
+    // 获取当前日期
+    const currentDate = this.getDateFolderName();
+
+    // 如果已经加载过当日的报告，直接返回
+    if (this.dateReport && this.loadedDate === currentDate) {
+      return;
+    }
+
+    // 获取报告文件路径
+    const filePath = this.getReportFilePath();
+
+    // 如果文件不存在，初始化为空报告
+    if (!fs.existsSync(filePath)) {
+      this.dateReport = { reports: [] };
+      this.loadedDate = currentDate;
+      return;
+    }
+
+    // 读取并解析报告文件
+    try {
+      const fileContent = fs.readFileSync(filePath, "utf-8");
+      this.dateReport = JSON.parse(fileContent);
+      // 确保 reports 是数组
+      if (!Array.isArray(this.dateReport.reports)) {
+        this.dateReport.reports = [];
+      }
+      this.loadedDate = currentDate;
+    } catch (error) {
+      console.error(`加载报告文件失败: ${filePath}`, error);
+      // 如果读取失败，使用空数据
+      this.dateReport = { reports: [] };
+      this.loadedDate = currentDate;
+    }
+  }
+
+  private saveDateReport() {
+    if (!this.dateReport) {
+      return;
+    }
+
+    const filePath = this.getReportFilePath();
+
+    try {
+      fs.writeFileSync(filePath, JSON.stringify(this.dateReport, null, 2), "utf-8");
+    } catch (error) {
+      console.error(`保存报告文件失败: ${filePath}`, error);
+      throw error;
+    }
   }
 
   /**
@@ -99,106 +202,6 @@ export default class BaseTradeReport {
     return path.join(appNameDir, fileName);
   }
 
-  private getProfit() {
-    let profit = 0;
-    this.trades.forEach((trade) => {
-      if (trade.action === "sell") {
-        profit += trade.amount * trade.price;
-      } else if (trade.action === "buy") {
-        profit -= trade.amount * trade.price;
-      }
-    });
-    return profit;
-  }
-
-  private updateReport() {
-    if (!this.traceId) {
-      throw new Error("请先调用 setTraceId 设置 traceId");
-    }
-
-    const filePath = this.getReportFilePath();
-    const timestamp = Date.now();
-
-    // 构建当前报告数据
-    const currentReport: ReportData = {
-      timestamp,
-      traceId: this.traceId,
-      profit: this.getProfit(),
-    };
-
-    // 添加 result（如果有）
-    if (this.result) {
-      currentReport.result = this.result;
-    }
-
-    // 添加 trades（如果有）
-    if (this.trades && this.trades.length > 0) {
-      currentReport.trades = [...this.trades];
-    }
-
-    // 添加 balance（如果有且不为0）
-    if (this.balance !== undefined && this.balance !== null && this.balance !== 0) {
-      currentReport.balance = this.balance;
-    }
-
-    // 读取现有文件（如果存在）
-    let reportFile: ReportFile = { reports: [] };
-    if (fs.existsSync(filePath)) {
-      try {
-        const fileContent = fs.readFileSync(filePath, "utf-8");
-        reportFile = JSON.parse(fileContent);
-        // 确保 reports 是数组
-        if (!Array.isArray(reportFile.reports)) {
-          reportFile.reports = [];
-        }
-      } catch (error) {
-        console.error(`读取报告文件失败: ${filePath}`, error);
-        // 如果读取失败，使用空数据
-        reportFile = { reports: [] };
-      }
-    }
-
-    // 查找是否已存在相同 traceId 的报告
-    const existingIndex = reportFile.reports.findIndex((report) => report.traceId === this.traceId);
-
-    if (existingIndex !== -1) {
-      // 如果存在，进行 merge 操作
-      const existingReport = reportFile.reports[existingIndex];
-
-      // merge result（如果当前有值，则更新）
-      if (currentReport.result) {
-        existingReport.result = currentReport.result;
-      }
-
-      // merge trades（append 操作）
-      if (currentReport.trades && currentReport.trades.length > 0) {
-        if (!existingReport.trades) {
-          existingReport.trades = [];
-        }
-        existingReport.trades.push(...currentReport.trades);
-      }
-
-      // merge balance（如果当前有值，则更新）
-      if (currentReport.balance !== undefined && currentReport.balance !== null) {
-        existingReport.balance = currentReport.balance;
-      }
-
-      // 更新 timestamp
-      existingReport.timestamp = timestamp;
-    } else {
-      // 如果不存在，添加新报告
-      reportFile.reports.push(currentReport);
-    }
-
-    // 写入文件
-    try {
-      fs.writeFileSync(filePath, JSON.stringify(reportFile, null, 2), "utf-8");
-    } catch (error) {
-      console.error(`写入报告文件失败: ${filePath}`, error);
-      throw error;
-    }
-  }
-
   /**
    * 清理 x 天之前的报告文件
    * @param days 保留最近几天的报告，超过这个天数的报告将被删除
@@ -206,7 +209,7 @@ export default class BaseTradeReport {
    */
   cleanOldReports(days: number): number {
     const appNameDir = path.join(this.reportDir, this.appName);
-    
+
     // 如果目录不存在，直接返回
     if (!fs.existsSync(appNameDir)) {
       return 0;
@@ -236,10 +239,10 @@ export default class BaseTradeReport {
 
         const dateStr = match[1];
         const [year, month, day] = dateStr.split("-").map(Number);
-        
+
         // 创建文件日期（北京时区）
         const fileDate = new Date(year, month - 1, day);
-        
+
         // 计算日期差（天数）
         const diffTime = today.getTime() - fileDate.getTime();
         const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
@@ -261,12 +264,5 @@ export default class BaseTradeReport {
     }
 
     return deletedCount;
-  }
-
-  private reset() {
-    this.trades = [];
-    this.result = "waiting...";
-    this.balance = 0;
-    this.traceId = "";
   }
 }
