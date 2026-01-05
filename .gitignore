@@ -1,8 +1,10 @@
 node_modules
 dist
+
 logs
 data
 report
+
 .env
 keyConfig.json
 scripts/deploy.sh

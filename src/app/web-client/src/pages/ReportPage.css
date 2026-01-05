@@ -1,0 +1,232 @@
+.report-page {
+  min-height: 100vh;
+  background: #1a1a1a;
+  padding: 2rem;
+}
+
+.report-header {
+  background: #2d2d2d;
+  padding: 1.5rem 2rem;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+  color: #e5e5e5;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.report-header h1 {
+  margin: 0 0 1rem 0;
+  font-size: 2rem;
+}
+
+.report-info {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.info-item {
+  font-size: 1rem;
+  opacity: 0.9;
+}
+
+.report-content {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.loading,
+.error-message,
+.empty-message {
+  text-align: center;
+  padding: 3rem;
+  background: #2d2d2d;
+  border-radius: 8px;
+  font-size: 1.2rem;
+  color: #e5e5e5;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.error-message {
+  color: #ef4444;
+}
+
+.reports-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.report-item {
+  background: #2d2d2d;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s, box-shadow 0.2s;
+  border: 1px solid #3d3d3d;
+}
+
+.report-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+  border-color: #4d4d4d;
+}
+
+.report-header-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.trace-id {
+  font-weight: bold;
+  color: #3498db;
+  font-size: 1rem;
+}
+
+.result-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.result-won {
+  background: #10b981;
+  color: white;
+}
+
+.result-lost {
+  background: #ef4444;
+  color: white;
+}
+
+.result-sold {
+  background: #f59e0b;
+  color: white;
+}
+
+.result-badge:not(.result-won):not(.result-lost):not(.result-sold) {
+  background: #6b7280;
+  color: white;
+}
+
+.balance {
+  font-weight: bold;
+  color: #10b981;
+  font-size: 1.1rem;
+  margin-left: auto;
+}
+
+.profit {
+  font-weight: normal;
+  font-size: 0.9rem;
+  color: #9ca3af;
+  margin-left: 0.5rem;
+}
+
+.trades-section {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: #1a1a1a;
+  border-radius: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border: 1px solid #3d3d3d;
+}
+
+.trade-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #3d3d3d;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.trade-item > .trade-timestamp {
+  margin-right: 0.25rem;
+}
+
+.trade-item:last-child {
+  border-bottom: none;
+}
+
+.trade-timestamp {
+  color: #9ca3af;
+  font-size: 0.875rem;
+  font-family: monospace;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.trade-action {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.trade-action[data-action="buy"] {
+  color: #10b981;
+}
+
+.trade-action[data-action="sell"] {
+  color: #ef4444;
+}
+
+.trade-outcome {
+  font-weight: 600;
+  color: #3498db;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.trade-details {
+  color: #e5e5e5;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.report-timestamp {
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  color: #9ca3af;
+  text-align: right;
+}
+
+@media (max-width: 768px) {
+  .report-page {
+    padding: 1rem;
+  }
+
+  .report-header {
+    padding: 1rem;
+  }
+
+  .report-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .report-info {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .report-header-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .balance {
+    margin-left: 0;
+  }
+}
+
