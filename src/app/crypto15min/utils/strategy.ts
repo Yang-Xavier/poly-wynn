@@ -77,7 +77,7 @@ export const findChance = async (
               distance
             );
             customTypeLog(
-              "PolyOrderBookWs",
+              "strategy",
               `[-- 扫尾盘数据策略数据 (📚订单簿变动触发) --] ${JSON.stringify({
                 priceToBeat,
                 currentPrice,
@@ -103,7 +103,7 @@ export const findChance = async (
                   priceToBeat,
                 });
               } else {
-                customTypeLog("PolyOrderBookWs", "=======预测结果和实际订单簿情况不一致========");
+                customTypeLog("strategy", "=======预测结果和实际订单簿情况不一致========");
               }
             }
           }
@@ -144,7 +144,7 @@ export const watchPosition = async (
           resolve(TOKEN_ACTION_ENUM.sell);
           const latency = Date.now() - data?.timestamp;
           customTypeLog(
-            "PolyOrderBookWs",
+            "strategy",
             `[买入后价格检查(低于阈值💰) polyPriceWs] 
                 outcoum: ${outcome}, 
                 priceToBeat: ${priceToBeat}, 
@@ -186,7 +186,7 @@ export const watchPosition = async (
             resolve(TOKEN_ACTION_ENUM.sell);
 
             customTypeLog(
-              "PolyOrderBookWs",
+              "strategy",
               `[买入后概率检查(低于阈值📚)] 价格满足条件
                     outcoum: ${outcome}, 
                     bestBid: ${bestBid}, 
@@ -201,7 +201,7 @@ export const watchPosition = async (
             );
           } else {
             customTypeLog(
-              "PolyOrderBookWs",
+              "strategy",
               `[买入后概率检查(低于阈值📚)] 价格不满足条件
                     outcoum: ${outcome}, 
                     bestBid: ${bestBid}, 
