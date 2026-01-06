@@ -97,7 +97,7 @@ export const buyEnough = async ({
   const avgPrice = totalPriceAmount / totalSizeMatched;
   const lastBuyResult = buyResults[buyResults.length - 1];
 
-  if (lastBuyResult) {
+  if (lastBuyResult && lastBuyResult.status.toUpperCase() === "MATCHED") {
     return Object.assign(lastBuyResult, {
       size_matched: totalSizeMatched,
       avgPrice: avgPrice,

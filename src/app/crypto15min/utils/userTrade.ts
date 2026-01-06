@@ -10,8 +10,13 @@ export const waitForOrderMatched = async (orderId: string, timeout: number = 30 
       getDataFlowInstances().userWs.onUserTrade((trade) => {
         trade.maker_orders.forEach((order) => {
           if (order.order_id === orderId) {
+            const orderResult = Object.assign(order, {
+              size_matched: (order as any).size_matched || order.matched_amount,
+              original_size: (order as any).size_matched || order.matched_amount,
+              original_price: order.price,
+            });
             logInfo(`订单成交...${JSON.stringify(order)}`);
-            resolve(order);
+            resolve(orderResult);
           }
         });
       });
