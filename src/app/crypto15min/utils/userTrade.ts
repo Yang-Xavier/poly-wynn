@@ -5,9 +5,12 @@ import { race } from "@shared/utils/race";
 
 export const waitForOrderMatched = async (orderId: string, timeout: number = 30 * 1000) => {
   logInfo(`监听订单成交状态...${orderId}`);
+  let resolved = false;
   return race(
     new Promise((resolve) => {
       getDataFlowInstances().userWs.onUserTrade((trade) => {
+        logInfo(`监听订单成交状态...${JSON.stringify(trade)}`);
+        if (resolved) return;
         trade.maker_orders.forEach((order) => {
           if (order.order_id === orderId) {
             const orderResult = Object.assign(order, {
@@ -16,6 +19,7 @@ export const waitForOrderMatched = async (orderId: string, timeout: number = 30 
               original_price: order.price,
             });
             logInfo(`订单成交...${JSON.stringify(order)}`);
+            resolved = true;
             resolve(orderResult);
           }
         });
