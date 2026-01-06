@@ -1,4 +1,4 @@
-import { WS_LIVE_DATA_URL } from "@shared/constants";
+import { WS_LIVE_DATA_URL, WS_USER_URL } from "@shared/constants";
 import { HighPerformanceWs, IWsLogger } from "./HighPerformanceWs";
 import { DataRecords } from "@shared/DataRecords";
 
@@ -68,28 +68,19 @@ export class UserWs extends HighPerformanceWs {
   constructor(params: {
     logger: IWsLogger;
     auth: UserSubscriptionAuth;
-    markets?: string[];
     windowTime?: number;
     dataRecord?: DataRecords;
   }) {
     // 调用父类构造函数
     super({
       logger: params.logger,
-      url: WS_LIVE_DATA_URL,
+      url: WS_USER_URL,
       windowTime: params.windowTime || 100,
       dataRecord: params.dataRecord,
     });
 
     // 保存认证信息和市场列表
     this.auth = params.auth;
-    this.markets = params.markets || [];
-
-    // 初始化订阅请求
-    this.subscriptionRequest = {
-      auth: this.auth,
-      markets: this.markets,
-      type: "user",
-    };
 
     // 设置窗口期结束时的回调
     this.setMessageCallback((messages: any[]) => {
@@ -201,6 +192,7 @@ export class UserWs extends HighPerformanceWs {
     const message = JSON.stringify(subscription);
     this.send(message);
     this.logger.logInfo("[UserWs] 发送订阅请求", {
+      data: message,
       type: subscription.type,
       marketsCount: subscription.markets.length,
     });
@@ -213,61 +205,5 @@ export class UserWs extends HighPerformanceWs {
    */
   onUserTrade(callback: (trade: UserTradeData) => void): void {
     this.tradeCallback = callback;
-  }
-
-  /**
-   * 获取最新推送来的交易数据（不是窗口推送的，是原始推送的）
-   * @returns 最新推送的交易数据，如果没有则返回 null
-   */
-  getLatestTradeData(): UserTradeData | null {
-    const latestMessage = this.getLatestMessage();
-    if (!latestMessage) {
-      return null;
-    }
-
-    try {
-      // 解析消息
-      let message: any;
-      if (typeof latestMessage === "string") {
-        message = JSON.parse(latestMessage);
-      } else {
-        message = latestMessage;
-      }
-
-      // 检查是否是 trade 事件
-      if (message.event_type === "trade" && message.type === "TRADE") {
-        // 验证必要字段
-        if (message.asset_id && message.id && message.market) {
-          return {
-            asset_id: message.asset_id,
-            event_type: message.event_type,
-            id: message.id,
-            last_update: message.last_update || message.timestamp,
-            maker_orders: message.maker_orders || [],
-            market: message.market,
-            matchtime: message.matchtime || message.timestamp,
-            outcome: message.outcome,
-            owner: message.owner,
-            price: message.price,
-            side: message.side,
-            size: message.size,
-            status: message.status,
-            taker_order_id: message.taker_order_id,
-            timestamp: message.timestamp,
-            trade_owner: message.trade_owner || message.owner,
-            type: message.type,
-          };
-        }
-      }
-
-      return null;
-    } catch (error) {
-      if (this.logger.logError) {
-        this.logger.logError("解析最新消息失败", error);
-      } else {
-        this.logger.logInfo("解析最新消息失败", error);
-      }
-      return null;
-    }
   }
 }

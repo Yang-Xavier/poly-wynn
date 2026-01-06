@@ -6,6 +6,7 @@ export const POLYMARKET_HOST = "https://polymarket.com";
 export const WS_LIVE_DATA_URL = "wss://ws-live-data.polymarket.com";
 export const WS_POLY_ORDER_BOOK_URL = "wss://ws-subscriptions-clob.polymarket.com/ws/market";
 export const WS_BN_PRICE_URL = "wss://stream.binance.com:9443/ws";
+export const WS_USER_URL = "wss://ws-subscriptions-clob.polymarket.com/ws/user";
 
 // web3
 export const POLY_RELAYER_URL = "https://relayer-v2.polymarket.com/";

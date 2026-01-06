@@ -5,6 +5,7 @@ import { IWsLogger } from "@shared/ws/HighPerformanceWs";
 import dataRecord from "./dataRecord";
 import { UserWs } from "@shared/ws/UserWs";
 import { getEncryptedConfig } from "@shared/encryptConfig";
+import { customTypeLog, logData, logError, logInfo } from "./logger";
 
 /**
  * 数据流实例接口
@@ -25,7 +26,7 @@ let dataFlowInstances: DataFlowInstances | null = null;
  * @returns 数据流实例
  */
 export function initializeDataFlow(params: {
-  logger: IWsLogger; // Logger 实例
+  logger?: IWsLogger; // Logger 实例
   symbol: string; // 币种符号, 如 'eth'
 }): DataFlowInstances {
   // 如果已经初始化，返回现有实例
@@ -33,7 +34,14 @@ export function initializeDataFlow(params: {
     return dataFlowInstances;
   }
 
-  const { logger } = params;
+  const {
+    logger = {
+      logInfo: logInfo,
+      logError: logError,
+      logData: logData,
+      customTypeLog: customTypeLog,
+    },
+  } = params;
 
   // 创建币安价格 WebSocket 实例
   const bnPriceWs = new BnPriceWs({

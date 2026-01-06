@@ -1,13 +1,26 @@
 import { getGlobalConfig } from "@crypto15min/utils/config";
 import { getAccountUsdcBalanceByAlchemy } from "@shared/web3/account";
 import { redeemAllPositions } from "./utils/relayerRedeem";
+import { buy } from "./module/trade";
+import { getClobModule } from "./module/clob";
+import { OrderType, Side } from "@polymarket/clob-client";
+import { waitForOrderMatched } from "./utils/userTrade";
+import { getDataFlowInstances, initializeDataFlow } from "./module/dataFlow";
+import { logInfo } from "./module/logger";
 
 export const debug = async () => {
   const config = getGlobalConfig();
+  initializeDataFlow({ symbol: "eth" });
+  await getDataFlowInstances().userWs.connect();
+  getDataFlowInstances().userWs.subscribe();
+  await getClobModule().init();
 
-  const funderAddress = config.account.funderAddress;
-  const data = await redeemAllPositions({
-    funderAddress: "0x8dF2E7574F5E97103F037ed45fB323FdBeABEEA8",
+  const { orderID } = await getClobModule().postMarketOrder({
+    tokenID: "94559586571241563470235664821564670251180951772614764383113614156422396181162",
+    amount: 1,
+    side: Side.BUY,
+    orderType: OrderType.FAK,
   });
-  console.log("data:", data);
+  const result = await waitForOrderMatched(orderID);
+  logInfo(`result: ${JSON.stringify(result)}`);
 };
