@@ -102,7 +102,7 @@ class RedeemTaskManager {
               tradeReport.setTraceId(task.traceId);
               tradeReport.addReport("result", {
                 result: "won",
-                additionalInfo: "Redeem Success",
+                additionalInfo: "",
               });
             } else {
               logError(`[RedeemTask] 赎回失败: ${task.traceId}`);
