@@ -167,7 +167,7 @@ function ReportPage() {
                   {getResultBadge(report.result)}
                   {report.balance !== undefined && (
                     <span className="balance">
-                      💰 {report.balance.toFixed(2)}
+                      💰 {report.balance?.toFixed(2)}
                       {report.profit !== undefined && (
                         <span className="profit">
                           {" "}
