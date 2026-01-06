@@ -138,6 +138,10 @@ export const runPolyWynn = async () => {
           JSON.parse(market.clobTokenIds) as string[]
         );
 
+        logInfo(`订阅用户交易数据: ${globalConfig.account.funderAddress}`);
+        await getDataFlowInstances()?.userWs.connect();
+        await getDataFlowInstances()?.userWs.subscribe();
+
         logInfo(`开始执行策略...`);
         let restartTimes = 0;
         let redeemOrder: PolymarketOrderResult | null = null;
@@ -297,6 +301,8 @@ export const runPolyWynn = async () => {
       await getDataFlowInstances()?.bnPriceWs.disconnect();
       logInfo(`断开与PolyOrderBookWs的连接`);
       await getDataFlowInstances()?.polyOrderBookWs.disconnect();
+      logInfo(`断开与UserWs的连接`);
+      await getDataFlowInstances()?.userWs.disconnect();
 
       if (redeemTaskManager.getTaskCount() === 1) {
         logInfo(`等待赎回仓位...${globalConfig.redeemConfig.delyRedeem / 1000}s`);

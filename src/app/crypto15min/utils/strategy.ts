@@ -90,7 +90,7 @@ export const findChance = async (
 
             if (tailSweepResult.shouldBet && isDiffEnough) {
               if (
-                data[outcomes[tailSweepResult.side]]?.bestAsk >
+                data[outcomes[tailSweepResult.side]]?.bestAsk >=
                 globalConfig.stratgegy.bestAskThreshold
               ) {
                 // 再次确认是否可以买入

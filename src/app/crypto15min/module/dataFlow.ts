@@ -3,7 +3,8 @@ import { PolyPriceWs } from "@shared/ws/PolyPriceWs";
 import { PolyOrderBookWs } from "@shared/ws/PolyOrderBookWs";
 import { IWsLogger } from "@shared/ws/HighPerformanceWs";
 import dataRecord from "./dataRecord";
-import { DataRecords } from "@shared/DataRecords";
+import { UserWs } from "@shared/ws/UserWs";
+import { getKeyConfig } from "@crypto15min/utils/config";
 
 /**
  * 数据流实例接口
@@ -12,6 +13,7 @@ export interface DataFlowInstances {
   bnPriceWs: BnPriceWs;
   polyPriceWs: PolyPriceWs;
   polyOrderBookWs: PolyOrderBookWs;
+  userWs: UserWs;
 }
 
 // 全局变量：存储数据流实例（单例）
@@ -55,10 +57,23 @@ export function initializeDataFlow(params: {
     dataRecord,
   });
 
+  // 创建用户交易 WebSocket 实例
+  const userWs = new UserWs({
+    logger,
+    windowTime: 50,
+    dataRecord,
+    auth: {
+      apiKey: getKeyConfig().user.apiKey,
+      secret: getKeyConfig().user.secret,
+      passphrase: getKeyConfig().user.passphrase,
+    },
+  });
+
   dataFlowInstances = {
     bnPriceWs,
     polyPriceWs,
     polyOrderBookWs,
+    userWs,
   };
 
   return dataFlowInstances;
@@ -81,7 +96,7 @@ export function destroyDataFlow(): void {
     dataFlowInstances.bnPriceWs.cleanup();
     dataFlowInstances.polyPriceWs.cleanup();
     dataFlowInstances.polyOrderBookWs.cleanup();
-
+    dataFlowInstances.userWs.cleanup();
     // 清空实例
     dataFlowInstances = null;
   }
