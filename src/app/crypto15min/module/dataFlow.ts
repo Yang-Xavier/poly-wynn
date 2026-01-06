@@ -4,7 +4,7 @@ import { PolyOrderBookWs } from "@shared/ws/PolyOrderBookWs";
 import { IWsLogger } from "@shared/ws/HighPerformanceWs";
 import dataRecord from "./dataRecord";
 import { UserWs } from "@shared/ws/UserWs";
-import { getKeyConfig } from "@crypto15min/utils/config";
+import { getEncryptedConfig } from "@shared/encryptConfig";
 
 /**
  * 数据流实例接口
@@ -63,9 +63,9 @@ export function initializeDataFlow(params: {
     windowTime: 50,
     dataRecord,
     auth: {
-      apiKey: getKeyConfig().user.apiKey,
-      secret: getKeyConfig().user.secret,
-      passphrase: getKeyConfig().user.passphrase,
+      apiKey: getEncryptedConfig().clobCreds.key,
+      secret: getEncryptedConfig().clobCreds.secret,
+      passphrase: getEncryptedConfig().clobCreds.passphrase,
     },
   });
 

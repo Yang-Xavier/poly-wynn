@@ -116,7 +116,7 @@ function createWalletAndBuilder(config: RelayerRedeemConfig) {
     account,
   });
 
-  const redeemCreds = keyConfig.creds;
+  const redeemCreds = keyConfig.builderCreds;
   if (!redeemCreds?.key || !redeemCreds?.secret || !redeemCreds?.passphrase) {
     throw new Error("[RelayerRedeem] 缺少 redeemCreds（builder 本地 API Key）配置");
   }
