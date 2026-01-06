@@ -97,6 +97,13 @@
   text-decoration: underline;
 }
 
+.result-badge-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+}
+
 .result-badge {
   display: inline-block;
   padding: 0.25rem 0.75rem;
@@ -107,23 +114,101 @@
 }
 
 .result-won {
-  background: #10b981;
+  background: #059669;
   color: white;
 }
 
 .result-lost {
-  background: #ef4444;
+  background: #dc2626;
   color: white;
 }
 
 .result-sold {
-  background: #f59e0b;
+  background: #d97706;
   color: white;
 }
 
-.result-badge:not(.result-won):not(.result-lost):not(.result-sold) {
+.result-hold {
+  background: #7c3aed;
+  color: white;
+}
+
+.result-skipped {
+  background: #4b5563;
+  color: white;
+}
+
+.result-waiting {
+  background: #2563eb;
+  color: white;
+}
+
+.result-error {
+  background: #f87171;
+  color: white;
+}
+
+.result-default {
   background: #6b7280;
   color: white;
+}
+
+.info-tooltip-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.info-icon {
+  font-size: 0.875rem;
+  cursor: help;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+  user-select: none;
+}
+
+.info-tooltip-container:hover .info-icon {
+  opacity: 1;
+}
+
+.info-tooltip {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: #1a1a1a;
+  color: #e5e5e5;
+  border: 1px solid #3d3d3d;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.2s,
+    visibility 0.2s,
+    transform 0.2s;
+  pointer-events: none;
+}
+
+.info-tooltip-container:hover .info-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+.info-tooltip::before {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-bottom-color: #3d3d3d;
 }
 
 .balance {

@@ -18,6 +18,7 @@ interface Report {
   trades: Trade[];
   balance?: number;
   profit?: number;
+  additionalInfo?: string;
 }
 
 interface ReportResponse {
@@ -90,8 +91,16 @@ function ReportPage() {
       return <span className="result-badge result-lost">✗ Lost</span>;
     } else if (lowerResult === "sold") {
       return <span className="result-badge result-sold">$ Sold</span>;
+    } else if (lowerResult === "hold") {
+      return <span className="result-badge result-hold">⏸ Hold</span>;
+    } else if (lowerResult === "skipped") {
+      return <span className="result-badge result-skipped">⊘ Skipped</span>;
+    } else if (lowerResult === "waiting..." || lowerResult === "waiting") {
+      return <span className="result-badge result-waiting">⏳ Waiting...</span>;
+    } else if (lowerResult === "error") {
+      return <span className="result-badge result-error">⚠ Error</span>;
     }
-    return <span className="result-badge">{result}</span>;
+    return <span className="result-badge result-default">{result}</span>;
   };
 
   // 格式化时间戳（北京时间）
@@ -164,7 +173,15 @@ function ReportPage() {
                   >
                     [{report.traceId}]
                   </a>
-                  {getResultBadge(report.result)}
+                  <div className="result-badge-wrapper">
+                    {getResultBadge(report.result)}
+                    {report.additionalInfo && (
+                      <div className="info-tooltip-container">
+                        <span className="info-icon">ℹ️</span>
+                        <div className="info-tooltip">{report.additionalInfo}</div>
+                      </div>
+                    )}
+                  </div>
                   {report.balance !== undefined && (
                     <span className="balance">
                       💰 {report.balance?.toFixed(2)}

@@ -300,6 +300,9 @@ export const runPolyWynn = async () => {
       logInfo(`本局结束...`);
     } catch (e) {
       logInfo(`策略执行失败: ${e}`);
+      tradeReport.addReport("result", {
+        result: "error",
+      });
     }
 
     logInfo(`销毁数据流...`);

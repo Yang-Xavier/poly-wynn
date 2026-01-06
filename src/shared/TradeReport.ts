@@ -11,7 +11,7 @@ type Trade = {
 };
 
 type Result = {
-  result: "won" | "lost" | "hold" | "sold" | "skipped" | "waiting...";
+  result: "won" | "lost" | "hold" | "sold" | "skipped" | "waiting..." | "error";
   additionalInfo?: string;
 };
 
