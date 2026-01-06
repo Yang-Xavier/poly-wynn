@@ -10,7 +10,6 @@ import {
   waitFor,
 } from "@crypto15min/utils/tools";
 import { findChance, watchPosition } from "@crypto15min/utils/strategy";
-import { getRedeemModule } from "./module/redeem";
 import {
   getLoggerModule,
   logError,
@@ -20,7 +19,7 @@ import {
   customTypeLog,
 } from "./module/logger";
 import { getGlobalConfig } from "@crypto15min/utils/config";
-import { getGammaDataModule, MarketResponse } from "./module/gammaData";
+import { getGammaDataModule } from "./module/gammaData";
 import { getPriceToBeat } from "@crypto15min/utils/getPriceToBeat";
 import { getAccountBalance, logAccountBalance } from "@crypto15min/utils/account";
 import { OUTCOMES_ENUM } from "@crypto15min/utils/constans";
@@ -29,6 +28,7 @@ import dataRecord from "./module/dataRecord";
 import tradeReport from "./utils/tradeReport";
 import { checkResultByPrice } from "./utils/checkResultByPrice";
 import redeemTaskManager from "./utils/redeemTaskManager";
+import { redeemAllPositions } from "./utils/relayerRedeem";
 
 const init = async () => {
   const clobModule = getClobModule();
@@ -297,6 +297,10 @@ export const runPolyWynn = async () => {
       }
       logInfo(`检查赎回仓位，进行赎回...`);
       await redeemTaskManager.runRedeem();
+
+      logInfo(`检查历史仓位，进行赎回...`);
+      await redeemAllPositions({ funderAddress: globalConfig.account.funderAddress });
+
       logInfo(`本局结束...`);
     } catch (e) {
       logInfo(`策略执行失败: ${e}`);

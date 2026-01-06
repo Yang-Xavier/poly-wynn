@@ -11,6 +11,7 @@ import { BuilderConfig } from "@polymarket/builder-signing-sdk";
 
 import { getGlobalConfig, getKeyConfig } from "@crypto15min/utils/config";
 import { logError, logInfo } from "@crypto15min/module/logger";
+import gammaApi from "@shared/api/gammaApi";
 
 // 参考官方示例：
 // https://github.com/Polymarket/builder-relayer-client/tree/c42a05473ed73db1d76522d6a4746013880dd56e
@@ -248,4 +249,34 @@ export async function redeemWithRelayer(
     });
     throw error;
   }
+}
+
+export async function redeemAllPositions({ funderAddress }: { funderAddress: string }) {
+  const positions = await gammaApi.getPositions({
+    user: funderAddress,
+    redeemable: true,
+    limit: 1000,
+  });
+  const redeemablePositions = positions.filter(
+    (position) => position.redeemable && position.currentValue > 0
+  );
+
+  logInfo(`[Redeem] 有 ${redeemablePositions.length} 个仓位, 等待赎回...`);
+  for (let i = 0; i < redeemablePositions.length; i++) {
+    try {
+      const position = redeemablePositions[i];
+      logInfo(`[Redeem] 开始赎回第${i + 1}个仓位: ${position.conditionId}`);
+      const result = await redeemWithRelayer(position.conditionId);
+      if (result.transactionHash) {
+        logInfo(
+          `[Redeem] 赎回成功: ${position.conditionId}, transactionHash: ${result.transactionHash}`
+        );
+      } else {
+        logInfo(`[Redeem] 赎回失败: ${position.conditionId}`);
+      }
+    } catch (error) {
+      logInfo(`[Redeem] 赎回第${i + 1}个仓位失败: ${error}`);
+    }
+  }
+  logInfo(`[Redeem] 赎回完成`);
 }

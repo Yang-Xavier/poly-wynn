@@ -258,32 +258,3 @@ export const getGammaDataModule = () => GammaData.getInstance();
 
 // 导出类型
 export type { MarketResponse };
-
-// {
-//     proxyWallet: '0xe10c61be54e4c25fb744113cbbaff28123f5a107',
-//     asset: '105956926795341786132705470235837036019524920190622067996232823971885602696842',
-//     conditionId: '0xf1e3c19dfa2c522df8776096a79f0fb9a7dfef52402c696f6db04bda9cfcefbf',
-//     size: 2.777776,
-//     avgPrice: 0.719999,
-//     initialValue: 1.999995942224,
-//     currentValue: 2.777776,
-//     cashPnl: 0.7777800577760001,
-//     percentPnl: 38.88908179039138,
-//     totalBought: 2.777776,
-//     realizedPnl: 0,
-//     percentRealizedPnl: 38.88908179039137,
-//     curPrice: 1,
-//     redeemable: true,
-//     mergeable: false,
-//     title: 'Bitcoin Up or Down - November 28, 3:00AM-3:15AM ET',
-//     slug: 'btc-updown-15m-1764316800',
-//     icon: 'https://polymarket-upload.s3.us-east-2.amazonaws.com/BTC+fullsize.png',
-//     eventId: '91525',
-//     eventSlug: 'btc-updown-15m-1764316800',
-//     outcome: 'Up',
-//     outcomeIndex: 0,
-//     oppositeOutcome: 'Down',
-//     oppositeAsset: '23567562027407898821714802825544198270429785990248047196272364218395590339880',
-//     endDate: '2025-11-28',
-//     negativeRisk: false
-//   }

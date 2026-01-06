@@ -1,8 +1,7 @@
 import { getGlobalConfig } from "@crypto15min/utils/config";
-import { getRedeemModule } from "./module/redeem";
+import { redeemAllPositions } from "./utils/relayerRedeem";
 
 export const redeem = async () => {
   const globalConfig = getGlobalConfig();
-  const redeemModule = getRedeemModule();
-  await redeemModule.redeemAll(globalConfig.account.funderAddress);
+  await redeemAllPositions({ funderAddress: globalConfig.account.funderAddress });
 };
