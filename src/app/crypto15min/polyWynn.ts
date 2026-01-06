@@ -306,7 +306,7 @@ export const runPolyWynn = async () => {
       await redeemTaskManager.runRedeem();
 
       logInfo(`检查历史仓位，进行赎回...`);
-      await redeemAllPositions({ funderAddress: globalConfig.account.funderAddress });
+      // await redeemAllPositions({ funderAddress: globalConfig.account.funderAddress });
 
       logInfo(`本局结束...`);
     } catch (e) {

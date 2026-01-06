@@ -11,7 +11,8 @@ import { BuilderConfig } from "@polymarket/builder-signing-sdk";
 
 import { getGlobalConfig, getKeyConfig } from "@crypto15min/utils/config";
 import { logError, logInfo } from "@crypto15min/module/logger";
-import gammaApi from "@shared/api/gammaApi";
+
+import dataApi from "@shared/api/dataApi";
 
 // 参考官方示例：
 // https://github.com/Polymarket/builder-relayer-client/tree/c42a05473ed73db1d76522d6a4746013880dd56e
@@ -252,7 +253,7 @@ export async function redeemWithRelayer(
 }
 
 export async function redeemAllPositions({ funderAddress }: { funderAddress: string }) {
-  const positions = await gammaApi.getPositions({
+  const positions = await dataApi.getPositions({
     user: funderAddress,
     redeemable: true,
     limit: 1000,
