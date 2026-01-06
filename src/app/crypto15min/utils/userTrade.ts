@@ -3,7 +3,7 @@ import { logInfo } from "@crypto15min/module/logger";
 import clobApi from "@shared/api/clobApi";
 import { race } from "@shared/utils/race";
 
-export const waitForOrderMatched = async (orderId: string, timeout: number = 30 * 1000) => {
+export const waitForOrderMatched = async (orderId: string, timeout: number = 5 * 1000) => {
   logInfo(`监听订单成交状态...${orderId}`);
   let resolved = false;
   return race(
