@@ -27,6 +27,8 @@ import { OUTCOMES_ENUM } from "@crypto15min/utils/constans";
 import { destroyDataFlow, getDataFlowInstances, initializeDataFlow } from "./module/dataFlow";
 import dataRecord from "./module/dataRecord";
 import tradeReport from "./utils/tradeReport";
+import { checkResultByPrice } from "./utils/checkResultByPrice";
+import redeemTaskManager from "./utils/redeemTaskManager";
 
 const init = async () => {
   const clobModule = getClobModule();
@@ -245,7 +247,6 @@ export const runPolyWynn = async () => {
               await logAccountBalance();
             } else {
               redeemOrder = boughtOrder;
-              await waitFor(distanceToNextInterval(slugIntervalTimestamp));
             }
           }
 
@@ -261,6 +262,28 @@ export const runPolyWynn = async () => {
         restartTimes++;
       }
 
+      if (redeemOrder) {
+        logInfo(`检查价格和最终结果...`);
+        const { finalOutcome, finalPrice } = await checkResultByPrice(
+          priceToBeat,
+          getDataFlowInstances()?.polyPriceWs.getPriceHistory() ?? [],
+          slugIntervalTimestamp
+        );
+        logInfo(
+          `对赌结果: ${redeemOrder.outcome === finalOutcome ? "🎉Won" : "💩Lost"}, 价格结果: ${finalOutcome}, 最终价格: ${finalPrice}`
+        );
+
+        if (finalOutcome) {
+          logInfo(`对赌结果: ${finalOutcome}`);
+          const result = finalOutcome == redeemOrder.outcome ? "won" : "lost";
+          tradeReport.addReport("result", {
+            result,
+            additionalInfo: result === "won" ? `Wait for Redeem` : "",
+          });
+          redeemTaskManager.addTask(marketSlug, market.conditionId, redeemOrder.outcome);
+        }
+      }
+
       logInfo(`断开与PolyPriceWs的连接`);
       await getDataFlowInstances()?.polyPriceWs.disconnect();
       logInfo(`断开与BNPriceWs的连接`);
@@ -268,49 +291,12 @@ export const runPolyWynn = async () => {
       logInfo(`断开与PolyOrderBookWs的连接`);
       await getDataFlowInstances()?.polyOrderBookWs.disconnect();
 
-      if (redeemOrder) {
-        logInfo(`等待验证结果...${globalConfig.redeemConfig.delyRedeem / 1000}s`);
+      if (redeemTaskManager.getTaskCount() === 1) {
+        logInfo(`等待赎回仓位...${globalConfig.redeemConfig.delyRedeem / 1000}s`);
         await waitFor(globalConfig.redeemConfig.delyRedeem);
-
-        try {
-          logInfo("验证结果...");
-          let finalMarket: MarketResponse | null = null;
-          let maxRequestCount = 6;
-          while (
-            maxRequestCount > 0 &&
-            !(finalMarket = await getGammaDataModule().getMarketBySlug(marketSlug)).closed
-          ) {
-            await waitFor(10 * 1000);
-            maxRequestCount--;
-          }
-          const { outcomes, outcomePrices, closed } = finalMarket;
-          const finalOutcomes = JSON.parse(outcomes) as string[];
-          const finalOutcomePrices = JSON.parse(outcomePrices).map(Number) as number[];
-          const outcomePrice = Math.max(...finalOutcomePrices);
-          const finalOutcome =
-            finalOutcomes[finalOutcomePrices.findIndex((item) => Number(item) === outcomePrice)];
-          if (closed) {
-            logInfo(
-              `对赌结果: ${redeemOrder.outcome === finalOutcome ? "🎉Won" : "💩Lost"}, 市场最终结果: ${finalOutcome}`
-            );
-            tradeReport.addReport("result", {
-              result: redeemOrder.outcome === finalOutcome ? "won" : "lost",
-            });
-
-            logInfo(redeemOrder.outcome === finalOutcome ? "won" : "lost");
-          } else {
-            logInfo(`市场未关闭, 对赌结果未知`);
-          }
-          await waitFor(2 * 60 * 1000);
-        } catch (error) {
-          logError(`验证结果失败: ${error}`);
-        }
       }
-
       logInfo(`检查赎回仓位，进行赎回...`);
-      const redeemModule = getRedeemModule();
-      await redeemModule.redeemAll(globalConfig.account.funderAddress);
-
+      await redeemTaskManager.runRedeem();
       logInfo(`本局结束...`);
     } catch (e) {
       logInfo(`策略执行失败: ${e}`);

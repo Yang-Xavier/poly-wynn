@@ -12,6 +12,7 @@ type Trade = {
 
 type Result = {
   result: "won" | "lost" | "hold" | "sold" | "skipped" | "waiting...";
+  additionalInfo?: string;
 };
 
 type Balance = {
@@ -25,6 +26,7 @@ type ReportData = {
   trades?: Trade[];
   balance?: number;
   profit?: number;
+  additionalInfo?: string;
 };
 
 type ReportFile = {
@@ -35,7 +37,7 @@ export default class TradeReport {
   private traceId: string;
   private appName: string;
   private reportDir: string = "./report";
-  private dateReport: ReportFile | null = null;
+  private dateReports: ReportFile | null = null;
   private loadedDate: string | null = null;
   // 存储每个 traceId 对应的日期文件夹名称：traceId -> dateFolder
   private traceIdDateMap: Map<string, string> = new Map();
@@ -56,10 +58,10 @@ export default class TradeReport {
     // 加载当日报告，以便在 addReport 时可以查找或创建对应的 report
     this.loadDateReport();
     // 查找是否已存在相同 traceId 的 report
-    if (this.dateReport) {
-      const existingReport = this.dateReport.reports.find((report) => report.traceId === traceId);
-      if (existingReport) {
-        this.traceReport = existingReport;
+    if (this.dateReports) {
+      const traceReport = this.dateReports.reports.find((report) => report.traceId === traceId);
+      if (traceReport) {
+        this.traceReport = traceReport;
       } else {
         this.traceReport = {
           timestamp: Date.now(),
@@ -68,8 +70,9 @@ export default class TradeReport {
           result: "waiting...",
           balance: 0,
           profit: 0,
+          additionalInfo: "",
         };
-        this.dateReport.reports.push(this.traceReport);
+        this.dateReports.reports.push(this.traceReport);
         this.saveDateReport();
       }
     }
@@ -96,6 +99,7 @@ export default class TradeReport {
         break;
       case "result":
         this.traceReport.result = (data as Result).result;
+        this.traceReport.additionalInfo = (data as Result).additionalInfo;
         break;
       case "balance":
         this.traceReport.balance = (data as Balance).balance;
@@ -138,7 +142,7 @@ export default class TradeReport {
     }
 
     // 如果已经加载过当日的报告，直接返回
-    if (this.dateReport && this.loadedDate === currentDate) {
+    if (this.dateReports && this.loadedDate === currentDate) {
       return;
     }
 
@@ -147,7 +151,7 @@ export default class TradeReport {
 
     // 如果文件不存在，初始化为空报告
     if (!fs.existsSync(filePath)) {
-      this.dateReport = { reports: [] };
+      this.dateReports = { reports: [] };
       this.loadedDate = currentDate;
       return;
     }
@@ -155,29 +159,29 @@ export default class TradeReport {
     // 读取并解析报告文件
     try {
       const fileContent = fs.readFileSync(filePath, "utf-8");
-      this.dateReport = JSON.parse(fileContent);
+      this.dateReports = JSON.parse(fileContent);
       // 确保 reports 是数组
-      if (!Array.isArray(this.dateReport.reports)) {
-        this.dateReport.reports = [];
+      if (!Array.isArray(this.dateReports.reports)) {
+        this.dateReports.reports = [];
       }
       this.loadedDate = currentDate;
     } catch (error) {
       console.error(`加载报告文件失败: ${filePath}`, error);
       // 如果读取失败，使用空数据
-      this.dateReport = { reports: [] };
+      this.dateReports = { reports: [] };
       this.loadedDate = currentDate;
     }
   }
 
   private saveDateReport() {
-    if (!this.dateReport) {
+    if (!this.dateReports) {
       return;
     }
 
     const filePath = this.getReportFilePath();
 
     try {
-      fs.writeFileSync(filePath, JSON.stringify(this.dateReport, null, 2), "utf-8");
+      fs.writeFileSync(filePath, JSON.stringify(this.dateReports, null, 2), "utf-8");
     } catch (error) {
       console.error(`保存报告文件失败: ${filePath}`, error);
       throw error;

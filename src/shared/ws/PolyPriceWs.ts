@@ -25,7 +25,7 @@ interface PushData {
 }
 
 // 价格数据接口
-interface PriceData {
+export interface PriceData {
   value: number;
   timestamp: number;
 }
