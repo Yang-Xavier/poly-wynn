@@ -88,8 +88,11 @@ export const runPolyWynn = async () => {
       logInfo(`获取市场数据...`);
       const market = await getGammaDataModule().getMarketBySlug(marketSlug);
 
-      logInfo(`等待2分钟...`);
-      await waitFor(2 * 60 * 1000);
+      const waitTimeToGetPriceToBeat =
+        distanceToNextInterval(slugIntervalTimestamp) -
+        globalConfig.stratgegy.startGetPriceToBeatBefore;
+      logInfo(`等待获取对赌价格还剩: ${waitTimeToGetPriceToBeat / 1000}s`);
+      await waitFor(waitTimeToGetPriceToBeat > 0 ? waitTimeToGetPriceToBeat : 0);
 
       logInfo(`获取对赌价格...`);
       const priceToBeat = await getPriceToBeat(
