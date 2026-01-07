@@ -208,7 +208,7 @@ function ReportPage() {
                         </span>
                         <span className="trade-outcome">{trade.outcome}</span>
                         <span className="trade-details">
-                          {trade.amount.toFixed(2)}@{trade.price.toFixed(2)}
+                          {(trade.amount ?? 0).toFixed(2)}@{(trade.price ?? 0).toFixed(2)}
                         </span>
                         <button
                           className="trade-view-data-btn"
