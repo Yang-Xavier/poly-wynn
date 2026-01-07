@@ -176,7 +176,7 @@ export const watchPosition = async (
         if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) {
           return;
         }
-        const startTime = Date.now();
+
         const polHitoryPrice = getDataFlowInstances()?.polyPriceWs.getPriceHistory();
         predictPriceHistory = [...polHitoryPrice];
         const { winProbability, side } = decideTailSweep({
@@ -204,7 +204,7 @@ export const watchPosition = async (
             "strategy",
             `[❗️Sell] [😈polyPriceWs.onPriceChange] 预测价格胜率、订单簿BestBid 都概率低于阈值, 当前价格与买入方向不一致
             ${JSON.stringify({
-              outcoum: outcome,
+              outcome: outcome,
               bestBid: bestBid,
               predictSide: side,
               predictWinProbability: winProbability,
@@ -220,7 +220,7 @@ export const watchPosition = async (
             "strategy",
             `[🤔Hold] [😈polyPriceWs.onPriceChange]
             ${JSON.stringify({
-              outcoum: outcome,
+              outcome: outcome,
               bestBid: bestBid,
               predictSide: side,
               predictWinProbability: winProbability,
@@ -251,7 +251,7 @@ export const watchPosition = async (
             "strategy",
             `[🤔Hold] [👽bnPriceWs.onPriceChange] BN价格 实时性落后 Poly价格
             ${JSON.stringify({
-              outcoum: outcome,
+              outcome: outcome,
               bnPrice: bnPrice.value,
               bnTimestamp: bnPrice.timestamp,
               polyPrice: polyPrice.value,
@@ -294,7 +294,7 @@ export const watchPosition = async (
             "strategy",
             `[❗️Sell] [👽bnPriceWs.onPriceChange] 预测价格胜率 和 订单簿BestBid 都概率低于阈值
             ${JSON.stringify({
-              outcoum: outcome,
+              outcome: outcome,
               bestBid: bestBid,
               predictSide: side,
               predictWinProbability: winProbability,
@@ -311,7 +311,7 @@ export const watchPosition = async (
             "strategy",
             `[🤔Hold] [👽bnPriceWs.onPriceChange] 
             ${JSON.stringify({
-              outcoum: outcome,
+              outcome: outcome,
               bestBid: bestBid,
               predictSide: side,
               predictWinProbability: winProbability,

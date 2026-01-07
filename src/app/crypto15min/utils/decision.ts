@@ -307,7 +307,6 @@ export const decideTailSweep = (
     return {
       ...best,
       shouldBet: false,
-      side: null,
       reason: "no_direction_meets_threshold",
     };
   }
