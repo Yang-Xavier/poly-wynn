@@ -32,7 +32,7 @@ export const findChance = async (params: {
     new Promise((resolve) => {
       dataFlowInstances.bnPriceWs.onPriceChange((bnPrice) => {
         if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) return;
-        const startTime = Date.now();
+
         const polyPrice = dataFlowInstances.polyPriceWs.getLatestPriceData();
         const upOrderbook = dataFlowInstances.polyOrderBookWs.getLatestOrderBookData(
           assetIdMapOutcome[OUTCOMES_ENUM.Up]
@@ -123,7 +123,7 @@ export const findChance = async (params: {
                 downBestAsk: ${downBestAsk},
                 bsmResult: ${JSON.stringify(bsmResult)},
                 chance: ${JSON.stringify(result)},
-                calcCost: ${Date.now() - startTime}ms
+                calcCost: ${Date.now() - bnPrice.receivedAt}ms
               `
             );
             resolved = true;
@@ -139,7 +139,7 @@ export const findChance = async (params: {
                 upBestAsk: ${upBestAsk},
                 downBestAsk: ${downBestAsk},
                 bsmResult: ${JSON.stringify(bsmResult)},
-                calcCost: ${Date.now() - startTime}ms
+                cost: ${Date.now() - bnPrice.receivedAt}ms
               `
             );
           }

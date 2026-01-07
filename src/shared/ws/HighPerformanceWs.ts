@@ -36,10 +36,10 @@ export class HighPerformanceWs {
   // 消息聚合相关
   private messageBuffer: any[] = []; // 窗口内的消息缓冲区
   private windowTimer: NodeJS.Timeout | null = null; // 窗口定时器
-  private messageCallback: ((messages: any[]) => void) | null = null; // 消息回调函数
+  private messageCallback: ((data: { message: any; receivedAt: number }[]) => void) | null = null; // 消息回调函数
 
   // 最新消息
-  private latestMessage: any | null = null;
+  private latestMessage: { message: any; receivedAt: number } | null = null;
 
   // 缓存控制器
   public readonly cacheController: CacheController<any>;
@@ -113,7 +113,7 @@ export class HighPerformanceWs {
         });
 
         this.ws.on("message", (data: WebSocket.Data) => {
-          this.handleMessage(data);
+          this.handleMessage(data, Date.now());
         });
 
         this.ws.on("error", (error: Error) => {
@@ -174,7 +174,7 @@ export class HighPerformanceWs {
   /**
    * 处理接收到的消息
    */
-  private handleMessage(data: WebSocket.Data): void {
+  private handleMessage(data: WebSocket.Data, receivedAt: number): void {
     try {
       let message: any;
       // 尝试解析 JSON，如果失败则使用原始数据
@@ -190,16 +190,16 @@ export class HighPerformanceWs {
       }
 
       // 更新最新消息
-      this.latestMessage = message;
+      this.latestMessage = { message, receivedAt };
 
       // 将消息添加到 RawData 缓存（未经过时间窗口聚合的原始数据）
       const rawDataCache = this.cacheController.getCache("RawData");
       if (rawDataCache) {
-        rawDataCache.push(message);
+        rawDataCache.push({ message, receivedAt });
       }
 
       // 将消息添加到缓冲区
-      this.messageBuffer.push(message);
+      this.messageBuffer.push({ message, receivedAt });
 
       // 如果窗口定时器不存在，启动一个新的窗口定时器
       if (!this.windowTimer) {

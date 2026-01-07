@@ -45,6 +45,7 @@ export interface UserTradeData {
   timestamp: string;
   trade_owner: string;
   type: "TRADE";
+  receivedAt: number;
 }
 
 /**
@@ -83,18 +84,18 @@ export class UserWs extends HighPerformanceWs {
     this.auth = params.auth;
 
     // 设置窗口期结束时的回调
-    this.setMessageCallback((messages: any[]) => {
+    this.setMessageCallback((data: { message: any; receivedAt: number }[]) => {
       // HighPerformanceWs 已经确保 messages 不为空才调用回调
       // 获取窗口期里最近的一条数据
-      const latestMessage = messages[messages.length - 1];
+      const latestData = data[data.length - 1];
 
       try {
         // 解析消息
         let message: any;
-        if (typeof latestMessage === "string") {
-          message = JSON.parse(latestMessage);
+        if (typeof latestData.message === "string") {
+          message = JSON.parse(latestData.message);
         } else {
-          message = latestMessage;
+          message = latestData.message;
         }
 
         // 检查是否是 trade 事件
@@ -119,6 +120,7 @@ export class UserWs extends HighPerformanceWs {
               timestamp: message.timestamp,
               trade_owner: message.trade_owner || message.owner,
               type: message.type,
+              receivedAt: latestData.receivedAt,
             };
 
             // 回调外部

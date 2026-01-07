@@ -6,7 +6,13 @@ import { DataRecords } from "@shared/DataRecords";
 // 订单簿数据结构
 export interface OrderBookData extends Record<
   string,
-  { bestAsk: number; bestBid: number; timestamp: number }
+  {
+    bestAsk: number;
+    bestBid: number;
+    asksVolume: number;
+    bidsVolume: number;
+    receivedAt: number;
+  }
 > {}
 
 // 订阅请求接口
@@ -57,19 +63,19 @@ export class PolyOrderBookWs extends HighPerformanceWs {
    * 处理窗口期内的消息
    * 聚合所有消息中的订单簿数据，取每个资产的最新数据
    */
-  private handleWindowMessages(messages: any[]): void {
+  private handleWindowMessages(data: { message: any; receivedAt: number }[]): void {
     // 初始化当前窗口订单簿（使用局部变量）
     const currentWindowOrderBook: OrderBookData = {} as OrderBookData;
 
     // 遍历窗口期内的所有消息，聚合订单簿数据
-    for (const rawMessage of messages) {
+    for (const rawData of data) {
       try {
         // 解析消息
         let message: IMarketPushData;
-        if (typeof rawMessage === "string") {
-          message = JSON.parse(rawMessage);
+        if (typeof rawData.message === "string") {
+          message = JSON.parse(rawData.message);
         } else {
-          message = rawMessage;
+          message = rawData.message;
         }
 
         // 检查是否是订单簿数据
@@ -81,14 +87,17 @@ export class PolyOrderBookWs extends HighPerformanceWs {
           // bids 数组是降序排列，最后一个是最高买价（bestBid）
           const bestAsk = asks && asks.length > 0 ? Number(asks[asks.length - 1].price) : null;
           const bestBid = bids && bids.length > 0 ? Number(bids[bids.length - 1].price) : null;
+          const asksVolume =
+            asks && asks.length > 0 ? asks.reduce((acc, curr) => acc + Number(curr.size), 0) : 0;
+          const bidsVolume =
+            bids && bids.length > 0 ? bids.reduce((acc, curr) => acc + Number(curr.size), 0) : 0;
 
-          const timestampNum = Number(timestamp);
-
-          // 更新当前窗口订单簿中该资产的数据（使用最新的数据，包含 timestamp）
           currentWindowOrderBook[asset_id] = {
             bestAsk,
             bestBid,
-            timestamp: timestampNum,
+            asksVolume,
+            bidsVolume,
+            receivedAt: rawData.receivedAt,
           };
         }
       } catch (error) {
@@ -237,19 +246,19 @@ export class PolyOrderBookWs extends HighPerformanceWs {
     // 从后往前遍历，找到匹配 assetId 的订单簿数据
     for (let i = rawDataList.length - 1; i >= 0; i--) {
       try {
-        const rawMessage = rawDataList[i];
+        const rawData = rawDataList[i];
 
         // 解析消息
         let message: IMarketPushData;
-        if (typeof rawMessage === "string") {
-          message = JSON.parse(rawMessage);
+        if (typeof rawData.message === "string") {
+          message = JSON.parse(rawData.message);
         } else {
-          message = rawMessage;
+          message = rawData.message;
         }
 
         // 检查是否是订单簿数据且匹配 assetId
         if (message.event_type === "book" && message.asset_id === assetId) {
-          const { asset_id, asks, bids, timestamp } = message;
+          const { asset_id, asks, bids } = message;
           const bestAsk = asks && asks.length > 0 ? Number(asks[asks.length - 1].price) : null;
           const bestBid = bids && bids.length > 0 ? Number(bids[bids.length - 1].price) : null;
 
@@ -257,13 +266,11 @@ export class PolyOrderBookWs extends HighPerformanceWs {
             continue;
           }
 
-          const timestampNum = Number(timestamp) || Date.now();
-
           const orderBook: OrderBookData = {
             [asset_id]: {
               bestAsk,
               bestBid,
-              timestamp: timestampNum,
+              receivedAt: rawData.receivedAt,
             },
           } as OrderBookData;
 

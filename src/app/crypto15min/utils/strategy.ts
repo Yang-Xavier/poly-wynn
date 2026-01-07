@@ -7,7 +7,7 @@ import { OUTCOMES_ENUM } from "./constans";
 import { decideTailSweep } from "./decision";
 import { calcDiffEnough } from "./calc";
 import { getDataFlowInstances } from "@crypto15min/module/dataFlow";
-import { OrderBookData } from "@shared/ws/PolyOrderBookWs";
+
 import { PriceData } from "@shared/ws/BnPriceWs";
 import { predictSpreadChange } from "@shared/algorithm/spreadPredictor";
 
@@ -43,7 +43,7 @@ export const findChance = async (
       let resolved = false;
 
       try {
-        getDataFlowInstances()?.polyOrderBookWs.onOrderBookChange((data: OrderBookData) => {
+        getDataFlowInstances()?.polyOrderBookWs.onOrderBookChange(() => {
           if (resolved) {
             return;
           }
@@ -52,13 +52,32 @@ export const findChance = async (
             resolved = true;
             resolve(null);
           }
-          const startTime = Date.now();
 
-          const upBestAsk = data[outcomes[OUTCOMES_ENUM.Up]]?.bestAsk ?? 0;
-          const downBestAsk = data[outcomes[OUTCOMES_ENUM.Down]]?.bestAsk ?? 0;
+          const upOderBook = getDataFlowInstances()?.polyOrderBookWs.getLatestOrderBookData(
+            outcomes[OUTCOMES_ENUM.Up]
+          );
+          const downOderBook = getDataFlowInstances()?.polyOrderBookWs.getLatestOrderBookData(
+            outcomes[OUTCOMES_ENUM.Down]
+          );
 
-          if (Math.max(upBestAsk, downBestAsk) >= globalConfig.stratgegy.bestAskThreshold) {
-            const bestAsk = Math.max(upBestAsk, downBestAsk);
+          const orderBookOfOutcomes = {
+            [OUTCOMES_ENUM.Up]: upOderBook[outcomes[OUTCOMES_ENUM.Up]],
+            [OUTCOMES_ENUM.Down]: downOderBook[outcomes[OUTCOMES_ENUM.Down]],
+          };
+
+          const bestAskOfOutcomes = {
+            [OUTCOMES_ENUM.Up]: upOderBook[outcomes[OUTCOMES_ENUM.Up]]?.bestAsk ?? 0,
+            [OUTCOMES_ENUM.Down]: downOderBook[outcomes[OUTCOMES_ENUM.Down]]?.bestAsk ?? 0,
+          };
+          const asksVolumeOfOutcomes = {
+            [OUTCOMES_ENUM.Up]: upOderBook[outcomes[OUTCOMES_ENUM.Up]]?.asksVolume ?? 0,
+            [OUTCOMES_ENUM.Down]: downOderBook[outcomes[OUTCOMES_ENUM.Down]]?.asksVolume ?? 0,
+          };
+
+          if (
+            Math.max(bestAskOfOutcomes[OUTCOMES_ENUM.Up], bestAskOfOutcomes[OUTCOMES_ENUM.Down]) >=
+            globalConfig.stratgegy.bestAskThreshold
+          ) {
             const historyPriceList = getDataFlowInstances()?.polyPriceWs.getPriceHistory();
             const currentPrice = getDataFlowInstances()?.polyPriceWs.getLatestPriceData();
             const tailSweepResult = decideTailSweep(
@@ -66,8 +85,8 @@ export const findChance = async (
                 ticks: historyPriceList,
                 intervalStartPrice: priceToBeat,
                 timeToExpiryMs: distance,
-                upBestAsk,
-                downBestAsk,
+                upBestAsk: bestAskOfOutcomes[OUTCOMES_ENUM.Up],
+                downBestAsk: bestAskOfOutcomes[OUTCOMES_ENUM.Down],
               },
               globalConfig.stratgegy.tailSweepConfig
             );
@@ -80,15 +99,15 @@ export const findChance = async (
             if (
               tailSweepResult.shouldBet &&
               isDiffEnough &&
-              data[outcomes[tailSweepResult.side]]?.bestAsk >=
-                globalConfig.stratgegy.bestAskThreshold
+              bestAskOfOutcomes[tailSweepResult.side] >= globalConfig.stratgegy.bestAskThreshold
             ) {
               resolved = true;
               resolve({
                 tokenId: outcomes[tailSweepResult.side],
                 outcome: tailSweepResult.side,
                 cryptoPrice: currentPrice,
-                bestAsk,
+                bestAsk: bestAskOfOutcomes[tailSweepResult.side],
+                asksVolume: asksVolumeOfOutcomes[tailSweepResult.side],
                 priceToBeat,
               });
               customTypeLog(
@@ -100,10 +119,11 @@ export const findChance = async (
                   acceptableWinProbability,
                   winProbability: tailSweepResult.winProbability,
                   isDiffEnough,
-                  bestAsk: data[outcomes[tailSweepResult.side]]?.bestAsk,
+                  bestAsk: bestAskOfOutcomes[tailSweepResult.side],
                   priceToBeat,
-                  currentPrice,
-                  cost: Date.now() - startTime,
+                  currentPrice: currentPrice?.value,
+                  asksVolume: asksVolumeOfOutcomes[tailSweepResult.side],
+                  cost: Date.now() - orderBookOfOutcomes[tailSweepResult.side].receivedAt,
                 })}
                 `
               );
@@ -117,10 +137,11 @@ export const findChance = async (
                   acceptableWinProbability,
                   winProbability: tailSweepResult.winProbability,
                   isDiffEnough,
-                  bestAsk: data[outcomes[tailSweepResult.side]]?.bestAsk,
+                  bestAsk: bestAskOfOutcomes[tailSweepResult.side],
                   priceToBeat,
-                  currentPrice,
-                  cost: Date.now() - startTime,
+                  currentPrice: currentPrice?.value,
+                  asksVolume: asksVolumeOfOutcomes[tailSweepResult.side],
+                  cost: Date.now() - orderBookOfOutcomes[tailSweepResult.side].receivedAt,
                 })}
                 `
               );
@@ -152,7 +173,7 @@ export const watchPosition = async (
       let resolved = false;
       let predictPriceHistory: PriceData[] = [];
 
-      getDataFlowInstances()?.polyPriceWs.onPriceChange((data: PriceData) => {
+      getDataFlowInstances()?.polyPriceWs.onPriceChange((polyPrice: PriceData) => {
         if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) {
           return;
         }
@@ -171,7 +192,7 @@ export const watchPosition = async (
           outcomes[outcome]
         );
         const bestBid = orderBookData[outcomes[outcome]]?.bestBid;
-        const currentSide = data.value > priceToBeat ? OUTCOMES_ENUM.Up : OUTCOMES_ENUM.Down;
+        const currentSide = polyPrice.value > priceToBeat ? OUTCOMES_ENUM.Up : OUTCOMES_ENUM.Down;
 
         if (
           Math.max(predictwinProbability, bestBid) <
@@ -188,10 +209,10 @@ export const watchPosition = async (
               bestBid: bestBid,
               predictSide: side,
               predictWinProbability: winProbability,
-              polyPrice: data.value,
+              polyPrice: polyPrice.value,
               priceToBeat: priceToBeat,
               currentSide: currentSide,
-              cost: Date.now() - startTime,
+              cost: Date.now() - polyPrice.receivedAt,
             })}
             `
           );
@@ -204,21 +225,20 @@ export const watchPosition = async (
               bestBid: bestBid,
               predictSide: side,
               predictWinProbability: winProbability,
-              polyPrice: data.value,
+              polyPrice: polyPrice.value,
               priceToBeat: priceToBeat,
               currentSide: currentSide,
-              cost: Date.now() - startTime,
+              cost: Date.now() - polyPrice.receivedAt,
             })}
             `
           );
         }
       });
 
-      getDataFlowInstances()?.bnPriceWs.onPriceChange((data: PriceData) => {
+      getDataFlowInstances()?.bnPriceWs.onPriceChange(() => {
         if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) {
           return;
         }
-        const startTime = Date.now();
         const bnPriceHistory = getDataFlowInstances()?.bnPriceWs.getPriceHistory();
         const bnPrice = getDataFlowInstances()?.bnPriceWs.getLatestPriceData();
         const polyPrice = predictPriceHistory[predictPriceHistory.length - 1];
@@ -237,6 +257,7 @@ export const watchPosition = async (
               bnTimestamp: bnPrice.timestamp,
               polyPrice: polyPrice.value,
               polyTimestamp: polyPrice.timestamp,
+              cost: Date.now() - bnPrice.receivedAt,
             })}
             `
           );
@@ -252,6 +273,7 @@ export const watchPosition = async (
         predictPriceHistory.push({
           value: predictedNewPrice,
           timestamp: Date.now(),
+          receivedAt: Date.now(),
         });
         const { winProbability, side } = decideTailSweep({
           ticks: predictPriceHistory,
@@ -281,7 +303,7 @@ export const watchPosition = async (
               bnPrice: bnPrice.value,
               polyPrice: polyPrice.value,
               predictNewPrice: predictedNewPrice,
-              cost: Date.now() - startTime,
+              cost: Date.now() - bnPrice.receivedAt,
             })}
             `
           );
@@ -298,7 +320,7 @@ export const watchPosition = async (
               bnPrice: bnPrice.value,
               polyPrice: polyPrice.value,
               predictNewPrice: predictedNewPrice,
-              cost: Date.now() - startTime,
+              cost: Date.now() - bnPrice.receivedAt,
             })}
             `
           );

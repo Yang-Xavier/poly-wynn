@@ -28,6 +28,7 @@ interface PushData {
 export interface PriceData {
   value: number;
   timestamp: number;
+  receivedAt: number;
 }
 
 /**
@@ -62,18 +63,18 @@ export class PolyPriceWs extends HighPerformanceWs {
     );
 
     // 设置窗口期结束时的回调（HighPerformanceWs 已经处理了窗口聚合，这里直接处理聚合后的消息）
-    this.setMessageCallback((messages: any[]) => {
+    this.setMessageCallback((data: { message: any; receivedAt: number }[]) => {
       // HighPerformanceWs 已经确保 messages 不为空才调用回调
       // 获取窗口期里最近的一条数据
-      const latestMessage = messages[messages.length - 1];
+      const latestData = data[data.length - 1];
 
       try {
         // 解析消息
         let message: PushData;
-        if (typeof latestMessage === "string") {
-          message = JSON.parse(latestMessage);
+        if (typeof latestData.message === "string") {
+          message = JSON.parse(latestData.message);
         } else {
-          message = latestMessage;
+          message = latestData.message;
         }
 
         // 检查是否是价格数据
@@ -81,6 +82,7 @@ export class PolyPriceWs extends HighPerformanceWs {
           const priceData: PriceData = {
             value: Number(message.payload.value),
             timestamp: Number(message.payload.timestamp),
+            receivedAt: latestData.receivedAt,
           };
           // 缓存到 priceHistory
           const priceHistoryCache = this.cacheController.getCache("priceHistory");
@@ -218,18 +220,18 @@ export class PolyPriceWs extends HighPerformanceWs {
    * @returns 最新推送的价格数据（PriceData 结构），如果没有则返回 null
    */
   getLatestPriceData(): PriceData | null {
-    const latestMessage = this.getLatestMessage();
-    if (!latestMessage) {
+    const latestData = this.getLatestMessage();
+    if (!latestData) {
       return null;
     }
 
     try {
       // 解析消息
       let message: PushData;
-      if (typeof latestMessage === "string") {
-        message = JSON.parse(latestMessage);
+      if (typeof latestData.message === "string") {
+        message = JSON.parse(latestData.message);
       } else {
-        message = latestMessage;
+        message = latestData.message;
       }
 
       // 检查是否是价格数据
@@ -237,6 +239,7 @@ export class PolyPriceWs extends HighPerformanceWs {
         return {
           value: Number(message.payload.value),
           timestamp: Number(message.payload.timestamp),
+          receivedAt: latestData.receivedAt,
         };
       }
 

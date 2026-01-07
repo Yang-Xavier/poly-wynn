@@ -6,6 +6,7 @@ import { DataRecords } from "@shared/DataRecords";
 export interface PriceData {
   value: number;
   timestamp: number;
+  receivedAt: number;
 }
 
 /**
@@ -47,18 +48,18 @@ export class BnPriceWs extends HighPerformanceWs {
     );
 
     // 设置窗口期结束时的回调（HighPerformanceWs 已经处理了窗口聚合，这里直接处理聚合后的消息）
-    this.setMessageCallback((messages: any[]) => {
+    this.setMessageCallback((data: { message: any; receivedAt: number }[]) => {
       // HighPerformanceWs 已经确保 messages 不为空才调用回调
       // 获取窗口期里最近的一条数据
-      const latestMessage = messages[messages.length - 1];
+      const latestData = data[data.length - 1];
 
       try {
         // 解析消息
         let message: any;
-        if (typeof latestMessage === "string") {
-          message = JSON.parse(latestMessage);
+        if (typeof latestData.message === "string") {
+          message = JSON.parse(latestData.message);
         } else {
-          message = latestMessage;
+          message = latestData.message;
         }
 
         // 验证消息格式（币安 trade 流格式）
@@ -72,8 +73,9 @@ export class BnPriceWs extends HighPerformanceWs {
           }
 
           const priceData: PriceData = {
-            value: price,
-            timestamp,
+            value: Number(price),
+            timestamp: Number(timestamp),
+            receivedAt: latestData.receivedAt,
           };
 
           // 缓存到 priceHistory
@@ -130,18 +132,18 @@ export class BnPriceWs extends HighPerformanceWs {
    * @returns 最新推送的价格数据（PriceData 结构），如果没有则返回 null
    */
   getLatestPriceData(): PriceData | null {
-    const latestMessage = this.getLatestMessage();
-    if (!latestMessage) {
+    const latestData = this.getLatestMessage();
+    if (!latestData) {
       return null;
     }
 
     try {
       // 解析消息
       let message: any;
-      if (typeof latestMessage === "string") {
-        message = JSON.parse(latestMessage);
+      if (typeof latestData.message === "string") {
+        message = JSON.parse(latestData.message);
       } else {
-        message = latestMessage;
+        message = latestData.message;
       }
 
       // 验证消息格式（币安 trade 流格式）
@@ -154,8 +156,9 @@ export class BnPriceWs extends HighPerformanceWs {
         }
 
         return {
-          value: price,
-          timestamp,
+          value: Number(price),
+          timestamp: Number(timestamp),
+          receivedAt: latestData.receivedAt,
         };
       }
 
