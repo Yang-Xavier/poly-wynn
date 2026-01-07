@@ -96,7 +96,7 @@ export class PolyPriceWs extends HighPerformanceWs {
               this.priceCallback(priceData);
             } catch (error) {
               // 使用父类的 send 方法无法记录日志，这里简化处理
-              this.logger.logError("[PolyPrice] 价格回调函数执行失败", error);
+              this.logger.logError("[PolyPrice] 价格回调函数执行失败 ${error}", error);
             }
           }
           this.dataRecord?.record(

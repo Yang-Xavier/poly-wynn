@@ -64,7 +64,6 @@ export const findChance = async (
             [OUTCOMES_ENUM.Up]: upOderBook[outcomes[OUTCOMES_ENUM.Up]],
             [OUTCOMES_ENUM.Down]: downOderBook[outcomes[OUTCOMES_ENUM.Down]],
           };
-
           const bestAskOfOutcomes = {
             [OUTCOMES_ENUM.Up]: upOderBook[outcomes[OUTCOMES_ENUM.Up]]?.bestAsk ?? 0,
             [OUTCOMES_ENUM.Down]: downOderBook[outcomes[OUTCOMES_ENUM.Down]]?.bestAsk ?? 0,

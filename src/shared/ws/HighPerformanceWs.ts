@@ -36,7 +36,7 @@ export class HighPerformanceWs {
   // 消息聚合相关
   private messageBuffer: any[] = []; // 窗口内的消息缓冲区
   private windowTimer: NodeJS.Timeout | null = null; // 窗口定时器
-  private messageCallback: ((data: { message: any; receivedAt: number }[]) => void) | null = null; // 消息回调函数
+  private messageCallback: ((data: { message: any; receivedAt?: number }[]) => void) | null = null; // 消息回调函数
 
   // 最新消息
   private latestMessage: { message: any; receivedAt: number } | null = null;
@@ -86,7 +86,7 @@ export class HighPerformanceWs {
    * 获取最新一条推送的数据
    * @returns 最新消息，如果没有则返回 null
    */
-  getLatestMessage(): any | null {
+  getLatestMessage(): { message: any; receivedAt: number } | null {
     return this.latestMessage;
   }
 

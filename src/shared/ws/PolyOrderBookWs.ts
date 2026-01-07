@@ -261,15 +261,17 @@ export class PolyOrderBookWs extends HighPerformanceWs {
           const { asset_id, asks, bids } = message;
           const bestAsk = asks && asks.length > 0 ? Number(asks[asks.length - 1].price) : null;
           const bestBid = bids && bids.length > 0 ? Number(bids[bids.length - 1].price) : null;
-
-          if (bestAsk === null || bestBid === null) {
-            continue;
-          }
+          const asksVolume =
+            asks && asks.length > 0 ? asks.reduce((acc, curr) => acc + Number(curr.size), 0) : 0;
+          const bidsVolume =
+            bids && bids.length > 0 ? bids.reduce((acc, curr) => acc + Number(curr.size), 0) : 0;
 
           const orderBook: OrderBookData = {
             [asset_id]: {
               bestAsk,
               bestBid,
+              asksVolume: asksVolume,
+              bidsVolume: bidsVolume,
               receivedAt: rawData.receivedAt,
             },
           } as OrderBookData;
