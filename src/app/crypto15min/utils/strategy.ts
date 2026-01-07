@@ -52,6 +52,7 @@ export const findChance = async (
             resolved = true;
             resolve(null);
           }
+          const startTime = Date.now();
 
           const upBestAsk = data[outcomes[OUTCOMES_ENUM.Up]]?.bestAsk ?? 0;
           const downBestAsk = data[outcomes[OUTCOMES_ENUM.Down]]?.bestAsk ?? 0;
@@ -70,41 +71,59 @@ export const findChance = async (
               },
               globalConfig.stratgegy.tailSweepConfig
             );
-            const { isDiffEnough, avaliableValue } = calcDiffEnough(
+            const { isDiffEnough, avaliableValue: acceptableWinProbability } = calcDiffEnough(
               tailSweepResult.winProbability,
               0.95,
               [0.047, 0.0001],
               distance
             );
-            customTypeLog(
-              "strategy",
-              `[-- 扫尾盘数据策略数据 (📚订单簿变动触发) --] ${JSON.stringify({
-                priceToBeat,
-                currentPrice,
-                isDiffEnough,
-                avaliableValue,
-                bestAsk: data[outcomes[tailSweepResult.side]]?.bestAsk,
-                ...tailSweepResult,
-              })}`
-            );
-
-            if (tailSweepResult.shouldBet && isDiffEnough) {
-              if (
-                data[outcomes[tailSweepResult.side]]?.bestAsk >=
+            if (
+              tailSweepResult.shouldBet &&
+              isDiffEnough &&
+              data[outcomes[tailSweepResult.side]]?.bestAsk >=
                 globalConfig.stratgegy.bestAskThreshold
-              ) {
-                // 再次确认是否可以买入
-                resolved = true;
-                resolve({
-                  tokenId: outcomes[tailSweepResult.side],
-                  outcome: tailSweepResult.side,
-                  cryptoPrice: currentPrice,
-                  bestAsk,
+            ) {
+              resolved = true;
+              resolve({
+                tokenId: outcomes[tailSweepResult.side],
+                outcome: tailSweepResult.side,
+                cryptoPrice: currentPrice,
+                bestAsk,
+                priceToBeat,
+              });
+              customTypeLog(
+                "strategy",
+                `[✅Buy] [polyOrderBookWs.onOrderBookChange] 
+                ${JSON.stringify({
+                  shouldBet: tailSweepResult.shouldBet,
+                  side: tailSweepResult.side,
+                  acceptableWinProbability,
+                  winProbability: tailSweepResult.winProbability,
+                  isDiffEnough,
+                  bestAsk: data[outcomes[tailSweepResult.side]]?.bestAsk,
                   priceToBeat,
-                });
-              } else {
-                customTypeLog("strategy", "=======预测结果和实际订单簿情况不一致========");
-              }
+                  currentPrice,
+                  cost: Date.now() - startTime,
+                })}
+                `
+              );
+            } else {
+              customTypeLog(
+                "strategy",
+                `[⏩Wait] [polyOrderBookWs.onOrderBookChange] 
+                ${JSON.stringify({
+                  shouldBet: tailSweepResult.shouldBet,
+                  side: tailSweepResult.side,
+                  acceptableWinProbability,
+                  winProbability: tailSweepResult.winProbability,
+                  isDiffEnough,
+                  bestAsk: data[outcomes[tailSweepResult.side]]?.bestAsk,
+                  priceToBeat,
+                  currentPrice,
+                  cost: Date.now() - startTime,
+                })}
+                `
+              );
             }
           }
         });
@@ -163,7 +182,7 @@ export const watchPosition = async (
           resolve(TOKEN_ACTION_ENUM.sell);
           customTypeLog(
             "strategy",
-            `[❗️Sell] [polyPriceWs.onPriceChange] 预测价格胜率、订单簿BestBid 都概率低于阈值, 当前价格与买入方向不一致
+            `[❗️Sell] [😈polyPriceWs.onPriceChange] 预测价格胜率、订单簿BestBid 都概率低于阈值, 当前价格与买入方向不一致
             ${JSON.stringify({
               outcoum: outcome,
               bestBid: bestBid,
@@ -173,12 +192,13 @@ export const watchPosition = async (
               priceToBeat: priceToBeat,
               currentSide: currentSide,
               cost: Date.now() - startTime,
-            })}`
+            })}
+            `
           );
         } else {
           customTypeLog(
             "strategy",
-            `[🤔Hold] [polyPriceWs.onPriceChange]
+            `[🤔Hold] [😈polyPriceWs.onPriceChange]
             ${JSON.stringify({
               outcoum: outcome,
               bestBid: bestBid,
@@ -188,7 +208,8 @@ export const watchPosition = async (
               priceToBeat: priceToBeat,
               currentSide: currentSide,
               cost: Date.now() - startTime,
-            })}`
+            })}
+            `
           );
         }
       });
@@ -209,14 +230,15 @@ export const watchPosition = async (
         if (bnPrice.timestamp < polyPrice.timestamp) {
           customTypeLog(
             "strategy",
-            `[🤔Hold] [bnPriceWs.onPriceChange] BN价格 实时性落后 Poly价格
+            `[🤔Hold] [👽bnPriceWs.onPriceChange] BN价格 实时性落后 Poly价格
             ${JSON.stringify({
               outcoum: outcome,
               bnPrice: bnPrice.value,
               bnTimestamp: bnPrice.timestamp,
               polyPrice: polyPrice.value,
               polyTimestamp: polyPrice.timestamp,
-            })}`
+            })}
+            `
           );
           return;
         }
@@ -249,7 +271,7 @@ export const watchPosition = async (
           resolve(TOKEN_ACTION_ENUM.sell);
           customTypeLog(
             "strategy",
-            `[❗️Sell] [bnPriceWs.onPriceChange] 预测价格胜率 和 订单簿BestBid 都概率低于阈值
+            `[❗️Sell] [👽bnPriceWs.onPriceChange] 预测价格胜率 和 订单簿BestBid 都概率低于阈值
             ${JSON.stringify({
               outcoum: outcome,
               bestBid: bestBid,
@@ -260,12 +282,13 @@ export const watchPosition = async (
               polyPrice: polyPrice.value,
               predictNewPrice: predictedNewPrice,
               cost: Date.now() - startTime,
-            })}`
+            })}
+            `
           );
         } else {
           customTypeLog(
             "strategy",
-            `[🤔Hold] [bnPriceWs.onPriceChange] 
+            `[🤔Hold] [👽bnPriceWs.onPriceChange] 
             ${JSON.stringify({
               outcoum: outcome,
               bestBid: bestBid,
@@ -276,7 +299,8 @@ export const watchPosition = async (
               polyPrice: polyPrice.value,
               predictNewPrice: predictedNewPrice,
               cost: Date.now() - startTime,
-            })}`
+            })}
+            `
           );
         }
       });
