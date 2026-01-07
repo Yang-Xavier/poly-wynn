@@ -131,90 +131,153 @@ export const watchPosition = async (
   const result = await race(
     new Promise((resolve) => {
       let resolved = false;
+      let predictPriceHistory: PriceData[] = [];
 
       getDataFlowInstances()?.polyPriceWs.onPriceChange((data: PriceData) => {
         if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) {
           return;
         }
+        const startTime = Date.now();
+        const polHitoryPrice = getDataFlowInstances()?.polyPriceWs.getPriceHistory();
+        predictPriceHistory = [...polHitoryPrice];
+        const { winProbability, side } = decideTailSweep({
+          ticks: polHitoryPrice,
+          intervalStartPrice: priceToBeat,
+          timeToExpiryMs: distanceToNextInterval(slugIntervalTimestamp),
+          upBestAsk: 0.5,
+          downBestAsk: 0.5,
+        });
+        const predictwinProbability = side === outcome ? winProbability : 1 - winProbability;
+        const orderBookData = getDataFlowInstances()?.polyOrderBookWs.getLatestOrderBookData(
+          outcomes[outcome]
+        );
+        const bestBid = orderBookData[outcomes[outcome]]?.bestBid;
+        const currentSide = data.value > priceToBeat ? OUTCOMES_ENUM.Up : OUTCOMES_ENUM.Down;
+
         if (
-          (data.value > priceToBeat && outcome === OUTCOMES_ENUM.Down) ||
-          (data.value < priceToBeat && outcome === OUTCOMES_ENUM.Up)
+          Math.max(predictwinProbability, bestBid) <
+            globalConfig.stratgegy.sellProbabilityThreshold &&
+          currentSide != side
         ) {
           resolved = true;
           resolve(TOKEN_ACTION_ENUM.sell);
-          const latency = Date.now() - data?.timestamp;
           customTypeLog(
             "strategy",
-            `[买入后价格检查(低于阈值💰) polyPriceWs] 
-                outcoum: ${outcome}, 
-                priceToBeat: ${priceToBeat}, 
-                currentPrice: ${data?.value}
-                latency: ${latency}
-            `
+            `[❗️Sell] [polyPriceWs.onPriceChange] 预测价格胜率、订单簿BestBid 都概率低于阈值, 当前价格与买入方向不一致
+            ${JSON.stringify({
+              outcoum: outcome,
+              bestBid: bestBid,
+              predictSide: side,
+              predictWinProbability: winProbability,
+              polyPrice: data.value,
+              priceToBeat: priceToBeat,
+              currentSide: currentSide,
+              cost: Date.now() - startTime,
+            })}`
+          );
+        } else {
+          customTypeLog(
+            "strategy",
+            `[🤔Hold] [polyPriceWs.onPriceChange]
+            ${JSON.stringify({
+              outcoum: outcome,
+              bestBid: bestBid,
+              predictSide: side,
+              predictWinProbability: winProbability,
+              polyPrice: data.value,
+              priceToBeat: priceToBeat,
+              currentSide: currentSide,
+              cost: Date.now() - startTime,
+            })}`
           );
         }
       });
 
-      getDataFlowInstances()?.polyOrderBookWs.onOrderBookChange((data: OrderBookData) => {
+      getDataFlowInstances()?.bnPriceWs.onPriceChange((data: PriceData) => {
         if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) {
           return;
         }
         const startTime = Date.now();
-        const assetId = outcomes[outcome];
-        const bestBid = data[assetId]?.bestBid;
-        const latency = Date.now() - data[assetId]?.timestamp;
+        const bnPriceHistory = getDataFlowInstances()?.bnPriceWs.getPriceHistory();
+        const bnPrice = getDataFlowInstances()?.bnPriceWs.getLatestPriceData();
+        const polyPrice = predictPriceHistory[predictPriceHistory.length - 1];
+        const orderBookData = getDataFlowInstances()?.polyOrderBookWs.getLatestOrderBookData(
+          outcomes[outcome]
+        );
+        const bestBid = orderBookData[outcomes[outcome]]?.bestBid;
 
-        if (bestBid && bestBid < globalConfig.stratgegy.sellProbabilityThreshold) {
-          const bnPriceHistory = getDataFlowInstances()?.bnPriceWs.getPriceHistory();
-          const polyPriceHistory = getDataFlowInstances()?.polyPriceWs.getPriceHistory();
-          const bnPrice = getDataFlowInstances()?.bnPriceWs.getLatestPriceData();
-          const polyPrice = getDataFlowInstances()?.polyPriceWs.getLatestPriceData();
-          const { predictedNewPrice } = predictSpreadChange(
-            bnPriceHistory,
-            polyPriceHistory,
-            bnPrice.value,
-            polyPrice.value
+        if (bnPrice.timestamp < polyPrice.timestamp) {
+          customTypeLog(
+            "strategy",
+            `[🤔Hold] [bnPriceWs.onPriceChange] BN价格 实时性落后 Poly价格
+            ${JSON.stringify({
+              outcoum: outcome,
+              bnPrice: bnPrice.value,
+              bnTimestamp: bnPrice.timestamp,
+              polyPrice: polyPrice.value,
+              polyTimestamp: polyPrice.timestamp,
+            })}`
           );
+          return;
+        }
 
-          if (
-            (Math.min(predictedNewPrice, polyPrice.value) > priceToBeat &&
-              outcome === OUTCOMES_ENUM.Down) ||
-            (Math.max(predictedNewPrice, polyPrice.value) < priceToBeat &&
-              outcome === OUTCOMES_ENUM.Up)
-          ) {
-            resolved = true;
-            resolve(TOKEN_ACTION_ENUM.sell);
+        const { predictedNewPrice } = predictSpreadChange(
+          bnPriceHistory,
+          predictPriceHistory,
+          bnPrice.value,
+          polyPrice.value
+        );
+        predictPriceHistory.push({
+          value: predictedNewPrice,
+          timestamp: Date.now(),
+        });
+        const { winProbability, side } = decideTailSweep({
+          ticks: predictPriceHistory,
+          intervalStartPrice: priceToBeat,
+          timeToExpiryMs: distanceToNextInterval(slugIntervalTimestamp),
+          upBestAsk: 0.5,
+          downBestAsk: 0.5,
+        });
+        const predictwinProbability = side === outcome ? winProbability : 1 - winProbability;
 
-            customTypeLog(
-              "strategy",
-              `[买入后概率检查(低于阈值📚)] 价格满足条件
-                    outcoum: ${outcome}, 
-                    bestBid: ${bestBid}, 
-                    assetId: ${assetId}, 
-                    priceToBeat: ${priceToBeat},
-                    predictedNewPrice: ${predictedNewPrice},
-                    polyPrice: ${polyPrice.value},
-                    bnPrice: ${bnPrice.value},
-                    latency: ${latency},
-                    cost: ${Date.now() - startTime}
-                `
-            );
-          } else {
-            customTypeLog(
-              "strategy",
-              `[买入后概率检查(低于阈值📚)] 价格不满足条件
-                    outcoum: ${outcome}, 
-                    bestBid: ${bestBid}, 
-                    assetId: ${assetId}, 
-                    priceToBeat: ${priceToBeat},
-                    predictedNewPrice: ${predictedNewPrice},
-                    polyPrice: ${polyPrice.value},
-                    bnPrice: ${bnPrice.value},
-                    latency: ${latency},
-                    cost: ${Date.now() - startTime}
-                `
-            );
-          }
+        if (
+          Math.max(bestBid, predictwinProbability) <
+            globalConfig.stratgegy.sellProbabilityThreshold &&
+          side === outcome
+        ) {
+          resolved = true;
+          resolve(TOKEN_ACTION_ENUM.sell);
+          customTypeLog(
+            "strategy",
+            `[❗️Sell] [bnPriceWs.onPriceChange] 预测价格胜率 和 订单簿BestBid 都概率低于阈值
+            ${JSON.stringify({
+              outcoum: outcome,
+              bestBid: bestBid,
+              predictSide: side,
+              predictWinProbability: winProbability,
+              priceToBeat: priceToBeat,
+              bnPrice: bnPrice.value,
+              polyPrice: polyPrice.value,
+              predictNewPrice: predictedNewPrice,
+              cost: Date.now() - startTime,
+            })}`
+          );
+        } else {
+          customTypeLog(
+            "strategy",
+            `[🤔Hold] [bnPriceWs.onPriceChange] 
+            ${JSON.stringify({
+              outcoum: outcome,
+              bestBid: bestBid,
+              predictSide: side,
+              predictWinProbability: winProbability,
+              priceToBeat: priceToBeat,
+              bnPrice: bnPrice.value,
+              polyPrice: polyPrice.value,
+              predictNewPrice: predictedNewPrice,
+              cost: Date.now() - startTime,
+            })}`
+          );
         }
       });
     }),
