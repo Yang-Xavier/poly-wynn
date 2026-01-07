@@ -136,7 +136,7 @@ function DataPage() {
       return;
     }
 
-    const range = parseInt(rangeStr, 10) || 30;
+    const range = parseInt(rangeStr, 10) || 5;
     const rangeMs = range * 1000; // 转换为毫秒
     const minTimestamp = timestamp - rangeMs;
     const maxTimestamp = timestamp + rangeMs;
