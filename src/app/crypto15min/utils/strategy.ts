@@ -105,7 +105,7 @@ export const findChance = async (
                 tokenId: outcomes[tailSweepResult.side],
                 outcome: tailSweepResult.side,
                 cryptoPrice: currentPrice,
-                bestAsk: bestAskOfOutcomes[tailSweepResult.side],
+                bestAsk: Number(bestAskOfOutcomes[tailSweepResult.side].toFixed(2)),
                 asksVolume: asksVolumeOfOutcomes[tailSweepResult.side],
                 priceToBeat,
               });
