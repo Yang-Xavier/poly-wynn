@@ -109,6 +109,8 @@ export class HighPerformanceWs {
           this.isConnected = true;
           this.isManualDisconnect = false;
           this.reconnectAttempts = 0;
+          // 连接建立后启动固定间隔的窗口定时器
+          this.startWindowTimer();
           resolve();
         });
 
@@ -200,11 +202,6 @@ export class HighPerformanceWs {
 
       // 将消息添加到缓冲区
       this.messageBuffer.push({ message, receivedAt });
-
-      // 如果窗口定时器不存在，启动一个新的窗口定时器
-      if (!this.windowTimer) {
-        this.startWindowTimer();
-      }
     } catch (error) {
       if (this.logger.logError) {
         this.logger.logError("处理消息失败", error, data.toString());
@@ -215,10 +212,15 @@ export class HighPerformanceWs {
   }
 
   /**
-   * 启动窗口定时器
+   * 启动固定间隔的窗口定时器
+   * 使用 setInterval 实现固定窗口间隔，无论是否有数据都会按间隔触发
    */
   private startWindowTimer(): void {
-    this.windowTimer = setTimeout(() => {
+    // 先清理可能存在的旧定时器
+    this.clearWindowTimer();
+
+    // 使用 setInterval 创建固定间隔的窗口定时器
+    this.windowTimer = setInterval(() => {
       this.flushMessages();
     }, this.windowTime);
   }
@@ -228,7 +230,7 @@ export class HighPerformanceWs {
    */
   private clearWindowTimer(): void {
     if (this.windowTimer) {
-      clearTimeout(this.windowTimer);
+      clearInterval(this.windowTimer);
       this.windowTimer = null;
     }
   }
@@ -236,20 +238,18 @@ export class HighPerformanceWs {
   /**
    * 刷新消息缓冲区，将聚合的消息通过回调传递
    * 注意：如果窗口期内没有接收到任何数据，不会调用回调
+   * 固定间隔窗口：定时器会持续运行，每个窗口结束时检查是否有数据
    */
   private flushMessages(): void {
     // 如果窗口期内没有接收到数据，直接返回，不调用回调
+    // 定时器会继续运行，下一个窗口期继续检查
     if (this.messageBuffer.length === 0) {
-      this.clearWindowTimer();
       return;
     }
 
     // 复制消息列表并清空缓冲区
     const messages = [...this.messageBuffer];
     this.messageBuffer = [];
-
-    // 清空定时器
-    this.clearWindowTimer();
 
     // 通过回调传递聚合的消息列表
     if (this.messageCallback) {
