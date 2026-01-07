@@ -41,12 +41,13 @@ export const findChance = async (params: {
           assetIdMapOutcome[OUTCOMES_ENUM.Down]
         );
 
-        if (!polyPrice || !upOrderbook || !downOrderbook) return;
-
-        const upBestAsk = upOrderbook[assetIdMapOutcome[OUTCOMES_ENUM.Up]].bestAsk;
-        const downBestAsk = downOrderbook[assetIdMapOutcome[OUTCOMES_ENUM.Down]].bestAsk;
+        const upBestAsk = upOrderbook[assetIdMapOutcome[OUTCOMES_ENUM.Up]].bestAsk ?? 0;
+        const downBestAsk = downOrderbook[assetIdMapOutcome[OUTCOMES_ENUM.Down]].bestAsk ?? 0;
         const polyPriceHistory = dataFlowInstances.polyPriceWs.getPriceHistory();
         const bnPriceHistory = dataFlowInstances.bnPriceWs.getPriceHistory();
+
+        if (!polyPrice || !upOrderbook || !downOrderbook || upBestAsk === 0 || downBestAsk === 0)
+          return;
 
         if (
           Math.min(bnPriceHistory.length, polyPriceHistory.length) > config.startCalcMinDataPoints
