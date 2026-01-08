@@ -179,14 +179,14 @@ export const watchPosition = async (
 
         const polHitoryPrice = getDataFlowInstances()?.polyPriceWs.getPriceHistory();
         predictPriceHistory = [...polHitoryPrice];
-        const { winProbability, side } = decideTailSweep({
+        const { winProbability, side: predictSide } = decideTailSweep({
           ticks: polHitoryPrice,
           intervalStartPrice: priceToBeat,
           timeToExpiryMs: distanceToNextInterval(slugIntervalTimestamp),
           upBestAsk: 0.5,
           downBestAsk: 0.5,
         });
-        const predictwinProbability = side === outcome ? winProbability : 1 - winProbability;
+        const predictwinProbability = predictSide === outcome ? winProbability : 1 - winProbability;
         const orderBookData = getDataFlowInstances()?.polyOrderBookWs.getLatestOrderBookData(
           outcomes[outcome]
         );
@@ -194,9 +194,8 @@ export const watchPosition = async (
         const currentSide = polyPrice.value > priceToBeat ? OUTCOMES_ENUM.Up : OUTCOMES_ENUM.Down;
 
         if (
-          Math.max(predictwinProbability, bestBid) <
-            globalConfig.stratgegy.sellProbabilityThreshold &&
-          currentSide != side
+          predictwinProbability < globalConfig.stratgegy.sellProbabilityThreshold &&
+          predictSide != outcome
         ) {
           resolved = true;
           resolve(TOKEN_ACTION_ENUM.sell);
@@ -206,7 +205,7 @@ export const watchPosition = async (
             ${JSON.stringify({
               outcome: outcome,
               bestBid: bestBid,
-              predictSide: side,
+              predictSide,
               predictWinProbability: winProbability,
               polyPrice: polyPrice.value,
               priceToBeat: priceToBeat,
@@ -222,7 +221,7 @@ export const watchPosition = async (
             ${JSON.stringify({
               outcome: outcome,
               bestBid: bestBid,
-              predictSide: side,
+              predictSide,
               predictWinProbability: winProbability,
               polyPrice: polyPrice.value,
               priceToBeat: priceToBeat,
@@ -274,19 +273,18 @@ export const watchPosition = async (
           timestamp: Date.now(),
           receivedAt: Date.now(),
         });
-        const { winProbability, side } = decideTailSweep({
+        const { winProbability, side: predictSide } = decideTailSweep({
           ticks: predictPriceHistory,
           intervalStartPrice: priceToBeat,
           timeToExpiryMs: distanceToNextInterval(slugIntervalTimestamp),
           upBestAsk: 0.5,
           downBestAsk: 0.5,
         });
-        const predictwinProbability = side === outcome ? winProbability : 1 - winProbability;
+        const predictwinProbability = predictSide === outcome ? winProbability : 1 - winProbability;
 
         if (
-          Math.max(bestBid, predictwinProbability) <
-            globalConfig.stratgegy.sellProbabilityThreshold &&
-          side === outcome
+          predictwinProbability < globalConfig.stratgegy.sellProbabilityThreshold &&
+          predictSide === outcome
         ) {
           resolved = true;
           resolve(TOKEN_ACTION_ENUM.sell);
@@ -296,7 +294,7 @@ export const watchPosition = async (
             ${JSON.stringify({
               outcome: outcome,
               bestBid: bestBid,
-              predictSide: side,
+              predictSide,
               predictWinProbability: winProbability,
               priceToBeat: priceToBeat,
               bnPrice: bnPrice.value,
@@ -313,7 +311,7 @@ export const watchPosition = async (
             ${JSON.stringify({
               outcome: outcome,
               bestBid: bestBid,
-              predictSide: side,
+              predictSide,
               predictWinProbability: winProbability,
               priceToBeat: priceToBeat,
               bnPrice: bnPrice.value,

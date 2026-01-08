@@ -32,7 +32,7 @@
     "priceDelayThreshold": 2200,
     "buyingAmountFactor": 0.2,
     "buyingMaxAmount": 100,
-    "sellProbabilityThreshold": 0.5,
+    "sellProbabilityThreshold": 0.4,
     "bestAskThreshold": 0.95,
     "tailSweepConfig": {
       "minWinProbability": 0.99,
