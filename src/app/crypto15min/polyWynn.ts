@@ -295,6 +295,8 @@ export const runPolyWynn = async () => {
         }
       }
 
+      await waitFor(5 * 1000);
+
       logInfo(`断开与PolyPriceWs的连接`);
       await getDataFlowInstances()?.polyPriceWs.disconnect();
       logInfo(`断开与BNPriceWs的连接`);

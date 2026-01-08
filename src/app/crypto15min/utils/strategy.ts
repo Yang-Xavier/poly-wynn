@@ -99,7 +99,8 @@ export const findChance = async (
             if (
               tailSweepResult.shouldBet &&
               isDiffEnough &&
-              bestAskOfOutcomes[tailSweepResult.side] >= globalConfig.stratgegy.bestAskThreshold
+              bestAskOfOutcomes[tailSweepResult.side] >= globalConfig.stratgegy.bestAskThreshold &&
+              bestAskOfOutcomes[tailSweepResult.side] <= 0.99
             ) {
               resolved = true;
               resolve({
@@ -240,7 +241,10 @@ export const watchPosition = async (
         }
         const bnPriceHistory = getDataFlowInstances()?.bnPriceWs.getPriceHistory();
         const bnPrice = getDataFlowInstances()?.bnPriceWs.getLatestPriceData();
-        const polyPrice = predictPriceHistory[predictPriceHistory.length - 1];
+        const polyPrice = predictPriceHistory[predictPriceHistory.length - 1] ?? {
+          value: bnPrice.value,
+          timestamp: Date.now(),
+        };
         const orderBookData = getDataFlowInstances()?.polyOrderBookWs.getLatestOrderBookData(
           outcomes[outcome]
         );
@@ -249,7 +253,7 @@ export const watchPosition = async (
         if (bnPrice.timestamp < polyPrice.timestamp) {
           customTypeLog(
             "strategy",
-            `[🤔Hold] [👽bnPriceWs.onPriceChange] BN价格 实时性落后 Poly价格
+            `[🤔Hold] [👽bnPriceWs.onPriceChange] BN 实时性落后
             ${JSON.stringify({
               outcome: outcome,
               bnPrice: bnPrice.value,

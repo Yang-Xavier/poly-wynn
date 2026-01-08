@@ -188,6 +188,28 @@ export class HighPerformanceWs {
 
       // 如果是 ping/pong 消息，不添加到缓存
       if (this.isPingPongMessage(message)) {
+        // 如果是 ping 消息，自动回复 pong
+        let isPing = false;
+        if (typeof message === "string") {
+          const lowerMessage = message.toLowerCase().trim();
+          if (lowerMessage === "ping") {
+            isPing = true;
+          }
+        } else if (typeof message === "object" && message !== null) {
+          // 检查对象是否只有 ping 字段或类似
+          const messageStr = JSON.stringify(message).toLowerCase();
+          if (messageStr.includes('"ping"')) {
+            isPing = true;
+          }
+        }
+        if (isPing && this.ws && this.ws.readyState === this.ws.OPEN) {
+          try {
+            this.ws.send("pong");
+            this.logger?.logInfo?.("[HighPerformanceWs] 收到 ping, 已自动回复 pong");
+          } catch (e) {
+            this.logger?.logError?.("[HighPerformanceWs] 回复 pong 失败", e);
+          }
+        }
         return;
       }
 

@@ -46,7 +46,7 @@ export function initializeDataFlow(params: {
   // 创建币安价格 WebSocket 实例
   const bnPriceWs = new BnPriceWs({
     logger,
-    symbol: `${params.symbol}usdc`,
+    symbol: `${params.symbol}usdt`,
     windowTime: 100,
     dataRecord,
   });

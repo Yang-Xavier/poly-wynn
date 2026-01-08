@@ -1,6 +1,7 @@
 import { getEncryptedConfig } from "@shared/encryptConfig";
 
 const commonConfig = {
+  marketTag: "",
   clobHost: "https://clob.polymarket.com",
   gammaHost: "https://gamma-api.polymarket.com",
   dataHost: "https://data-api.polymarket.com",
@@ -84,7 +85,6 @@ const btcConfig = {
 
 /**
  * 获取全局配置对象
- * @returns {typeof import('../config').globalConfig}
  */
 export function getGlobalConfig() {
   // 从json文件中读取config
@@ -95,7 +95,7 @@ export function getGlobalConfig() {
       return { ...commonConfig, ...btcConfig, marketTag: "btc" };
     }
   }
-  return commonConfig;
+  return commonConfig as typeof commonConfig & typeof ethConfig & typeof btcConfig;
 }
 
 export function getKeyConfig() {
