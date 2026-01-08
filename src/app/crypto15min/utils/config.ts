@@ -8,6 +8,9 @@ export function getGlobalConfig() {
   // 从json文件中读取config
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const config = require("../config.json");
+  if (process && process.env && process.env.MARKET) {
+    config.marketTag = process.env.MARKET;
+  }
   return config;
 }
 

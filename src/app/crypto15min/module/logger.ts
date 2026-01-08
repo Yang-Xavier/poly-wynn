@@ -3,7 +3,7 @@ import { Logger } from "@shared/Logger";
 export { LogLevel } from "@shared/Logger";
 
 const logger = new Logger({
-  appName: "crypto15min",
+  appName: process.env.MARKET ? `crypto15min-${process.env.MARKET}` : "crypto15min",
 });
 
 export const getLoggerModule = () => logger;

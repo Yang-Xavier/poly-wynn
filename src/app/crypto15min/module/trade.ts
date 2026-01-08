@@ -4,7 +4,7 @@ import { logError, logInfo } from "./logger";
 import { distanceToNextInterval, waitFor } from "@crypto15min/utils/tools";
 import { getGlobalConfig } from "@crypto15min/utils/config";
 import { getGammaDataModule } from "./gammaData";
-import tradeReport from "@crypto15min/utils/tradeReport";
+import tradeReport from "@crypto15min/module/tradeReport";
 import { waitForOrderMatched } from "@crypto15min/utils/userTrade";
 
 export const buy = async ({

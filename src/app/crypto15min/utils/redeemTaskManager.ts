@@ -2,7 +2,7 @@ import { getGammaDataModule, MarketResponse } from "../module/gammaData";
 import { logError, logInfo } from "../module/logger";
 import { redeemWithRelayer } from "./relayerRedeem";
 
-import tradeReport from "./tradeReport";
+import tradeReport from "../module/tradeReport";
 
 /**
  * 赎回任务类型

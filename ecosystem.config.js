@@ -10,6 +10,7 @@ module.exports = {
         // 将 PASSWORD 传递给子进程
         ...(process.env.PASSWORD && { PASSWORD: process.env.PASSWORD }),
         NODE_ENV: process.env.NODE_ENV || "production",
+        MARKET: process.env.MARKET || "eth",
       },
       out_file: "./logs/pm2-start-out.log",
       error_file: "./logs/pm2-start-error.log",

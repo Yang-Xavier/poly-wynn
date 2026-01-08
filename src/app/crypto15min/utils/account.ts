@@ -1,6 +1,6 @@
 import { getGlobalConfig } from "./config";
 import { logInfo } from "@crypto15min/module/logger";
-import tradeReport from "./tradeReport";
+import tradeReport from "../module/tradeReport";
 import { getAccountBalance as getAccountCommon } from "@shared/web3/account";
 import { USDC_ADDRESS } from "@shared/constants";
 import { waitFor } from "./tools";

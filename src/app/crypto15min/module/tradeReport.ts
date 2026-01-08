@@ -2,7 +2,7 @@ import TradeReport from "@shared/TradeReport";
 
 class Crypto15minTradeReport extends TradeReport {
   constructor() {
-    super("crypto15min");
+    super(process.env.MARKET ? `crypto15min-${process.env.MARKET}` : "crypto15min");
   }
 
   calcProfit() {

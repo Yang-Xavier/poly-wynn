@@ -93,6 +93,7 @@ export const findChance = async (
               tailSweepResult.winProbability,
               0.95,
               [0.047, 0.0001],
+              [globalConfig.stratgegy.startStrategyBefore, 0],
               distance
             );
             if (

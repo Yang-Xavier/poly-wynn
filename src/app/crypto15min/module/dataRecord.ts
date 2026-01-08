@@ -1,5 +1,5 @@
 import { DataRecords } from "@shared/DataRecords";
 
 export default new DataRecords({
-  appName: "crypto15min",
+  appName: process.env.MARKET ? `crypto15min-${process.env.MARKET}` : "crypto15min",
 });

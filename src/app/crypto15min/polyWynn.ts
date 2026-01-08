@@ -25,7 +25,7 @@ import { getAccountBalance, logAccountBalance } from "@crypto15min/utils/account
 import { OUTCOMES_ENUM } from "@crypto15min/utils/constans";
 import { destroyDataFlow, getDataFlowInstances, initializeDataFlow } from "./module/dataFlow";
 import dataRecord from "./module/dataRecord";
-import tradeReport from "./utils/tradeReport";
+import tradeReport from "./module/tradeReport";
 import { checkResultByPrice } from "./utils/checkResultByPrice";
 import redeemTaskManager from "./utils/redeemTaskManager";
 import { redeemAllPositions } from "./utils/relayerRedeem";
@@ -103,7 +103,7 @@ export const runPolyWynn = async () => {
       logInfo(`对赌价格: ${priceToBeat}, market: ${marketSlug}`);
 
       const toStartTime =
-        distanceToNextInterval(slugIntervalTimestamp) - globalConfig.stratgegy.startBefore;
+        distanceToNextInterval(slugIntervalTimestamp) - globalConfig.stratgegy.startStrategyBefore;
       if (toStartTime > 0) {
         logInfo(`距离开始策略还剩: ${toStartTime / 1000}s`);
         await waitFor(toStartTime);
@@ -260,9 +260,9 @@ export const runPolyWynn = async () => {
               }
             }
 
-            if (buyCount >= globalConfig.stratgegy.limitBuyCount && !redeemOrder) {
+            if (buyCount >= globalConfig.stratgegy.limitBuyCountInARoundOf15min && !redeemOrder) {
               logInfo(
-                `购买次数超过限制(${globalConfig.stratgegy.limitBuyCount})次, 跳过本局购买,等待下一轮开始...`
+                `购买次数超过限制(${globalConfig.stratgegy.limitBuyCountInARoundOf15min})次, 跳过本局购买,等待下一轮开始...`
               );
               await waitFor(distanceToNextInterval(slugIntervalTimestamp));
             }

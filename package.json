@@ -6,7 +6,6 @@
     "src/app/web-client"
   ],
   "scripts": {
-    "build": "rm -rf dist && node build.js",
     "prod:stop": "pm2 kill",
     "prod:start": "npm run web:client:build && node ./scripts/pm2-start.js",
     "syncConfig": "bun ./scripts/sync-config.ts",

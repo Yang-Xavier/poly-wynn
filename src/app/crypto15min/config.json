@@ -18,22 +18,19 @@
 
   "stratgegy": {
     "startCollectDataBefore": 600000,
-    "startBefore": 180000,
+    "startStrategyBefore": 180000,
     "startGetPriceToBeatBefore": 360000,
-    "findingChangeInterval": 1000,
-    "diffBeatPriceFactor": [0.003, 0.0005],
-    "attenuationFactor": [2, 0.8],
+
     "buyingRetryCount": 5,
     "buyingMaxSplit": 3,
-    "confidenceThreshold": 0.2,
-    "limitBuyCount": 1,
-    "breakProbabilityThreshold": 0.9,
-
-    "priceDelayThreshold": 2200,
-    "buyingAmountFactor": 0.2,
     "buyingMaxAmount": 100,
+    "buyingAmountFactor": 0.2,
+    "limitBuyCountInARoundOf15min": 1,
+
     "sellProbabilityThreshold": 0.4,
+
     "bestAskThreshold": 0.95,
+
     "tailSweepConfig": {
       "minWinProbability": 0.99,
       "minEdge": -1,
