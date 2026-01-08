@@ -38,6 +38,10 @@ export class HighPerformanceWs {
   private windowTimer: NodeJS.Timeout | null = null; // 窗口定时器
   private messageCallback: ((data: { message: any; receivedAt?: number }[]) => void) | null = null; // 消息回调函数
 
+  // 保活相关
+  private keepAliveTimer: NodeJS.Timeout | null = null; // 保活定时器
+  private readonly keepAliveInterval: number = 20000; // 保活间隔（20秒）
+
   // 最新消息
   private latestMessage: { message: any; receivedAt: number } | null = null;
 
@@ -111,6 +115,8 @@ export class HighPerformanceWs {
           this.reconnectAttempts = 0;
           // 连接建立后启动固定间隔的窗口定时器
           this.startWindowTimer();
+          // 启动保活机制
+          this.startKeepAlive();
           resolve();
         });
 
@@ -137,6 +143,8 @@ export class HighPerformanceWs {
 
           // 清理窗口定时器
           this.clearWindowTimer();
+          // 清理保活定时器
+          this.clearKeepAlive();
 
           if (!this.isManualDisconnect) {
             this.attemptReconnect();
@@ -258,6 +266,41 @@ export class HighPerformanceWs {
   }
 
   /**
+   * 启动保活机制
+   * 每20秒发送一次ping消息
+   */
+  private startKeepAlive(): void {
+    // 先清理可能存在的旧定时器
+    this.clearKeepAlive();
+
+    // 使用 setInterval 创建保活定时器
+    this.keepAliveTimer = setInterval(() => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        try {
+          this.ws.send("ping");
+          this.logger?.logInfo?.("[HighPerformanceWs] 发送保活 ping");
+        } catch (error) {
+          if (this.logger.logError) {
+            this.logger.logError("[HighPerformanceWs] 发送保活 ping 失败", error);
+          } else {
+            this.logger.logInfo("[HighPerformanceWs] 发送保活 ping 失败", error);
+          }
+        }
+      }
+    }, this.keepAliveInterval);
+  }
+
+  /**
+   * 清空保活定时器
+   */
+  private clearKeepAlive(): void {
+    if (this.keepAliveTimer) {
+      clearInterval(this.keepAliveTimer);
+      this.keepAliveTimer = null;
+    }
+  }
+
+  /**
    * 刷新消息缓冲区，将聚合的消息通过回调传递
    * 注意：如果窗口期内没有接收到任何数据，不会调用回调
    * 固定间隔窗口：定时器会持续运行，每个窗口结束时检查是否有数据
@@ -363,6 +406,8 @@ export class HighPerformanceWs {
 
     // 清理窗口定时器
     this.clearWindowTimer();
+    // 清理保活定时器
+    this.clearKeepAlive();
 
     // 关闭 WebSocket 连接
     if (this.ws) {
