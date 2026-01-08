@@ -115,16 +115,17 @@ export const findChance = async (params: {
             };
             customTypeLog(
               "Chance",
-              `
-                === 💡找到机会 ===    
-                predictedNewPrice: ${predictedNewPrice},
-                curentPrice: ${polyPrice.value},
-                priceToBeat: ${priceToBeat},
-                upBestAsk: ${upBestAsk},
-                downBestAsk: ${downBestAsk},
-                bsmResult: ${JSON.stringify(bsmResult)},
-                chance: ${JSON.stringify(result)},
-                calcCost: ${Date.now() - bnPrice.receivedAt}ms
+              `=== 💡找到机会 ===    
+                ${JSON.stringify({
+                  predictedNewPrice,
+                  curentPrice: polyPrice.value,
+                  priceToBeat,
+                  upBestAsk,
+                  downBestAsk,
+                  bsmResult,
+                  chance: result,
+                  calcCost: `${Date.now() - bnPrice.receivedAt}ms`,
+                })}
               `
             );
             resolved = true;
@@ -132,15 +133,16 @@ export const findChance = async (params: {
           } else {
             customTypeLog(
               "Chance",
-              `
-                === 未找到机会 ===    
-                predictedNewPrice: ${predictedNewPrice},
-                curentPrice: ${polyPrice.value},
-                priceToBeat: ${priceToBeat},
-                upBestAsk: ${upBestAsk},
-                downBestAsk: ${downBestAsk},
-                bsmResult: ${JSON.stringify(bsmResult)},
-                cost: ${Date.now() - bnPrice.receivedAt}ms
+              `=== 未找到机会 ===    
+              ${JSON.stringify({
+                predictedNewPrice,
+                curentPrice: polyPrice.value,
+                priceToBeat,
+                upBestAsk,
+                downBestAsk,
+                bsmResult,
+                cost: `${Date.now() - bnPrice.receivedAt}ms`,
+              })}
               `
             );
           }
