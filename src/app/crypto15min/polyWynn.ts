@@ -331,8 +331,8 @@ export const runPolyWynn = async () => {
     dataRecord.close();
 
     logInfo(`清理日志/数据记录/交易报告...`);
-    getLoggerModule().cleanOldLogs(7);
-    dataRecord.cleanOldData(7);
-    tradeReport.cleanOldReports(30);
+    getLoggerModule().cleanOldLogs(2);
+    dataRecord.cleanOldData(2);
+    tradeReport.cleanOldReports(14);
   });
 };
