@@ -115,8 +115,6 @@ export class HighPerformanceWs {
           this.reconnectAttempts = 0;
           // 连接建立后启动固定间隔的窗口定时器
           this.startWindowTimer();
-          // 启动保活机制
-          this.startKeepAlive();
           resolve();
         });
 
@@ -143,8 +141,6 @@ export class HighPerformanceWs {
 
           // 清理窗口定时器
           this.clearWindowTimer();
-          // 清理保活定时器
-          this.clearKeepAlive();
 
           if (!this.isManualDisconnect) {
             this.attemptReconnect();
@@ -196,26 +192,12 @@ export class HighPerformanceWs {
 
       // 如果是 ping/pong 消息，不添加到缓存
       if (this.isPingPongMessage(message)) {
-        // 如果是 ping 消息，自动回复 pong
-        let isPing = false;
-        if (typeof message === "string") {
-          const lowerMessage = message.toLowerCase().trim();
-          if (lowerMessage === "ping") {
-            isPing = true;
-          }
-        } else if (typeof message === "object" && message !== null) {
-          // 检查对象是否只有 ping 字段或类似
-          const messageStr = JSON.stringify(message).toLowerCase();
-          if (messageStr.includes('"ping"')) {
-            isPing = true;
-          }
-        }
-        if (isPing && this.ws && this.ws.readyState === this.ws.OPEN) {
+        if (typeof message === "string" && message.toLowerCase().trim() === "ping") {
           try {
             this.ws.send("pong");
             this.logger?.logInfo?.("[HighPerformanceWs] 收到 ping, 已自动回复 pong");
           } catch (e) {
-            this.logger?.logError?.("[HighPerformanceWs] 回复 pong 失败", e);
+            this.logger?.logInfo?.(`[HighPerformanceWs] 回复 pong 失败 ${e}`, e);
           }
         }
         return;
@@ -262,41 +244,6 @@ export class HighPerformanceWs {
     if (this.windowTimer) {
       clearInterval(this.windowTimer);
       this.windowTimer = null;
-    }
-  }
-
-  /**
-   * 启动保活机制
-   * 每20秒发送一次ping消息
-   */
-  private startKeepAlive(): void {
-    // 先清理可能存在的旧定时器
-    this.clearKeepAlive();
-
-    // 使用 setInterval 创建保活定时器
-    this.keepAliveTimer = setInterval(() => {
-      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        try {
-          this.ws.send("ping");
-          this.logger?.logInfo?.("[HighPerformanceWs] 发送保活 ping");
-        } catch (error) {
-          if (this.logger.logError) {
-            this.logger.logError("[HighPerformanceWs] 发送保活 ping 失败", error);
-          } else {
-            this.logger.logInfo("[HighPerformanceWs] 发送保活 ping 失败", error);
-          }
-        }
-      }
-    }, this.keepAliveInterval);
-  }
-
-  /**
-   * 清空保活定时器
-   */
-  private clearKeepAlive(): void {
-    if (this.keepAliveTimer) {
-      clearInterval(this.keepAliveTimer);
-      this.keepAliveTimer = null;
     }
   }
 
@@ -406,8 +353,6 @@ export class HighPerformanceWs {
 
     // 清理窗口定时器
     this.clearWindowTimer();
-    // 清理保活定时器
-    this.clearKeepAlive();
 
     // 关闭 WebSocket 连接
     if (this.ws) {
