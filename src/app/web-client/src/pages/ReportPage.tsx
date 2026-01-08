@@ -138,6 +138,32 @@ function ReportPage() {
     }, 0);
   }, [reports]);
 
+  // 计算统计数据
+  const statistics = useMemo(() => {
+    const stats = {
+      won: 0,
+      lost: 0,
+      sold: 0,
+      skipped: 0,
+      total: reports.length,
+    };
+
+    reports.forEach((report) => {
+      const result = report.result.toLowerCase();
+      if (result === "won") {
+        stats.won++;
+      } else if (result === "lost") {
+        stats.lost++;
+      } else if (result === "sold") {
+        stats.sold++;
+      } else if (result === "skipped") {
+        stats.skipped++;
+      }
+    });
+
+    return stats;
+  }, [reports]);
+
   if (loading) {
     return (
       <div className="report-page">
@@ -170,10 +196,34 @@ function ReportPage() {
         ) : (
           <>
             <div className="today-profit-bar">
-              <div className="today-profit-label">今日收益</div>
-              <div className={`today-profit-value ${totalProfit >= 0 ? "positive" : "negative"}`}>
-                {totalProfit > 0 ? "+" : ""}
-                {totalProfit.toFixed(2)}
+              <div className="profit-section">
+                <div className="today-profit-label">今日收益</div>
+                <div className={`today-profit-value ${totalProfit >= 0 ? "positive" : "negative"}`}>
+                  {totalProfit > 0 ? "+" : ""}
+                  {totalProfit.toFixed(2)}
+                </div>
+              </div>
+              <div className="statistics-section">
+                <div className="stat-item">
+                  <span className="stat-label">Won</span>
+                  <span className="stat-value stat-won">{statistics.won}</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-label">Lost</span>
+                  <span className="stat-value stat-lost">{statistics.lost}</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-label">Sold</span>
+                  <span className="stat-value stat-sold">{statistics.sold}</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-label">Skipped</span>
+                  <span className="stat-value stat-skipped">{statistics.skipped}</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-label">总场次</span>
+                  <span className="stat-value stat-total">{statistics.total}</span>
+                </div>
               </div>
             </div>
             <div className="reports-list">

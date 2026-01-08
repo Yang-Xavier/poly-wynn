@@ -58,8 +58,16 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 2rem;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   border: 1px solid #3d3d3d;
+  flex-wrap: wrap;
+}
+
+.profit-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
 .today-profit-label {
@@ -80,6 +88,53 @@
 
 .today-profit-value.negative {
   color: #ef4444;
+}
+
+.statistics-section {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-value {
+  font-size: 1.2rem;
+  font-weight: bold;
+  font-family: monospace;
+}
+
+.stat-value.stat-won {
+  color: #10b981;
+}
+
+.stat-value.stat-lost {
+  color: #ef4444;
+}
+
+.stat-value.stat-sold {
+  color: #d97706;
+}
+
+.stat-value.stat-skipped {
+  color: #6b7280;
+}
+
+.stat-value.stat-total {
+  color: #3498db;
 }
 
 .reports-list {
@@ -420,7 +475,12 @@
     padding: 1rem 1.5rem;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.75rem;
+    gap: 1rem;
+  }
+
+  .profit-section {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .today-profit-label {
@@ -429,5 +489,20 @@
 
   .today-profit-value {
     font-size: 1.5rem;
+  }
+
+  .statistics-section {
+    width: 100%;
+    justify-content: space-around;
+    gap: 1rem;
+  }
+
+  .stat-item {
+    flex: 1;
+    min-width: 60px;
+  }
+
+  .stat-value {
+    font-size: 1rem;
   }
 }
