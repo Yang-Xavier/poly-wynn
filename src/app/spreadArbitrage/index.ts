@@ -102,6 +102,7 @@ const main = async () => {
           slugIntervalTimestamp,
         });
         if (chance) {
+          dataRecord.pin();
           logInfo(`找到机会: ${JSON.stringify(chance)}`);
           logInfo(`本局买入次数: ${buyAccount}`);
           //   const buyResult = await buy(chance.assetId, chance.buyPrice, buyAmount);
@@ -146,6 +147,7 @@ const main = async () => {
             chance,
             slugIntervalTimestamp,
           });
+          dataRecord.pin();
           logInfo(`监听仓位返回结果: ${action}`);
 
           const holdTime = Date.now() - buyTime;

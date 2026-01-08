@@ -4,11 +4,13 @@ import * as path from "path";
 export interface DataRecordsConfig {
   appName: string; // 应用名称，必填
   dataDir?: string; // 数据目录，默认为 './data'
+  pinRange?: number; // pin 标记前后保留的数据条数，默认为 30
 }
 
 // 默认配置
 const DEFAULT_CONFIG: Required<Omit<DataRecordsConfig, "appName">> = {
   dataDir: "./data",
+  pinRange: 30,
 };
 
 /**
@@ -21,6 +23,7 @@ const DEFAULT_CONFIG: Required<Omit<DataRecordsConfig, "appName">> = {
  * - 调用 saveToJson 方法时一次性写入 JSON 文件
  * - 日期在 setTraceId 时按北京时间（UTC+8）计算并保存，后续保存文件时使用该日期
  * - 支持清理旧数据
+ * - 支持 pin() 打点功能，保存时只保存标记点前后指定条数的数据
  */
 export class DataRecords {
   private config: Required<DataRecordsConfig>;
@@ -29,6 +32,9 @@ export class DataRecords {
   private dataStorage: Map<string, Record<string, any[]>> = new Map();
   // 存储每个 traceId 对应的日期文件夹名称：traceId -> dateFolder
   private traceIdDateMap: Map<string, string> = new Map();
+  // 存储每个 traceId 的 pin 标记：traceId -> {dataName: [pinIndex1, pinIndex2, ...]}
+  // pinIndex 表示该 dataName 在 pin 时的数组索引位置
+  private pinMarks: Map<string, Record<string, number[]>> = new Map();
 
   constructor(config: DataRecordsConfig) {
     if (!config.appName) {
@@ -83,6 +89,10 @@ export class DataRecords {
     if (!this.dataStorage.has(traceId)) {
       this.dataStorage.set(traceId, {});
     }
+    // 如果该 traceId 还没有 pin 标记存储，初始化它
+    if (!this.pinMarks.has(traceId)) {
+      this.pinMarks.set(traceId, {});
+    }
     // 计算并保存当前日期（如果该 traceId 还没有日期，则设置）
     if (!this.traceIdDateMap.has(traceId)) {
       const dateFolder = this.getDateFolderName();
@@ -116,7 +126,76 @@ export class DataRecords {
   }
 
   /**
+   * 打点标记
+   * 记录当前时间点每个 dataName 的数据索引位置
+   * 可以在数据记录过程中多次调用，用于标记关键时间点
+   */
+  pin(): void {
+    if (!this.traceId) {
+      throw new Error("请先调用 setTraceId 设置 traceId");
+    }
+
+    // 获取或创建当前 traceId 的 pin 标记存储
+    if (!this.pinMarks.has(this.traceId)) {
+      this.pinMarks.set(this.traceId, {});
+    }
+    const tracePins = this.pinMarks.get(this.traceId)!;
+
+    // 获取当前 traceId 的数据存储
+    const traceData = this.dataStorage.get(this.traceId);
+    if (!traceData) {
+      return; // 没有数据，不需要打点
+    }
+
+    // 遍历所有 dataName，记录当前数组长度作为 pin 索引
+    for (const dataName in traceData) {
+      if (!tracePins[dataName]) {
+        tracePins[dataName] = [];
+      }
+      // 记录当前数组长度（即下一个数据的索引位置，也就是当前最后一个数据的索引+1）
+      const currentIndex = traceData[dataName].length;
+      tracePins[dataName].push(currentIndex);
+    }
+  }
+
+  /**
+   * 根据 pin 标记过滤数据，只保留每个标记点前后指定条数的数据
+   * @param dataArray 原始数据数组
+   * @param pinIndices pin 标记的索引数组
+   * @param range 前后保留的条数
+   * @returns 过滤后的数据数组
+   */
+  private filterDataByPins(dataArray: any[], pinIndices: number[], range: number): any[] {
+    if (pinIndices.length === 0) {
+      // 如果没有 pin 标记，返回所有数据
+      return dataArray;
+    }
+
+    // 使用 Set 来存储需要保留的索引，自动去重
+    const indicesToKeep = new Set<number>();
+
+    // 遍历每个 pin 标记
+    for (const pinIndex of pinIndices) {
+      // 计算起始和结束索引
+      const startIndex = Math.max(0, pinIndex - range);
+      const endIndex = Math.min(dataArray.length, pinIndex + range);
+
+      // 将范围内的所有索引添加到 Set 中
+      for (let i = startIndex; i < endIndex; i++) {
+        indicesToKeep.add(i);
+      }
+    }
+
+    // 将 Set 转换为排序后的数组
+    const sortedIndices = Array.from(indicesToKeep).sort((a, b) => a - b);
+
+    // 根据索引提取数据
+    return sortedIndices.map((index) => dataArray[index]);
+  }
+
+  /**
    * 将指定 traceId 的数据保存到 JSON 文件
+   * 如果存在 pin 标记，则只保存每个标记点前后指定条数的数据
    * @param traceId 要保存的 traceId，如果不提供则使用当前 traceId
    * @returns 返回保存的文件路径，如果数据为空则返回 null
    */
@@ -132,6 +211,42 @@ export class DataRecords {
       return null; // 没有数据，不创建文件
     }
 
+    // 获取该 traceId 的 pin 标记
+    const tracePins = this.pinMarks.get(targetTraceId) || {};
+
+    // 如果存在 pin 标记，则根据标记过滤数据
+    let dataToSave: Record<string, any[]> = traceData;
+    const hasPins = Object.keys(tracePins).length > 0;
+
+    if (hasPins) {
+      dataToSave = {};
+      // 遍历每个 dataName，根据 pin 标记过滤数据
+      for (const dataName in traceData) {
+        const originalData = traceData[dataName];
+        const pinIndices = tracePins[dataName] || [];
+
+        if (pinIndices.length > 0) {
+          // 有 pin 标记，过滤数据
+          dataToSave[dataName] = this.filterDataByPins(
+            originalData,
+            pinIndices,
+            this.config.pinRange
+          );
+        } else {
+          // 该 dataName 没有 pin 标记，保留所有数据
+          dataToSave[dataName] = originalData;
+        }
+      }
+    }
+
+    // 检查过滤后的数据是否为空
+    if (
+      Object.keys(dataToSave).length === 0 ||
+      Object.values(dataToSave).every((arr) => arr.length === 0)
+    ) {
+      return null; // 过滤后没有数据，不创建文件
+    }
+
     // 获取该 traceId 对应的日期（在 setTraceId 时已计算）
     const dateFolder = this.traceIdDateMap.get(targetTraceId);
     if (!dateFolder) {
@@ -143,7 +258,7 @@ export class DataRecords {
 
     try {
       // 将数据对象序列化为 JSON（格式化输出，使用 2 个空格缩进）
-      const jsonContent = JSON.stringify(traceData);
+      const jsonContent = JSON.stringify(dataToSave);
 
       // 同步写入文件
       fs.writeFileSync(filePath, jsonContent, "utf8");
@@ -259,6 +374,8 @@ export class DataRecords {
     this.dataStorage.clear();
     // 清空日期映射
     this.traceIdDateMap.clear();
+    // 清空 pin 标记
+    this.pinMarks.clear();
     this.traceId = "";
   }
 }

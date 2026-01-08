@@ -180,6 +180,7 @@ export const runPolyWynn = async () => {
             }
 
             if (tokenChanceDetails) {
+              dataRecord.pin();
               logInfo(`💡找到机会`, omit(tokenChanceDetails, ["orderbookSummary"]));
               logInfo(`准备购买...`, {
                 balance,
@@ -200,6 +201,7 @@ export const runPolyWynn = async () => {
               }
             } else if (!boughtOrder) {
               logInfo(`🈚️没有找到机会, 跳过本局购买,等待下一轮开始...`);
+              dataRecord.pin();
               tradeReport.addReport("result", {
                 result: "skipped",
               });
@@ -224,6 +226,7 @@ export const runPolyWynn = async () => {
                 watchingPriceChangeTimeout,
                 slugIntervalTimestamp
               );
+              dataRecord.pin();
               currentPrice = getDataFlowInstances()?.polyPriceWs.getLatestPriceData();
               logInfo(
                 `🤔监控仓位结果: ${action}, priceToBeat: ${priceToBeat}, currentPrice: ${currentPrice?.value}, outcome: ${boughtOrder.outcome}`
@@ -295,6 +298,7 @@ export const runPolyWynn = async () => {
         }
       }
 
+      dataRecord.pin();
       await waitFor(5 * 1000);
 
       logInfo(`断开与PolyPriceWs的连接`);
