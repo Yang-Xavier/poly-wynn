@@ -1,7 +1,6 @@
 import { getEncryptedConfig } from "@shared/encryptConfig";
 
 const commonConfig = {
-  marketTag: "eth",
   clobHost: "https://clob.polymarket.com",
   gammaHost: "https://gamma-api.polymarket.com",
   dataHost: "https://data-api.polymarket.com",
@@ -91,9 +90,9 @@ export function getGlobalConfig() {
   // 从json文件中读取config
   if (process && process.env && process.env.MARKET) {
     if (process.env.MARKET === "eth") {
-      return { ...commonConfig, ...ethConfig };
+      return { ...commonConfig, ...ethConfig, marketTag: "eth" };
     } else if (process.env.MARKET === "btc") {
-      return { ...commonConfig, ...btcConfig };
+      return { ...commonConfig, ...btcConfig, marketTag: "btc" };
     }
   }
   return commonConfig;
