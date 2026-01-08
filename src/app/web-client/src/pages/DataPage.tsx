@@ -247,7 +247,10 @@ function DataPage() {
         ) : (
           Object.keys(displayData).map((dataName) => (
             <div key={dataName} className="data-group">
-              <h2 className="data-group-title">{dataName}</h2>
+              <h2 className="data-group-title">
+                {dataName}{" "}
+                <span className="data-count">(共 {displayData[dataName].length} 条)</span>
+              </h2>
               <div className="data-list">
                 {displayData[dataName].map((item, index) => (
                   <div key={index} className="data-item">
