@@ -50,6 +50,38 @@
   color: #ef4444;
 }
 
+.today-profit-bar {
+  background: #2d2d2d;
+  border-radius: 8px;
+  padding: 1.5rem 2rem;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  border: 1px solid #3d3d3d;
+}
+
+.today-profit-label {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #e5e5e5;
+}
+
+.today-profit-value {
+  font-size: 1.8rem;
+  font-weight: bold;
+  font-family: monospace;
+}
+
+.today-profit-value.positive {
+  color: #10b981;
+}
+
+.today-profit-value.negative {
+  color: #ef4444;
+}
+
 .reports-list {
   display: flex;
   flex-direction: column;
@@ -382,5 +414,20 @@
 
   .balance {
     margin-left: 0;
+  }
+
+  .today-profit-bar {
+    padding: 1rem 1.5rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .today-profit-label {
+    font-size: 1rem;
+  }
+
+  .today-profit-value {
+    font-size: 1.5rem;
   }
 }
