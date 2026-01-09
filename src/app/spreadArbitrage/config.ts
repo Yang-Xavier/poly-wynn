@@ -1,7 +1,5 @@
-import { configFactory } from "@shared/configFactory";
-
 const config = {
-  marketTag: "btc",
+  marketTag: "eth",
 
   delayToStart: 3 * 60 * 1000, // 延迟开始时间
   buyingAmountFactor: 0.1, // 购买金额因子
