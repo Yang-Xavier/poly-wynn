@@ -3,7 +3,7 @@ import { TMarketResponseData } from "@typings/gammaData";
 import dataFlow from "./utils/dataFlow";
 import { getConfig } from "./config";
 import { calculateProbability } from "@shared/algorithm/bsm";
-import { customTypeLog } from "./logger";
+import { customTypeLog, logInfo } from "./logger";
 import { race } from "@shared/utils/race";
 import { OUTCOMES_ENUM, WATCH_POSITION_ACTION_ENUM } from "@shared/constants";
 import { predictSpreadChange } from "@shared/algorithm/spreadPredictor";
@@ -41,13 +41,15 @@ export const findChance = async (params: {
           assetIdMapOutcome[OUTCOMES_ENUM.Down]
         );
 
-        const upBestAsk = upOrderbook[assetIdMapOutcome[OUTCOMES_ENUM.Up]].bestAsk ?? 0;
-        const downBestAsk = downOrderbook[assetIdMapOutcome[OUTCOMES_ENUM.Down]].bestAsk ?? 0;
+        const upBestAsk = upOrderbook[assetIdMapOutcome[OUTCOMES_ENUM.Up]]?.bestAsk ?? 0;
+        const downBestAsk = downOrderbook[assetIdMapOutcome[OUTCOMES_ENUM.Down]]?.bestAsk ?? 0;
         const polyPriceHistory = dataFlowInstances.polyPriceWs.getPriceHistory();
         const bnPriceHistory = dataFlowInstances.bnPriceWs.getPriceHistory();
 
-        if (!polyPrice || !upOrderbook || !downOrderbook || upBestAsk === 0 || downBestAsk === 0)
+        if (!polyPrice || !upOrderbook || !downOrderbook || upBestAsk === 0 || downBestAsk === 0) {
+          logInfo(`没有获取到价格 或 订单簿数据`);
           return;
+        }
 
         if (
           Math.min(bnPriceHistory.length, polyPriceHistory.length) > config.startCalcMinDataPoints
