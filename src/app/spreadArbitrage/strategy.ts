@@ -30,6 +30,12 @@ export const findChance = async (params: {
 
   return await race(
     new Promise((resolve) => {
+      let predictPriceHistory = [];
+      dataFlowInstances.polyPriceWs.onPriceChange(() => {
+        if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) return;
+        predictPriceHistory = [...dataFlowInstances.polyPriceWs.getPriceHistory()];
+      });
+
       dataFlowInstances.bnPriceWs.onPriceChange((bnPrice) => {
         if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) return;
 
@@ -43,7 +49,7 @@ export const findChance = async (params: {
 
         const upBestAsk = upOrderbook[assetIdMapOutcome[OUTCOMES_ENUM.Up]]?.bestAsk ?? 0;
         const downBestAsk = downOrderbook[assetIdMapOutcome[OUTCOMES_ENUM.Down]]?.bestAsk ?? 0;
-        const polyPriceHistory = dataFlowInstances.polyPriceWs.getPriceHistory();
+
         const bnPriceHistory = dataFlowInstances.bnPriceWs.getPriceHistory();
 
         if (!polyPrice || !upOrderbook || !downOrderbook || upBestAsk === 0 || downBestAsk === 0) {
@@ -52,24 +58,24 @@ export const findChance = async (params: {
         }
 
         if (
-          Math.min(bnPriceHistory.length, polyPriceHistory.length) > config.startCalcMinDataPoints
+          Math.min(bnPriceHistory.length, predictPriceHistory.length) >
+          config.startCalcMinDataPoints
         ) {
           // 开始计算的最小数据量
           const { predictedNewPrice } = predictSpreadChange(
             bnPriceHistory,
-            polyPriceHistory,
+            predictPriceHistory,
             bnPrice.value,
             polyPrice.value
           );
 
+          predictPriceHistory.push({
+            value: predictedNewPrice,
+            timestamp: Date.now(),
+          });
+
           const bsmResult = calculateProbability(
-            [
-              ...polyPriceHistory,
-              {
-                value: predictedNewPrice,
-                timestamp: Date.now(),
-              },
-            ],
+            predictPriceHistory,
             priceToBeat,
             distanceToNextInterval(slugIntervalTimestamp)
           );
