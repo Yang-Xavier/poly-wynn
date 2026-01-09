@@ -42,7 +42,10 @@ export const waitForOrderMatched = async (orderId?: string, timeout: number = 30
       if (trade.taker_order_id === orderId) {
         const order = {
           ...trade,
-          size_matched: trade.size,
+          size_matched: trade.maker_orders.reduce(
+            (acc, curr) => acc + Number(curr.matched_amount),
+            0
+          ),
           original_size: trade.size,
           original_price: trade.price,
           orderId: trade.taker_order_id,
