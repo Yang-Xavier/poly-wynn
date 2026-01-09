@@ -211,6 +211,7 @@ class GammaData {
         side: "",
         original_size: position.size.toString(),
         size_matched: position.size.toString(),
+        received_size: position.size.toString(),
         price: position.avgPrice.toString(),
         outcome: position.outcome,
         expiration: "",

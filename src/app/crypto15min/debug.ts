@@ -4,7 +4,7 @@ import { redeemAllPositions } from "./utils/relayerRedeem";
 import { buy } from "./module/trade";
 import { getClobModule } from "./module/clob";
 import { OrderType, Side } from "@polymarket/clob-client";
-import { waitForOrderMatched } from "./utils/userTrade";
+import { waitForOrderMatched } from "@shared/utils/waitForOrderMatched";
 import { getDataFlowInstances, initializeDataFlow } from "./module/dataFlow";
 import { logInfo } from "./module/logger";
 
@@ -21,6 +21,9 @@ export const debug = async () => {
     side: Side.BUY,
     orderType: OrderType.FAK,
   });
-  const result = await waitForOrderMatched(orderID);
+  const result = await waitForOrderMatched({
+    orderId: orderID,
+    userWs: getDataFlowInstances().userWs,
+  });
   logInfo(`result: ${JSON.stringify(result)}`);
 };

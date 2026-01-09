@@ -29,6 +29,7 @@ import tradeReport from "./module/tradeReport";
 import { checkResultByPrice } from "./utils/checkResultByPrice";
 import redeemTaskManager from "./utils/redeemTaskManager";
 import { redeemAllPositions } from "./utils/relayerRedeem";
+import { TOrderResult } from "@shared/utils/waitForOrderMatched";
 
 const init = async () => {
   const clobModule = getClobModule();
@@ -163,8 +164,8 @@ export const runPolyWynn = async () => {
             );
 
             let tokenChanceDetails: any = null;
-            let boughtOrder: PolymarketOrderResult | null =
-              openOrders?.length > 0 ? openOrders[0] : null;
+            let boughtOrder: TOrderResult | null =
+              openOrders?.length > 0 ? (openOrders[0] as TOrderResult) : null;
 
             if (!boughtOrder) {
               logInfo(`没有持仓订单`);
@@ -237,7 +238,7 @@ export const runPolyWynn = async () => {
 
               if (action === TOKEN_ACTION_ENUM.sell) {
                 try {
-                  const { size_matched: boughtAmount } = boughtOrder;
+                  const { received_size: boughtAmount } = boughtOrder;
 
                   const sellResult = await mustSell({
                     amount: Number(boughtAmount),

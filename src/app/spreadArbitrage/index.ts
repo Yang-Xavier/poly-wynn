@@ -21,6 +21,7 @@ import dataRecord from "./dataRecord";
 import tradeReport from "./tradeReport";
 import { IOrderData } from "@typings/orderData";
 import { getUserpostionByMarketAsOrder } from "./utils/getUserPositionAsOrder";
+import { TOrderResult } from "@shared/utils/waitForOrderMatched";
 
 const setAllTraceId = (marketSlug: string) => {
   setTraceId(marketSlug);
@@ -69,18 +70,18 @@ const buyOrder = async ({ chance, buyAmount }: { chance: IChance; buyAmount: num
     chance.assetId,
     chance.buyPrice,
     buyAmount
-  )) as IOrderData;
+  )) as TOrderResult;
   if (!boughtOrder) {
     logInfo(`买入订单不存在`);
     // 进入下一次循环
     return false;
   }
   logInfo(`买入订单: ${JSON.stringify(boughtOrder)}`);
-  const { original_size, size_matched, price: boughtPrice } = boughtOrder;
+  const { original_size, received_size, price: boughtPrice } = boughtOrder;
 
   // 记录买入信息
   logInfo("buy", {
-    size: Number(size_matched) === 0 ? Number(original_size) : Number(size_matched),
+    size: Number(received_size),
     originalSize: Number(original_size),
     price: Number(boughtPrice),
     originalPrice: chance.buyPrice,
@@ -91,7 +92,7 @@ const buyOrder = async ({ chance, buyAmount }: { chance: IChance; buyAmount: num
     action: "buy",
     timestamp: Date.now(),
     price: chance.buyPrice,
-    amount: Number(boughtOrder.size_matched || boughtOrder.original_size),
+    amount: Number(boughtOrder.received_size),
     outcome: chance.outcome,
   });
   return boughtOrder;
@@ -102,7 +103,7 @@ const sellOrder = async ({
   slugIntervalTimestamp,
   boughtTime,
 }: {
-  boughtOrder: IOrderData;
+  boughtOrder: TOrderResult;
   slugIntervalTimestamp: number;
   boughtTime: number;
 }) => {

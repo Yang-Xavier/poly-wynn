@@ -1,11 +1,12 @@
 import { OrderType, Side } from "@polymarket/clob-client";
-import { getClobModule, PolymarketOrderResult } from "./clob";
+import { getClobModule } from "./clob";
 import { logError, logInfo } from "./logger";
 import { distanceToNextInterval, waitFor } from "@crypto15min/utils/tools";
 import { getGlobalConfig } from "@crypto15min/utils/config";
 import { getGammaDataModule } from "./gammaData";
 import tradeReport from "@crypto15min/module/tradeReport";
-import { waitForOrderMatched } from "@crypto15min/utils/userTrade";
+import { TOrderResult, waitForOrderMatched } from "@shared/utils/waitForOrderMatched";
+import { getDataFlowInstances } from "./dataFlow";
 
 export const buy = async ({
   tokenId,
@@ -17,8 +18,8 @@ export const buy = async ({
   amount?: number;
   retryCount?: number;
   slugIntervalTimestamp: number;
-}): Promise<PolymarketOrderResult | null> => {
-  let result: PolymarketOrderResult | null = null;
+}): Promise<TOrderResult | null> => {
+  let result: TOrderResult | null = null;
   const clobModule = getClobModule();
   let count = retryCount;
 
@@ -33,13 +34,17 @@ export const buy = async ({
       });
       if (orderID) {
         const timestamp = Date.now();
-        result = (await waitForOrderMatched(orderID)) as PolymarketOrderResult;
+        result = (await waitForOrderMatched({
+          orderId: orderID,
+          userWs: getDataFlowInstances().userWs,
+          logInfo,
+        })) as TOrderResult;
         logInfo(`购买完成...`, { orderID });
 
         tradeReport.addReport("trade", {
           action: "buy",
           price: Number(result?.price),
-          amount: Number(result?.size_matched || result?.original_size),
+          amount: Number(result?.received_size || result?.size_matched || result?.original_size),
           outcome: result?.outcome,
           timestamp,
         });
@@ -61,9 +66,9 @@ export const buyEnough = async ({
   tokenId: string;
   amount: number;
   slugIntervalTimestamp: number;
-}): Promise<PolymarketOrderResult | null> => {
+}): Promise<TOrderResult | null> => {
   const globalConfig = getGlobalConfig();
-  const buyResults: PolymarketOrderResult[] = [];
+  const buyResults: TOrderResult[] = [];
   let buyCount = globalConfig.stratgegy.buyingMaxSplit;
   let remainAmount = amount;
 
@@ -89,6 +94,7 @@ export const buyEnough = async ({
     }
   }
 
+  const totalReceivedSize = buyResults.reduce((acc, curr) => acc + Number(curr.received_size), 0);
   const totalSizeMatched = buyResults.reduce((acc, curr) => acc + Number(curr.size_matched), 0);
   const totalPriceAmount = buyResults.reduce(
     (acc, curr) => acc + Number(curr.price) * Number(curr.size_matched),
@@ -100,7 +106,8 @@ export const buyEnough = async ({
   if (lastBuyResult && lastBuyResult.status.toUpperCase() === "MATCHED") {
     return Object.assign(lastBuyResult, {
       size_matched: totalSizeMatched,
-      avgPrice: avgPrice,
+      received_size: totalReceivedSize,
+      price: avgPrice,
     });
   }
   return null;
@@ -114,8 +121,8 @@ export const mustSell = async ({
   tokenId: string;
   amount?: number;
   slugIntervalTimestamp?: number;
-}): Promise<PolymarketOrderResult | null> => {
-  let result: PolymarketOrderResult | null = null;
+}): Promise<TOrderResult | null> => {
+  let result: TOrderResult | null = null;
   let count = 0;
 
   while (!result && distanceToNextInterval(slugIntervalTimestamp) > 0) {
@@ -131,7 +138,7 @@ export const mustSell = async ({
       if (resp.orderID) {
         const timestamp = Date.now();
         logInfo(`卖出完成...`, { orderID: resp.orderID });
-        result = (await waitForOrderMatched(resp.orderID)) as PolymarketOrderResult;
+        result = (await waitForOrderMatched(resp.orderID)) as TOrderResult;
         logInfo(`卖出结果: ${JSON.stringify(result || {})}`);
         tradeReport.addReport("trade", {
           action: "sell",
