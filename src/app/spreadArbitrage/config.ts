@@ -10,6 +10,10 @@ const config = {
   stopProfitFactor: 0.5, // 止盈因子
   deltaRateThreshold: 0.5, // 价差阈值
   bsmProbThreshold: 0.2, // 概率阈值
+
+  funderAddress: "0x8dF2E7574F5E97103F037ed45fB323FdBeABEEA8", // 资金地址
 };
 
-export const getConfig = configFactory(config);
+export const getConfig = () => {
+  return config;
+};

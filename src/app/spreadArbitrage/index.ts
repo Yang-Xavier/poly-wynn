@@ -219,7 +219,7 @@ const main = async () => {
         logInfo(`查询持仓订单...`);
         [boughtOrder] = await getUserpostionByMarketAsOrder(
           market.conditionId,
-          config.account.funderAddress
+          config.funderAddress
         );
         logInfo(`查询持仓订单成功: ${JSON.stringify(boughtOrder)}`);
 
