@@ -45,7 +45,8 @@ const ethConfig = {
     buyingAmountFactor: 0.2,
     limitBuyCountInARoundOf15min: 1,
 
-    sellProbabilityThreshold: 0.4,
+    sellProbabilityThreshold: 0.45,
+    sellPredictProbabilityThreshold: 0.35,
 
     bestAskThreshold: 0.95,
 
@@ -71,6 +72,7 @@ const btcConfig = {
     limitBuyCountInARoundOf15min: 1,
 
     sellProbabilityThreshold: 0.4,
+    sellPredictProbabilityThreshold: 0.35,
 
     bestAskThreshold: 0.95,
 

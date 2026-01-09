@@ -288,7 +288,8 @@ export const watchPosition = async (
         const predictwinProbability = predictSide === outcome ? winProbability : 1 - winProbability;
 
         if (
-          predictwinProbability < globalConfig.stratgegy.sellProbabilityThreshold &&
+          predictwinProbability < globalConfig.stratgegy.sellPredictProbabilityThreshold &&
+          bestBid < globalConfig.stratgegy.sellProbabilityThreshold &&
           predictSide === outcome
         ) {
           resolved = true;
