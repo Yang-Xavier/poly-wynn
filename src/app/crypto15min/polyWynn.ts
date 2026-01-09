@@ -45,6 +45,7 @@ export const runPolyWynn = async () => {
 
   runIntervalFn(async () => {
     let buyCount = 0;
+    let action: TOKEN_ACTION_ENUM | null = null;
     const slugIntervalTimestamp = get15MinIntervalTimestamp();
     const marketSlug = getMarketSlug15Min(globalConfig.marketTag, slugIntervalTimestamp);
     setTraceId(marketSlug);
@@ -146,6 +147,8 @@ export const runPolyWynn = async () => {
         let restartTimes = 0;
         let redeemOrder: PolymarketOrderResult | null = null;
         while (distanceToNextInterval(slugIntervalTimestamp) > 0) {
+          let sold = false;
+
           try {
             if (restartTimes > 0) {
               logInfo(`策略重启次数: ${restartTimes}`);
@@ -219,7 +222,7 @@ export const runPolyWynn = async () => {
               logInfo(
                 `👀监控仓位... priceToBeat: ${priceToBeat}, currentPrice: ${currentPrice?.value}, outcome: ${boughtOrder.outcome}, timeout: ${watchingPriceChangeTimeout}`
               );
-              const action = await watchPosition(
+              action = await watchPosition(
                 market,
                 priceToBeat,
                 boughtOrder.outcome as OUTCOMES_ENUM,
@@ -248,22 +251,18 @@ export const runPolyWynn = async () => {
                       result: "sold",
                     });
                   } else {
-                    logInfo("卖出失败");
-                    logInfo("lost", boughtOrder);
-                    tradeReport.addReport("result", {
-                      result: "lost",
-                    });
+                    logInfo("卖出失败, 等待最后验证结果...");
                   }
                 } catch (error) {
                   logError(`卖出失败: ${error}`);
                 }
                 await logAccountBalance();
-              } else {
-                redeemOrder = boughtOrder;
               }
+
+              redeemOrder = boughtOrder;
             }
 
-            if (buyCount >= globalConfig.stratgegy.limitBuyCountInARoundOf15min && !redeemOrder) {
+            if (buyCount >= globalConfig.stratgegy.limitBuyCountInARoundOf15min) {
               logInfo(
                 `购买次数超过限制(${globalConfig.stratgegy.limitBuyCountInARoundOf15min})次, 跳过本局购买,等待下一轮开始...`
               );
@@ -297,7 +296,6 @@ export const runPolyWynn = async () => {
           }
         }
       }
-
       dataRecord.pin();
       await waitFor(5 * 1000);
 
