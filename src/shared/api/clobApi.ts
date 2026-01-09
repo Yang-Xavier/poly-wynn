@@ -69,6 +69,7 @@ export default {
         {
           tokenID,
           side,
+          price,
           amount: Number(amount),
         },
         // negRisk 表示是否开启负风险报价（Negative Risk Quotes）。
