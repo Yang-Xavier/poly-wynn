@@ -60,7 +60,7 @@ export const waitForOrderMatched = async (orderId?: string, timeout: number = 30
 export const buy = async (assetId: string, price: number, amount: number) => {
   try {
     logInfo(`下单...`, { assetId, price, amount });
-    const resp = await clobApi.postMarketOrder({ tokenID: assetId, side: Side.BUY, amount });
+    const resp = await clobApi.postMarketOrder({ tokenID: assetId, price, side: Side.BUY, amount });
     logInfo(`下单完成...`, { resp });
     return resp;
   } catch (err) {
