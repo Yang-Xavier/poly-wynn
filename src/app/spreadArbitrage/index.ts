@@ -203,7 +203,10 @@ const main = async () => {
 
       logInfo(`策略开始...`);
       let buyAccount = 0;
-      while (distanceToNextInterval(slugIntervalTimestamp) > 0) {
+      while (
+        distanceToNextInterval(slugIntervalTimestamp) > 0 &&
+        buyAccount < config.maxBuyAccount
+      ) {
         let boughtOrder;
         let boughtTime;
 
