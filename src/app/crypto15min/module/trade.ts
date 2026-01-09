@@ -33,7 +33,7 @@ export const buy = async ({
       });
       if (orderID) {
         const timestamp = Date.now();
-        result = await waitForOrderMatched(orderID);
+        result = (await waitForOrderMatched(orderID)) as PolymarketOrderResult;
         logInfo(`购买完成...`, { orderID });
 
         tradeReport.addReport("trade", {
@@ -131,7 +131,7 @@ export const mustSell = async ({
       if (resp.orderID) {
         const timestamp = Date.now();
         logInfo(`卖出完成...`, { orderID: resp.orderID });
-        result = await waitForOrderMatched(resp.orderID);
+        result = (await waitForOrderMatched(resp.orderID)) as PolymarketOrderResult;
         logInfo(`卖出结果: ${JSON.stringify(result || {})}`);
         tradeReport.addReport("trade", {
           action: "sell",

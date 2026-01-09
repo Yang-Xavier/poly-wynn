@@ -2,6 +2,8 @@ import { Side } from "@polymarket/clob-client";
 import clobApi from "@shared/api/clobApi";
 import { waitFor } from "@shared/utils/waitFor";
 import { logInfo } from "@spreadArbitrage/logger";
+import dataFlow from "./dataFlow";
+import { IOrderData } from "@typings/orderData";
 
 export const mustGetOrder = async (orderId: string, timeout: number) => {
   const startTime = Date.now();
@@ -22,6 +24,39 @@ export const mustGetOrder = async (orderId: string, timeout: number) => {
   return null;
 };
 
+export const waitForOrderMatched = async (orderId?: string, timeout: number = 30 * 1000) => {
+  logInfo(`监听订单成交状态...${orderId}`);
+  let resolved = false;
+  return new Promise((resolve) => {
+    const timer = setTimeout(async () => {
+      if (resolved) return;
+      const order = await clobApi.getOrder({ orderId });
+      logInfo(`订单成交状态...${JSON.stringify(order)}`);
+      resolved = true;
+      resolve(order as IOrderData);
+    }, timeout);
+
+    dataFlow.getInstances()?.userWs.onUserTrade((trade) => {
+      if (resolved) return;
+      logInfo(`监听到有订单推送...${JSON.stringify(trade)}`);
+      if (trade.taker_order_id === orderId) {
+        const order = {
+          ...trade,
+          size_matched: trade.size,
+          original_size: trade.size,
+          original_price: trade.price,
+          orderId: trade.taker_order_id,
+        };
+
+        logInfo(`订单成交...${JSON.stringify(order)}`);
+        resolved = true;
+        resolve(order as unknown as IOrderData);
+        clearTimeout(timer);
+      }
+    });
+  });
+};
+
 export const buy = async (assetId: string, price: number, amount: number) => {
   try {
     logInfo(`下单...`, { assetId, price, amount });
@@ -32,6 +67,14 @@ export const buy = async (assetId: string, price: number, amount: number) => {
     logInfo(`下单失败...`, { err });
     return null;
   }
+};
+
+export const buyUntilMatched = async (assetId: string, price: number, amount: number) => {
+  const result = await buy(assetId, price, amount);
+  if (result?.orderID) {
+    return await waitForOrderMatched(result.orderID);
+  }
+  return null;
 };
 
 export const sellLimitOrder = async (tokenID: string, price: number, size: number) => {

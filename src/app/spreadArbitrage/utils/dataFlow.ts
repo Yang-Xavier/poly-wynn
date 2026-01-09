@@ -3,6 +3,8 @@ import { PolyPriceWs } from "@shared/ws/PolyPriceWs";
 import { PolyOrderBookWs } from "@shared/ws/PolyOrderBookWs";
 import { IWsLogger } from "@shared/ws/HighPerformanceWs";
 import { DataRecords } from "@shared/DataRecords";
+import { UserWs } from "@shared/ws/UserWs";
+import { getEncryptedConfig } from "@shared/encryptConfig";
 
 /**
  * 数据流实例接口
@@ -11,6 +13,7 @@ export interface DataFlowInstances {
   bnPriceWs: BnPriceWs;
   polyPriceWs: PolyPriceWs;
   polyOrderBookWs: PolyOrderBookWs;
+  userWs: UserWs;
 }
 
 // 全局变量：存储数据流实例（单例）
@@ -45,10 +48,22 @@ const initialize = (params: {
     dataRecord: params.dataRecord,
   });
 
+  // 创建 User Ws 实例
+  const userWs = new UserWs({
+    logger,
+    auth: {
+      apiKey: getEncryptedConfig().clobCreds.key,
+      secret: getEncryptedConfig().clobCreds.secret,
+      passphrase: getEncryptedConfig().clobCreds.passphrase,
+    },
+    dataRecord: params.dataRecord,
+  });
+
   dataFlowInstances = {
     bnPriceWs,
     polyPriceWs,
     polyOrderBookWs,
+    userWs,
   };
 
   return dataFlowInstances;
@@ -63,6 +78,7 @@ const destroy = (): void => {
     dataFlowInstances.bnPriceWs.cleanup();
     dataFlowInstances.polyPriceWs.cleanup();
     dataFlowInstances.polyOrderBookWs.cleanup();
+    dataFlowInstances.userWs.cleanup();
   }
   dataFlowInstances = null;
 };
