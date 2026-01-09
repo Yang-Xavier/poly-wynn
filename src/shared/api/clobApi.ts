@@ -54,6 +54,7 @@ export default {
     tickSize = "0.01",
     negRisk = false,
     orderType = OrderType.FAK, // 默认FAK
+    price,
   }: {
     tokenID: string;
     side: Side;
@@ -61,6 +62,7 @@ export default {
     tickSize?: string;
     negRisk?: boolean;
     orderType?: OrderType;
+    price?: number;
   }) {
     try {
       const resp = await clobClient!.createAndPostMarketOrder(

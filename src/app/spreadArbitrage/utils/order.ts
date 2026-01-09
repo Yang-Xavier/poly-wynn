@@ -89,13 +89,23 @@ export const sellLimitOrder = async (tokenID: string, price: number, size: numbe
   }
 };
 
-export const mustSell = async (assetId: string, amount: number, timeout: number = 60 * 1000) => {
+export const mustSell = async (
+  boughtOrder: IOrderData,
+  price: number,
+  timeout: number = 60 * 1000
+) => {
+  const { asset_id, size_matched } = boughtOrder;
   const startTime = Date.now();
   let retryCount = 0;
   while (new Date().getTime() - startTime < timeout) {
     try {
-      logInfo(`卖出...`);
-      const resp = await clobApi.postMarketOrder({ tokenID: assetId, side: Side.SELL, amount });
+      logInfo(`卖出... sellPrice: ${price}, ${JSON.stringify(boughtOrder)}`);
+      const resp = await clobApi.postMarketOrder({
+        tokenID: asset_id,
+        side: Side.SELL,
+        amount: Number(size_matched),
+        price,
+      });
       logInfo(`卖出完成...`, { resp });
       if (resp.orderID) {
         return resp;

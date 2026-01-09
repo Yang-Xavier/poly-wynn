@@ -106,16 +106,14 @@ const sellOrder = async ({
   slugIntervalTimestamp: number;
   boughtTime: number;
 }) => {
-  const {
-    size_matched: boughtSize,
-    original_size: boughtOriginalSize,
-    price: boughtPrice,
-    outcome: boughtOutcome,
-    asset_id: boughtAssetId,
-  } = boughtOrder;
+  const { price: boughtPrice, outcome: boughtOutcome } = boughtOrder;
+  const orderBook = dataFlow
+    .getInstances()
+    ?.polyOrderBookWs.getLatestOrderBookData(boughtOrder.asset_id);
+  const sellPrice = Number(orderBook?.[boughtOrder.asset_id]?.bestBid) || 0.01;
   const sellResult = await mustSell(
-    boughtAssetId,
-    Number(boughtSize) === 0 ? Number(boughtOriginalSize) : Number(boughtSize),
+    boughtOrder,
+    sellPrice,
     distanceToNextInterval(slugIntervalTimestamp)
   );
   if (!sellResult || !sellResult.orderID) {
