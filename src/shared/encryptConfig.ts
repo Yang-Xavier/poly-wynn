@@ -102,7 +102,7 @@ export function getEncryptedConfig(name?: string): any {
     const decryptedText = decrypt(encryptedData, key);
 
     // 解析 JSON
-    const config = JSON.parse(decryptedText);
+    const config = JSON.parse(decryptedText) as TEncryptedConfig;
 
     // 如果没有提供 name，返回整个配置对象
     if (!name) {
@@ -171,3 +171,29 @@ export function syncConfig(): void {
     throw error;
   }
 }
+
+export type TCreds = {
+  key: string;
+  secret: string;
+  passphrase: string;
+};
+
+export type TAccountConfig = {
+  email: string;
+  walletAddress: string;
+  funderAddress: string;
+  privKey: string;
+  clobCreds: TCreds;
+  builderCreds: TCreds;
+};
+
+export type TEncryptedConfig = {
+  apiAuth: {
+    binance: {
+      apiKey: string;
+      apiSecret: string;
+    };
+  };
+  account1: TAccountConfig;
+  account2: TAccountConfig;
+};

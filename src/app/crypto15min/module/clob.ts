@@ -6,7 +6,7 @@ import { Wallet } from "@ethersproject/wallet";
 import { awaitAxiosDataTo } from "@crypto15min/utils/awaitTo";
 import Proxy from "@shared/Proxy";
 import { logInfo } from "@crypto15min/module/logger";
-import { getGlobalConfig, getKeyConfig } from "@crypto15min/utils/config";
+import { getGlobalConfig } from "@crypto15min/utils/config";
 
 // 订单簿价格档位
 interface OrderLevel {
@@ -98,12 +98,11 @@ class Clob {
    * @returns ClobClient 凭证
    */
   private async getClobClientCreds() {
-    const { clobHost } = getGlobalConfig();
-    const { clobCreds, privKey } = getKeyConfig();
-    if (clobCreds) {
-      return clobCreds;
+    const { clobHost, account } = getGlobalConfig();
+    if (account.clobCreds) {
+      return account.clobCreds;
     }
-    const signer = new Wallet(privKey);
+    const signer = new Wallet(account.privKey);
     const creds = await new ClobClient(clobHost, 137, signer).deriveApiKey(0);
     return creds;
   }
@@ -114,12 +113,12 @@ class Clob {
     }
 
     const globalConfig = getGlobalConfig();
-    const keyConfig = getKeyConfig();
+
     const { clobHost: host, account } = globalConfig;
     const { funderAddress } = account;
     const signatureType = 1;
 
-    const signer = new Wallet(keyConfig.privKey);
+    const signer = new Wallet(account.privKey);
     const creds = await this.getClobClientCreds();
 
     this.clobApiBase = host;

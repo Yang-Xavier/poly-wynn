@@ -9,7 +9,7 @@ import {
 } from "@polymarket/builder-relayer-client";
 import { BuilderConfig } from "@polymarket/builder-signing-sdk";
 
-import { getGlobalConfig, getKeyConfig } from "@crypto15min/utils/config";
+import { getGlobalConfig } from "@crypto15min/utils/config";
 import { logError, logInfo } from "@crypto15min/module/logger";
 
 import dataApi from "@shared/api/dataApi";
@@ -68,13 +68,13 @@ export type RelayerRedeemConfig = {
  */
 function buildRelayerRedeemConfig(): RelayerRedeemConfig {
   const globalConfig = getGlobalConfig();
-  const redeemConfig = globalConfig.redeemConfig || {};
+  const redeemConfig = globalConfig.redeemConfig;
 
-  const relayerUrl: string = redeemConfig.relayerUrl;
+  const relayerUrl = redeemConfig.relayerUrl;
 
-  const rpcUrl: string | undefined = redeemConfig.rpcUrl;
-  const ctf: Address | undefined = redeemConfig.ctf;
-  const usdc: Address | undefined = redeemConfig.usdc;
+  const rpcUrl = redeemConfig.rpcUrl;
+  const ctf = redeemConfig.ctf;
+  const usdc = redeemConfig.usdc;
 
   if (!relayerUrl) {
     throw new Error("[RelayerRedeem] 缺少 relayerUrl 配置");
@@ -92,8 +92,8 @@ function buildRelayerRedeemConfig(): RelayerRedeemConfig {
   return {
     relayerUrl,
     rpcUrl,
-    ctf,
-    usdc,
+    ctf: ctf as Address,
+    usdc: usdc as Address,
     chainId: polygon.id,
   };
 }
@@ -102,9 +102,9 @@ function buildRelayerRedeemConfig(): RelayerRedeemConfig {
  * 步骤 2：根据私钥和 rpc 创建 viem 钱包，以及 BuilderConfig
  */
 function createWalletAndBuilder(config: RelayerRedeemConfig) {
-  const keyConfig = getKeyConfig();
+  const globalConfig = getGlobalConfig();
 
-  const privKey = keyConfig.privKey as Hex | undefined;
+  const privKey = globalConfig.account.privKey as Hex | undefined;
   if (!privKey) {
     throw new Error("[RelayerRedeem] 缺少私钥配置（keyConfig.privKey）");
   }
@@ -116,7 +116,7 @@ function createWalletAndBuilder(config: RelayerRedeemConfig) {
     account,
   });
 
-  const redeemCreds = keyConfig.builderCreds;
+  const redeemCreds = globalConfig.account.builderCreds;
   if (!redeemCreds?.key || !redeemCreds?.secret || !redeemCreds?.passphrase) {
     throw new Error("[RelayerRedeem] 缺少 redeemCreds（builder 本地 API Key）配置");
   }

@@ -1,4 +1,4 @@
-import { getEncryptedConfig } from "@shared/encryptConfig";
+import { getEncryptedConfig, TAccountConfig } from "@shared/encryptConfig";
 
 const commonConfig = {
   marketTag: "",
@@ -12,11 +12,7 @@ const commonConfig = {
     maxCacheSize: 1000,
   },
 
-  account: {
-    walletAddress: "0xadc6b5af3b65479a9c4122f32ed324dc2b4265c9",
-    funderAddress: "0x8dF2E7574F5E97103F037ed45fB323FdBeABEEA8",
-    balanceTokenAddress: "0x2791bca1f2de4661ed88a30c99a7a9449aa84174",
-  },
+  collateralAddress: "0x2791bca1f2de4661ed88a30c99a7a9449aa84174", // USDC
 
   redeemConfig: {
     relayerUrl: "https://relayer-v2.polymarket.com/",
@@ -34,6 +30,7 @@ const commonConfig = {
 };
 
 const ethConfig = {
+  accountId: "account1",
   stratgegy: {
     startCollectDataBefore: 600000,
     startStrategyBefore: 180000,
@@ -60,6 +57,7 @@ const ethConfig = {
 };
 
 const btcConfig = {
+  accountId: "account2",
   stratgegy: {
     startCollectDataBefore: 600000,
     startStrategyBefore: 180000,
@@ -85,24 +83,22 @@ const btcConfig = {
   },
 };
 
+type TGlobalConfig = typeof commonConfig &
+  typeof ethConfig &
+  typeof btcConfig & { account: TAccountConfig };
+
 /**
  * 获取全局配置对象
  */
-export function getGlobalConfig() {
+export function getGlobalConfig(): TGlobalConfig {
   // 从json文件中读取config
   if (process && process.env && process.env.MARKET) {
     if (process.env.MARKET === "eth") {
-      return { ...commonConfig, ...ethConfig, marketTag: "eth" };
+      const accountConfig = getEncryptedConfig(ethConfig.accountId) as TAccountConfig;
+      return { ...commonConfig, ...ethConfig, marketTag: "eth", account: accountConfig };
     } else if (process.env.MARKET === "btc") {
-      return { ...commonConfig, ...btcConfig, marketTag: "btc" };
+      const accountConfig = getEncryptedConfig(btcConfig.accountId) as TAccountConfig;
+      return { ...commonConfig, ...btcConfig, marketTag: "btc", account: accountConfig };
     }
   }
-  return commonConfig as typeof commonConfig & typeof ethConfig & typeof btcConfig;
-}
-
-export function getKeyConfig() {
-  // 从json文件中读取config
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const config = getEncryptedConfig();
-  return config;
 }

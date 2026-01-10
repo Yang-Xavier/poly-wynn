@@ -4,8 +4,9 @@ import { PolyOrderBookWs } from "@shared/ws/PolyOrderBookWs";
 import { IWsLogger } from "@shared/ws/HighPerformanceWs";
 import dataRecord from "./dataRecord";
 import { UserWs } from "@shared/ws/UserWs";
-import { getEncryptedConfig } from "@shared/encryptConfig";
+
 import { customTypeLog, logData, logError, logInfo } from "./logger";
+import { getGlobalConfig } from "@crypto15min/utils/config";
 
 /**
  * 数据流实例接口
@@ -33,6 +34,7 @@ export function initializeDataFlow(params: {
   if (dataFlowInstances) {
     return dataFlowInstances;
   }
+  const config = getGlobalConfig();
 
   const {
     logger = {
@@ -71,9 +73,9 @@ export function initializeDataFlow(params: {
     windowTime: 50,
     dataRecord,
     auth: {
-      apiKey: getEncryptedConfig().clobCreds.key,
-      secret: getEncryptedConfig().clobCreds.secret,
-      passphrase: getEncryptedConfig().clobCreds.passphrase,
+      apiKey: config.account.clobCreds.key,
+      secret: config.account.clobCreds.secret,
+      passphrase: config.account.clobCreds.passphrase,
     },
   });
 

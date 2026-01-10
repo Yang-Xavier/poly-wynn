@@ -1,3 +1,5 @@
+import { getEncryptedConfig, TAccountConfig } from "@shared/encryptConfig";
+
 const config = {
   marketTag: "eth",
 
@@ -8,10 +10,9 @@ const config = {
   stopProfitFactor: 0.5, // 止盈因子
   bsmProbThreshold: 0.17, // 概率阈值
   maxBuyAccount: 5, // 最大购买次数
-
-  funderAddress: "0x8dF2E7574F5E97103F037ed45fB323FdBeABEEA8", // 资金地址
 };
 
 export const getConfig = () => {
-  return config;
+  const accountConfig = getEncryptedConfig("account1") as TAccountConfig;
+  return { ...config, account: accountConfig };
 };

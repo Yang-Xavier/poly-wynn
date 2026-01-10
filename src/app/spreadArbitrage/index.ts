@@ -19,7 +19,6 @@ import { WATCH_POSITION_ACTION_ENUM } from "@shared/constants";
 import { buyUntilMatched, mustGetOrder, mustSell } from "./utils/order";
 import dataRecord from "./dataRecord";
 import tradeReport from "./tradeReport";
-import { IOrderData } from "@typings/orderData";
 import { getUserpostionByMarketAsOrder } from "./utils/getUserPositionAsOrder";
 import { TOrderResult } from "@shared/utils/waitForOrderMatched";
 
@@ -99,19 +98,18 @@ const buyOrder = async ({ chance, buyAmount }: { chance: IChance; buyAmount: num
 };
 
 const sellOrder = async ({
+  sellPrice,
   boughtOrder,
   slugIntervalTimestamp,
   boughtTime,
 }: {
+  sellPrice: number;
   boughtOrder: TOrderResult;
   slugIntervalTimestamp: number;
   boughtTime: number;
 }) => {
   const { price: boughtPrice, outcome: boughtOutcome } = boughtOrder;
-  const orderBook = dataFlow
-    .getInstances()
-    ?.polyOrderBookWs.getLatestOrderBookData(boughtOrder.asset_id);
-  const sellPrice = Number(orderBook?.[boughtOrder.asset_id]?.bestBid) || 0.01;
+
   const sellResult = await mustSell(
     boughtOrder,
     sellPrice,
@@ -172,7 +170,7 @@ const clean = async () => {
 
 const main = async () => {
   const config = getConfig();
-  await clobApi.init();
+  await clobApi.init({ clobCreds: config.account.clobCreds, privKey: config.account.privKey });
 
   runIntervalFn(async () => {
     const slugIntervalTimestamp = get15MinIntervalTimestamp();
@@ -221,7 +219,7 @@ const main = async () => {
         logInfo(`查询持仓订单...`);
         [boughtOrder] = await getUserpostionByMarketAsOrder(
           market.conditionId,
-          config.funderAddress
+          config.account.funderAddress
         );
         logInfo(`查询持仓订单成功: ${JSON.stringify(boughtOrder)}`);
 
@@ -249,7 +247,7 @@ const main = async () => {
 
           if (boughtOrder) {
             logInfo(`监听仓位...`);
-            const { action } = await watchPosition({
+            const { action, price: sellPrice } = await watchPosition({
               chance,
               slugIntervalTimestamp,
             });
@@ -258,6 +256,7 @@ const main = async () => {
 
             if (action === WATCH_POSITION_ACTION_ENUM.sell) {
               const sellResult = await sellOrder({
+                sellPrice,
                 boughtOrder,
                 slugIntervalTimestamp,
                 boughtTime,
@@ -279,6 +278,7 @@ const main = async () => {
         } else {
           logInfo(`有持仓订单, 直接卖出...`);
           const sellResult = await sellOrder({
+            sellPrice: Number(0.01),
             boughtOrder,
             slugIntervalTimestamp,
             boughtTime: Date.now(),

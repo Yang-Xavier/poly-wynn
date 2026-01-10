@@ -46,7 +46,7 @@ export const logAccountBalance = async () => {
   const globalConfig = getGlobalConfig();
   const { formatted } = await getAccountBalance(
     globalConfig.account.funderAddress,
-    globalConfig.account.balanceTokenAddress
+    globalConfig.collateralAddress
   );
   logInfo("balance", formatted);
   tradeReport.addReport("balance", {

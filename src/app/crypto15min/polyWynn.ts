@@ -117,7 +117,7 @@ export const runPolyWynn = async () => {
 
       const { formatted: balance } = await getAccountBalance(
         globalConfig.account.funderAddress,
-        globalConfig.account.balanceTokenAddress
+        globalConfig.collateralAddress
       );
 
       positionAmount = Math.min(

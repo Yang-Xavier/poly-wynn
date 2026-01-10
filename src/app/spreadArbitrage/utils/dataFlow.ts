@@ -4,7 +4,7 @@ import { PolyOrderBookWs } from "@shared/ws/PolyOrderBookWs";
 import { IWsLogger } from "@shared/ws/HighPerformanceWs";
 import { DataRecords } from "@shared/DataRecords";
 import { UserWs } from "@shared/ws/UserWs";
-import { getEncryptedConfig } from "@shared/encryptConfig";
+import { getConfig } from "@spreadArbitrage/config";
 
 /**
  * 数据流实例接口
@@ -25,6 +25,7 @@ const initialize = (params: {
   dataRecord: DataRecords;
 }): DataFlowInstances => {
   const { logger } = params;
+  const config = getConfig();
 
   // 创建币安价格 WebSocket 实例
   const bnPriceWs = new BnPriceWs({
@@ -52,9 +53,9 @@ const initialize = (params: {
   const userWs = new UserWs({
     logger,
     auth: {
-      apiKey: getEncryptedConfig().clobCreds.key,
-      secret: getEncryptedConfig().clobCreds.secret,
-      passphrase: getEncryptedConfig().clobCreds.passphrase,
+      apiKey: config.account.clobCreds.key,
+      secret: config.account.clobCreds.secret,
+      passphrase: config.account.clobCreds.passphrase,
     },
     dataRecord: params.dataRecord,
   });
