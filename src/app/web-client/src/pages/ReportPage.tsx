@@ -87,7 +87,7 @@ function ReportPage() {
     // 例如: crypto15min-eth -> crypto15min (需要根据实际情况调整)
     // 这里先尝试直接使用 dappName，如果失败再尝试映射
     let appName = dappName;
-    
+
     // 如果 dappName 包含 "-"，尝试提取前面的部分作为 appName
     // 例如: crypto15min-eth -> crypto15min
     if (dappName.includes("-")) {
@@ -97,9 +97,7 @@ function ReportPage() {
     }
 
     try {
-      const response = await axios.get<ProcessResponse>(
-        `/api/process?appName=${appName}`
-      );
+      const response = await axios.get<ProcessResponse>(`/api/process?appName=${appName}`);
 
       if (response.data.success) {
         if (response.data.process) {
@@ -154,16 +152,15 @@ function ReportPage() {
     }
 
     try {
-      const response = await axios.post<ProcessControlResponse>(
-        `/api/process?appName=${appName}`,
-        { action }
-      );
+      const response = await axios.post<ProcessControlResponse>(`/api/process?appName=${appName}`, {
+        action,
+      });
 
       if (response.data.success) {
-        // 控制成功后，等待 1 秒后重新获取进程状态
+        // 控制成功后，等待 3 秒后重新获取进程状态
         setTimeout(async () => {
           await fetchProcessStatus();
-        }, 1000);
+        }, 3000);
       } else {
         // 如果第一次尝试失败，尝试使用完整的 dappName
         if (dappName !== appName) {
@@ -173,9 +170,10 @@ function ReportPage() {
               { action }
             );
             if (retryResponse.data.success) {
+              // 控制成功后，等待 3 秒后重新获取进程状态
               setTimeout(async () => {
                 await fetchProcessStatus();
-              }, 1000);
+              }, 3000);
               setControlling(false);
               return;
             }
@@ -234,12 +232,9 @@ function ReportPage() {
     fetchReport();
   }, [dappName, date]);
 
-  // 获取进程状态
+  // 获取进程状态（页面加载时获取一次）
   useEffect(() => {
     fetchProcessStatus();
-    // 每 5 秒自动刷新进程状态
-    const interval = setInterval(fetchProcessStatus, 5000);
-    return () => clearInterval(interval);
   }, [dappName, fetchProcessStatus]);
 
   // 获取result标签样式
@@ -300,15 +295,15 @@ function ReportPage() {
   // 格式化启动时间（北京时间）和运行时长
   const formatUptime = (uptime: number | undefined): string => {
     if (!uptime || uptime === 0 || isNaN(uptime)) return "未运行";
-    
+
     // uptime 是进程启动的时间戳（毫秒）
     const startTime = new Date(uptime);
-    
+
     // 验证日期是否有效
     if (isNaN(startTime.getTime())) {
       return "时间无效";
     }
-    
+
     // 转换为北京时间（UTC+8）
     const startTimeStr = startTime.toLocaleString("zh-CN", {
       timeZone: "Asia/Shanghai",
@@ -320,12 +315,12 @@ function ReportPage() {
       second: "2-digit",
       hour12: false,
     });
-    
+
     // 计算运行时长（秒）
     const now = Date.now();
     const durationSeconds = Math.floor((now - uptime) / 1000);
     const durationStr = formatDuration(durationSeconds);
-    
+
     // 返回：启动时间 (已运行 时长)
     return `${startTimeStr} (已运行 ${durationStr})`;
   };
@@ -333,7 +328,7 @@ function ReportPage() {
   // 获取进程状态显示文本
   const getProcessStatusText = (status: string | null): string => {
     if (!status) return "未知";
-    
+
     const statusMap: Record<string, string> = {
       online: "运行中",
       stopping: "停止中",
@@ -444,9 +439,7 @@ function ReportPage() {
                 </span>
                 <span className="process-status-separator">|</span>
                 <span className="process-status-label">启动时间:</span>
-                <span className="process-status-uptime">
-                  {formatUptime(processStatus.uptime)}
-                </span>
+                <span className="process-status-uptime">{formatUptime(processStatus.uptime)}</span>
               </>
             ) : (
               <span className="process-status-label">进程未找到</span>
