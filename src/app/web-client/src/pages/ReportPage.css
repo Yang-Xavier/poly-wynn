@@ -13,6 +13,10 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
+.report-header-top {
+  margin-bottom: 1rem;
+}
+
 .report-header h1 {
   margin: 0 0 1rem 0;
   font-size: 2rem;
@@ -27,6 +31,114 @@
 .info-item {
   font-size: 1rem;
   opacity: 0.9;
+}
+
+.process-status-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #3d3d3d;
+  flex-wrap: wrap;
+}
+
+.process-status-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.process-status-loading {
+  color: #9ca3af;
+  font-size: 0.9rem;
+}
+
+.process-status-error {
+  color: #ef4444;
+  font-size: 0.9rem;
+}
+
+.process-status-label {
+  font-size: 0.9rem;
+  color: #9ca3af;
+}
+
+.process-status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.process-status-badge.status-online {
+  background: #059669;
+  color: white;
+}
+
+.process-status-badge.status-stopped {
+  background: #4b5563;
+  color: white;
+}
+
+.process-status-separator {
+  color: #4d4d4d;
+  margin: 0 0.25rem;
+}
+
+.process-status-uptime {
+  font-size: 0.9rem;
+  color: #e5e5e5;
+  font-family: monospace;
+}
+
+.process-control-btn {
+  padding: 0.5rem 1.5rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 0.2s,
+    transform 0.2s,
+    opacity 0.2s;
+  white-space: nowrap;
+  min-width: 80px;
+}
+
+.process-control-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.process-control-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.process-control-btn:not(:disabled):active {
+  transform: translateY(0);
+}
+
+.process-control-btn.btn-start {
+  background: #10b981;
+  color: white;
+}
+
+.process-control-btn.btn-start:not(:disabled):hover {
+  background: #059669;
+}
+
+.process-control-btn.btn-stop {
+  background: #ef4444;
+  color: white;
+}
+
+.process-control-btn.btn-stop:not(:disabled):hover {
+  background: #dc2626;
 }
 
 .report-content {
@@ -453,6 +565,10 @@
     padding: 1rem;
   }
 
+  .report-header-top {
+    margin-bottom: 0.75rem;
+  }
+
   .report-header h1 {
     font-size: 1.5rem;
   }
@@ -460,6 +576,23 @@
   .report-info {
     flex-direction: column;
     gap: 0.5rem;
+  }
+
+  .process-status-section {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .process-status-info {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .process-control-btn {
+    width: 100%;
   }
 
   .report-header-row {
