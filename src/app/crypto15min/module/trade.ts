@@ -138,7 +138,11 @@ export const mustSell = async ({
       if (resp.orderID) {
         const timestamp = Date.now();
         logInfo(`卖出完成...`, { orderID: resp.orderID });
-        result = (await waitForOrderMatched(resp.orderID)) as TOrderResult;
+        result = (await waitForOrderMatched({
+          orderId: resp.orderID,
+          userWs: getDataFlowInstances().userWs,
+          logInfo,
+        })) as TOrderResult;
         logInfo(`卖出结果: ${JSON.stringify(result || {})}`);
         tradeReport.addReport("trade", {
           action: "sell",
