@@ -38,8 +38,8 @@ const ethConfig = {
 
     buyingRetryCount: 5,
     buyingMaxSplit: 3,
-    buyingMaxAmount: 50,
-    buyingAmountFactor: 1,
+    buyingMaxAmount: 100,
+    buyingAmountFactor: 0.5,
     limitBuyCountInARoundOf15min: 1,
 
     sellProbabilityThreshold: 0.45,
@@ -65,8 +65,8 @@ const btcConfig = {
 
     buyingRetryCount: 5,
     buyingMaxSplit: 3,
-    buyingMaxAmount: 50,
-    buyingAmountFactor: 1,
+    buyingMaxAmount: 100,
+    buyingAmountFactor: 0.5,
     limitBuyCountInARoundOf15min: 1,
 
     sellProbabilityThreshold: 0.4,
