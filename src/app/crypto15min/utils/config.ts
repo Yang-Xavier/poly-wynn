@@ -30,7 +30,7 @@ const commonConfig = {
 };
 
 const ethConfig = {
-  accountId: "account1",
+  accountId: "account3",
   stratgegy: {
     startCollectDataBefore: 600000,
     startStrategyBefore: 180000,
