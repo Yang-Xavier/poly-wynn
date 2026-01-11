@@ -39,7 +39,7 @@ const ethConfig = {
     buyingRetryCount: 5,
     buyingMaxSplit: 3,
     buyingMaxAmount: 100,
-    buyingAmountFactor: 0.5,
+    buyingAmountFactor: 0.2,
     buyLimitCountInARoundOf15min: 1,
     buyAcceptableWinProbabilityRange: [0.995, 0.95],
     buyBestAskThreshold: 0.9,
