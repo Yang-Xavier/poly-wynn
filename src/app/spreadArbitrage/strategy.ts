@@ -2,7 +2,7 @@ import { distanceToNextInterval, getAssetIdMapOutcome } from "@shared/marketUtil
 import { TMarketResponseData } from "@typings/gammaData";
 import dataFlow from "./utils/dataFlow";
 import { getConfig } from "./config";
-import { calculateProbability } from "@shared/algorithm/bsm";
+import { calculateProbabilityBasedOnBSM } from "@shared/algorithm/bsm";
 import { customTypeLog, logInfo } from "./logger";
 import { race } from "@shared/utils/race";
 import { OUTCOMES_ENUM, WATCH_POSITION_ACTION_ENUM } from "@shared/constants";
@@ -74,7 +74,7 @@ export const findChance = async (params: {
             timestamp: Date.now(),
           });
 
-          const bsmResult = calculateProbability(
+          const bsmResult = calculateProbabilityBasedOnBSM(
             predictPriceHistory,
             priceToBeat,
             distanceToNextInterval(slugIntervalTimestamp)

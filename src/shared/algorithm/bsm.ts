@@ -248,7 +248,7 @@ function calculateConfidence(priceHistory: PriceData[], timeToExpiryMs: number):
  * @param timeToExpiryMs 剩余时间（毫秒）
  * @returns 概率计算结果，包含probUp、probDown和confidence
  */
-export function calculateProbability(
+export function calculateProbabilityBasedOnBSM(
   priceHistory: PriceData[],
   baselinePrice: number,
   timeToExpiryMs: number

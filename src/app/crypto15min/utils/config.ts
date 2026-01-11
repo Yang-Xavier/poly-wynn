@@ -46,13 +46,6 @@ const ethConfig = {
 
     sellProbabilityThreshold: 0.45,
     sellPredictProbabilityThreshold: 0.35,
-
-    tailSweepConfig: {
-      minWinProbability: 0.99,
-      minEdge: -1,
-      maxFlipRisk: 0.1,
-      riskAversion: 2,
-    },
   },
 };
 
@@ -73,13 +66,6 @@ const btcConfig = {
 
     sellProbabilityThreshold: 0.4,
     sellPredictProbabilityThreshold: 0.35,
-
-    tailSweepConfig: {
-      minWinProbability: 0.99,
-      minEdge: -1,
-      maxFlipRisk: 0.1,
-      riskAversion: 2,
-    },
   },
 };
 

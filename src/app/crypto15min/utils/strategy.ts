@@ -4,12 +4,13 @@ import { race } from "./race";
 import { TOKEN_ACTION_ENUM, distanceToNextInterval } from "./tools";
 import { getGlobalConfig } from "./config";
 import { OUTCOMES_ENUM } from "./constans";
-import { decideTailSweep } from "./decision";
+import { decision } from "./decision";
 import { calcAttenuationFactor } from "./calc";
 import { getDataFlowInstances } from "@crypto15min/module/dataFlow";
 
 import { PriceData } from "@shared/ws/BnPriceWs";
 import { predictSpreadChange } from "@shared/algorithm/spreadPredictor";
+import { OrderBookData } from "@shared/ws/PolyOrderBookWs";
 
 const getOutcomeByAssetId = (market: MarketResponse, assetId: string) => {
   const { clobTokenIds, outcomes } = market;
@@ -18,13 +19,31 @@ const getOutcomeByAssetId = (market: MarketResponse, assetId: string) => {
   return JSON.parse(outcomes)[index] as string;
 };
 
-const getAssetIdMapOutcome = (market: MarketResponse) => {
+const getAssetIdToOutcomeMap = (market: MarketResponse) => {
   const outcomes: { [key: string]: string } = {};
   const tokenIds = JSON.parse(market.clobTokenIds) as string[];
   tokenIds.forEach((id) => {
     outcomes[getOutcomeByAssetId(market, id)] = id;
   });
   return outcomes;
+};
+
+const getOutcomeBestAskAndVolume = (
+  outcomes: { [key in OUTCOMES_ENUM]: string },
+  upOrderBook: OrderBookData,
+  downOrderBook: OrderBookData
+) => {
+  const bestAskAndVolume = {
+    [OUTCOMES_ENUM.Up]: {
+      bestAsk: Number(upOrderBook[outcomes[OUTCOMES_ENUM.Up]]?.bestAsk ?? 0).toFixed(2),
+      volume: upOrderBook[outcomes[OUTCOMES_ENUM.Up]]?.asksVolume ?? 0,
+    },
+    [OUTCOMES_ENUM.Down]: {
+      bestAsk: Number(downOrderBook[outcomes[OUTCOMES_ENUM.Down]]?.bestAsk ?? 0).toFixed(2),
+      volume: downOrderBook[outcomes[OUTCOMES_ENUM.Down]]?.asksVolume ?? 0,
+    },
+  };
+  return bestAskAndVolume;
 };
 
 export const findChance = async (
@@ -34,7 +53,7 @@ export const findChance = async (
   slugIntervalTimestamp: number
 ) => {
   const globalConfig = getGlobalConfig();
-  const outcomes = getAssetIdMapOutcome(market);
+  const outcomes = getAssetIdToOutcomeMap(market);
 
   logInfo(`[findChance] outcomes: ${JSON.stringify(outcomes)}`);
 
@@ -64,94 +83,93 @@ export const findChance = async (
             [OUTCOMES_ENUM.Up]: upOderBook[outcomes[OUTCOMES_ENUM.Up]],
             [OUTCOMES_ENUM.Down]: downOderBook[outcomes[OUTCOMES_ENUM.Down]],
           };
-          const bestAskOfOutcomes = {
-            [OUTCOMES_ENUM.Up]: upOderBook[outcomes[OUTCOMES_ENUM.Up]]?.bestAsk ?? 0,
-            [OUTCOMES_ENUM.Down]: downOderBook[outcomes[OUTCOMES_ENUM.Down]]?.bestAsk ?? 0,
-          };
-          const asksVolumeOfOutcomes = {
-            [OUTCOMES_ENUM.Up]: upOderBook[outcomes[OUTCOMES_ENUM.Up]]?.asksVolume ?? 0,
-            [OUTCOMES_ENUM.Down]: downOderBook[outcomes[OUTCOMES_ENUM.Down]]?.asksVolume ?? 0,
-          };
+          orderBookOfOutcomes[OUTCOMES_ENUM.Up].bestAsk = Number(
+            (orderBookOfOutcomes[OUTCOMES_ENUM.Up].bestAsk ?? 0).toFixed(2)
+          );
+          orderBookOfOutcomes[OUTCOMES_ENUM.Down].bestAsk = Number(
+            (orderBookOfOutcomes[OUTCOMES_ENUM.Down].bestAsk ?? 0).toFixed(2)
+          );
 
           if (
-            Math.max(bestAskOfOutcomes[OUTCOMES_ENUM.Up], bestAskOfOutcomes[OUTCOMES_ENUM.Down]) >=
-            globalConfig.stratgegy.buyBestAskThreshold
+            Math.min(
+              orderBookOfOutcomes[OUTCOMES_ENUM.Up].bestAsk,
+              orderBookOfOutcomes[OUTCOMES_ENUM.Down].bestAsk
+            ) <= 0 && // 没有订单可成交
+            Math.max(
+              orderBookOfOutcomes[OUTCOMES_ENUM.Up].bestAsk,
+              orderBookOfOutcomes[OUTCOMES_ENUM.Down].bestAsk
+            ) < globalConfig.stratgegy.buyBestAskThreshold // 小于成交阈值
           ) {
-            const historyPriceList = getDataFlowInstances()?.polyPriceWs.getPriceHistory();
-            const currentPrice = getDataFlowInstances()?.polyPriceWs.getLatestPriceData();
-            const tailSweepResult = decideTailSweep(
-              {
-                ticks: historyPriceList,
-                intervalStartPrice: priceToBeat,
-                timeToExpiryMs: distance,
-                upBestAsk: bestAskOfOutcomes[OUTCOMES_ENUM.Up],
-                downBestAsk: bestAskOfOutcomes[OUTCOMES_ENUM.Down],
-              },
-              globalConfig.stratgegy.tailSweepConfig
-            );
-            const acceptableWinProbability = calcAttenuationFactor(
-              [
-                [...globalConfig.stratgegy.buyAcceptableWinProbabilityRange].sort((a, b) => a - b), // 从小到大
-                [globalConfig.stratgegy.startStrategyBefore, 0].sort((a, b) => a - b), // 从小到大
-              ],
-              distance,
-              2,
-              0.8
-            );
-            if (
-              tailSweepResult.shouldBet &&
-              tailSweepResult.winProbability > acceptableWinProbability &&
-              bestAskOfOutcomes[tailSweepResult.side] >=
-                globalConfig.stratgegy.buyBestAskThreshold &&
-              bestAskOfOutcomes[tailSweepResult.side] <= 0.99
-            ) {
-              resolved = true;
-              resolve({
-                tokenId: outcomes[tailSweepResult.side],
-                outcome: tailSweepResult.side,
-                cryptoPrice: currentPrice,
-                bestAsk: Number(bestAskOfOutcomes[tailSweepResult.side].toFixed(2)),
-                asksVolume: asksVolumeOfOutcomes[tailSweepResult.side],
-                priceToBeat,
-              });
-              customTypeLog(
-                "strategy",
-                `[✅Buy] [polyOrderBookWs.onOrderBookChange] 
+            return;
+          }
+
+          const historyPriceList = getDataFlowInstances()?.polyPriceWs.getPriceHistory();
+          const currentPrice = getDataFlowInstances()?.polyPriceWs.getLatestPriceData();
+
+          const acceptableWinProbability = calcAttenuationFactor(
+            [
+              [...globalConfig.stratgegy.buyAcceptableWinProbabilityRange].sort((a, b) => a - b), // 从小到大
+              [globalConfig.stratgegy.startStrategyBefore, 0].sort((a, b) => a - b), // 从小到大
+            ],
+            distance,
+            2,
+            0.8
+          );
+
+          const decisionResult = decision(historyPriceList, priceToBeat, distance);
+
+          if (
+            decisionResult.winProbability > acceptableWinProbability && // 胜率高于阈值
+            orderBookOfOutcomes[decisionResult.side].bestAsk >=
+              globalConfig.stratgegy.buyBestAskThreshold && // 订单簿BestAsk 高于阈值
+            orderBookOfOutcomes[decisionResult.side].bestAsk <= 0.99 // 有订单
+          ) {
+            resolved = true;
+            resolve({
+              tokenId: outcomes[decisionResult.side],
+              outcome: decisionResult.side,
+              cryptoPrice: currentPrice,
+              bestAsk: Number(orderBookOfOutcomes[decisionResult.side].bestAsk.toFixed(2)),
+              asksVolume: orderBookOfOutcomes[decisionResult.side].asksVolume,
+              priceToBeat,
+            });
+            customTypeLog(
+              "strategy",
+              `[✅Buy] [polyOrderBookWs.onOrderBookChange] 
                 ${JSON.stringify({
-                  shouldBet: tailSweepResult.shouldBet,
-                  side: tailSweepResult.side,
+                  side: decisionResult.side,
                   acceptableWinProbability,
-                  winProbability: tailSweepResult.winProbability,
-                  isAcceptableWinProbability:
-                    tailSweepResult.winProbability > acceptableWinProbability,
-                  bestAsk: bestAskOfOutcomes[tailSweepResult.side],
+                  winProbability: decisionResult.winProbability,
+                  confidence: decisionResult.confidence,
+                  bestAsk: orderBookOfOutcomes[decisionResult.side].bestAsk,
                   priceToBeat,
                   currentPrice: currentPrice?.value,
-                  asksVolume: asksVolumeOfOutcomes[tailSweepResult.side],
-                  cost: Date.now() - orderBookOfOutcomes[tailSweepResult.side].receivedAt,
+                  asksVolume: orderBookOfOutcomes[decisionResult.side].asksVolume,
+                  probabilityBasedOnGBM: decisionResult.probabilityBasedOnGBM,
+                  probabilityBasedOnBSM: decisionResult.probabilityBasedOnBSM,
+                  cost: Date.now() - orderBookOfOutcomes[decisionResult.side].receivedAt,
                 })}
                 `
-              );
-            } else {
-              customTypeLog(
-                "strategy",
-                `[⏩Wait] [polyOrderBookWs.onOrderBookChange] 
+            );
+          } else {
+            customTypeLog(
+              "strategy",
+              `[⏩Wait] [polyOrderBookWs.onOrderBookChange] 
                 ${JSON.stringify({
-                  shouldBet: tailSweepResult.shouldBet,
-                  side: tailSweepResult.side,
+                  side: decisionResult.side,
                   acceptableWinProbability,
-                  winProbability: tailSweepResult.winProbability,
-                  isAcceptableWinProbability:
-                    tailSweepResult.winProbability > acceptableWinProbability,
-                  bestAsk: bestAskOfOutcomes[tailSweepResult.side],
+                  winProbability: decisionResult.winProbability,
+                  confidence: decisionResult.confidence,
+                  bestAsk: orderBookOfOutcomes[decisionResult.side].bestAsk,
                   priceToBeat,
                   currentPrice: currentPrice?.value,
-                  asksVolume: asksVolumeOfOutcomes[tailSweepResult.side],
-                  cost: Date.now() - orderBookOfOutcomes[tailSweepResult.side].receivedAt,
+                  asksVolume: orderBookOfOutcomes[decisionResult.side].asksVolume,
+                  probabilityBasedOnGBM: decisionResult.probabilityBasedOnGBM,
+                  probabilityBasedOnBSM: decisionResult.probabilityBasedOnBSM,
+                  cost: Date.now() - orderBookOfOutcomes[decisionResult.side].receivedAt,
                 })}
                 `
-              );
-            }
+            );
           }
         });
       } catch (e) {
@@ -172,7 +190,7 @@ export const watchPosition = async (
   slugIntervalTimestamp: number
 ) => {
   const globalConfig = getGlobalConfig();
-  const outcomes = getAssetIdMapOutcome(market);
+  const outcomes = getAssetIdToOutcomeMap(market);
 
   const result = await race(
     new Promise((resolve) => {
@@ -186,14 +204,16 @@ export const watchPosition = async (
 
         const polHitoryPrice = getDataFlowInstances()?.polyPriceWs.getPriceHistory();
         predictPriceHistory = [...polHitoryPrice];
-        const { winProbability, side: predictSide } = decideTailSweep({
-          ticks: polHitoryPrice,
-          intervalStartPrice: priceToBeat,
-          timeToExpiryMs: distanceToNextInterval(slugIntervalTimestamp),
-          upBestAsk: 0.5,
-          downBestAsk: 0.5,
-        });
-        const predictwinProbability = predictSide === outcome ? winProbability : 1 - winProbability;
+        const decisionResult = decision(
+          polHitoryPrice,
+          priceToBeat,
+          distanceToNextInterval(slugIntervalTimestamp)
+        );
+
+        const predictwinProbability =
+          decisionResult.side === outcome
+            ? decisionResult.winProbability
+            : 1 - decisionResult.winProbability;
         const orderBookData = getDataFlowInstances()?.polyOrderBookWs.getLatestOrderBookData(
           outcomes[outcome]
         );
@@ -202,7 +222,7 @@ export const watchPosition = async (
 
         if (
           predictwinProbability < globalConfig.stratgegy.sellProbabilityThreshold &&
-          predictSide != outcome
+          decisionResult.side != outcome
         ) {
           resolved = true;
           resolve(TOKEN_ACTION_ENUM.sell);
@@ -212,11 +232,13 @@ export const watchPosition = async (
             ${JSON.stringify({
               outcome: outcome,
               bestBid: bestBid,
-              predictSide,
-              predictWinProbability: winProbability,
+              predictSide: decisionResult.side,
+              predictWinProbability: decisionResult.winProbability,
               polyPrice: polyPrice.value,
               priceToBeat: priceToBeat,
               currentSide: currentSide,
+              probabilityBasedOnGBM: decisionResult.probabilityBasedOnGBM,
+              probabilityBasedOnBSM: decisionResult.probabilityBasedOnBSM,
               cost: Date.now() - polyPrice.receivedAt,
             })}
             `
@@ -228,8 +250,8 @@ export const watchPosition = async (
             ${JSON.stringify({
               outcome: outcome,
               bestBid: bestBid,
-              predictSide,
-              predictWinProbability: winProbability,
+              predictSide: decisionResult.side,
+              predictWinProbability: decisionResult.winProbability,
               polyPrice: polyPrice.value,
               priceToBeat: priceToBeat,
               currentSide: currentSide,
@@ -283,19 +305,21 @@ export const watchPosition = async (
           timestamp: Date.now(),
           receivedAt: Date.now(),
         });
-        const { winProbability, side: predictSide } = decideTailSweep({
-          ticks: predictPriceHistory,
-          intervalStartPrice: priceToBeat,
-          timeToExpiryMs: distanceToNextInterval(slugIntervalTimestamp),
-          upBestAsk: 0.5,
-          downBestAsk: 0.5,
-        });
-        const predictwinProbability = predictSide === outcome ? winProbability : 1 - winProbability;
+        const decisionResult = decision(
+          predictPriceHistory,
+          priceToBeat,
+          distanceToNextInterval(slugIntervalTimestamp)
+        );
+
+        const predictwinProbability =
+          decisionResult.side === outcome
+            ? decisionResult.winProbability
+            : 1 - decisionResult.winProbability;
 
         if (
           predictwinProbability < globalConfig.stratgegy.sellPredictProbabilityThreshold &&
           bestBid < globalConfig.stratgegy.sellProbabilityThreshold &&
-          predictSide === outcome
+          decisionResult.side === outcome
         ) {
           resolved = true;
           resolve(TOKEN_ACTION_ENUM.sell);
@@ -305,12 +329,14 @@ export const watchPosition = async (
             ${JSON.stringify({
               outcome: outcome,
               bestBid: bestBid,
-              predictSide,
-              predictWinProbability: winProbability,
+              predictSide: decisionResult.side,
+              predictWinProbability: decisionResult.winProbability,
               priceToBeat: priceToBeat,
               bnPrice: bnPrice.value,
               polyPrice: polyPrice.value,
               predictNewPrice: predictedNewPrice,
+              probabilityBasedOnGBM: decisionResult.probabilityBasedOnGBM,
+              probabilityBasedOnBSM: decisionResult.probabilityBasedOnBSM,
               cost: Date.now() - bnPrice.receivedAt,
             })}
             `
@@ -322,12 +348,14 @@ export const watchPosition = async (
             ${JSON.stringify({
               outcome: outcome,
               bestBid: bestBid,
-              predictSide,
-              predictWinProbability: winProbability,
+              predictSide: decisionResult.side,
+              predictWinProbability: decisionResult.winProbability,
               priceToBeat: priceToBeat,
               bnPrice: bnPrice.value,
               polyPrice: polyPrice.value,
               predictNewPrice: predictedNewPrice,
+              probabilityBasedOnGBM: decisionResult.probabilityBasedOnGBM,
+              probabilityBasedOnBSM: decisionResult.probabilityBasedOnBSM,
               cost: Date.now() - bnPrice.receivedAt,
             })}
             `
