@@ -89,13 +89,16 @@ export default class Trader {
           fee: order.fee,
         });
       }
-      const currentPostionAmount = this.position.getPosition().amount;
-      if (currentPostionAmount >= this.maxTradeAmount || currentPostionAmount <= 1) {
+
+      if (
+        this.position.getPosition().amount >= this.maxTradeAmount ||
+        this.position.getPosition().size <= 1
+      ) {
         this.tradeTaskManage.clearTasks(task.action, task.outcome);
         return;
       }
     } catch (error) {
-      this.logInfo(`执行交易任务失败: ${error}`);
+      this.logInfo(`[🙏executeTradeTask] 执行交易任务失败: ${error}`);
     }
   }
 

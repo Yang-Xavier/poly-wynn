@@ -272,7 +272,7 @@ export const runPolyWynn = async () => {
           .position.getTrades()
           .find((trade) => trade.action === TRADE_ACTION_ENUM.sell)
       ) {
-        logInfo(`本局有卖出记录....`);
+        logInfo(`👿本局有卖出记录....`);
         getTrader().tradeReport.addReport("result", {
           result: "sold",
         });
@@ -290,7 +290,7 @@ export const runPolyWynn = async () => {
         config.collateralAddress
       );
 
-      logInfo(`本局结束...`);
+      logInfo(`👋本局结束...`);
       logInfo(`💰账户余额: ${balance}`);
       getTrader().tradeReport.addReport("balance", {
         balance: Number(balance),

@@ -117,16 +117,17 @@ function createWalletAndBuilder(config: RelayerRedeemConfig) {
     account,
   });
 
-  const redeemCreds = getBuilderCreds();
-  if (!redeemCreds?.key || !redeemCreds?.secret || !redeemCreds?.passphrase) {
+  const { builderCreds, builderIndex } = getBuilderCreds();
+  logInfo(`[RelayerRedeem] 使用 第 ${builderIndex} 个builder的凭证`);
+  if (!builderCreds?.key || !builderCreds?.secret || !builderCreds?.passphrase) {
     throw new Error("[RelayerRedeem] 缺少 redeemCreds（builder 本地 API Key）配置");
   }
 
   const builderConfig = new BuilderConfig({
     localBuilderCreds: {
-      key: redeemCreds.key,
-      secret: redeemCreds.secret,
-      passphrase: redeemCreds.passphrase,
+      key: builderCreds.key,
+      secret: builderCreds.secret,
+      passphrase: builderCreds.passphrase,
     },
   });
 

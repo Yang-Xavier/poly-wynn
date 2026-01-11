@@ -3,7 +3,6 @@ import ClobApi from "@shared/api/clobApi";
 import { OUTCOMES_ENUM, TRADE_ACTION_ENUM } from "@shared/constants";
 import { TCreds } from "@shared/encryptConfig";
 import { UserWs } from "@shared/ws/UserWs";
-import { IOrderData } from "@typings/orderData";
 
 export type TBriefOrder = {
   size: number;
@@ -113,12 +112,12 @@ export default class TradeCore {
     timeout?: number;
   }): Promise<TBriefOrder | null> {
     let resolved = false;
-    this.logInfo(`等待订单成交...${orderId}`);
+    this.logInfo(`[waitForOrderMatched] 等待订单成交...${orderId}`);
 
     return new Promise((resolve) => {
       const timer = setTimeout(async () => {
         if (resolved) return;
-        this.logInfo(`监听推送订单成交超时, API查询...`);
+        this.logInfo(`[waitForOrderMatched] 监听推送订单成交超时, API查询...`);
         const resp = await this.clobApi.getOrder({ orderId });
         const { feeAmount, actualSize, actualAmount } = this.calculateFeeAndActuals(
           TRADE_ACTION_ENUM.buy,
@@ -136,14 +135,14 @@ export default class TradeCore {
           status: resp.status,
           timestamp: resp.created_at,
         };
-        this.logInfo(`订单成交...${JSON.stringify(order)}`);
+        this.logInfo(`[waitForOrderMatched] 订单成交...${JSON.stringify(order)}`);
         resolve(order);
         clearTimeout(timer);
       }, timeout);
 
       this.userWs.onUserTrade((trade) => {
         if (resolved) return;
-        this.logInfo(`监听到有订单推送...${JSON.stringify(trade)}`);
+        this.logInfo(`[waitForOrderMatched] 监听到有订单推送...${JSON.stringify(trade)}`);
         if (trade.taker_order_id === orderId) {
           const sizeMatched = trade.maker_orders.reduce(
             (acc, curr) => acc + Number(curr.matched_amount),
@@ -168,7 +167,7 @@ export default class TradeCore {
           };
           resolved = true;
           resolve(order);
-          this.logInfo(`订单成交...${JSON.stringify(order)}`);
+          this.logInfo(`[waitForOrderMatched] 订单成交...${JSON.stringify(order)}`);
           clearTimeout(timer);
         }
       });
@@ -205,20 +204,25 @@ export default class TradeCore {
     amount: number;
   }) {
     try {
+      this.logInfo(
+        `[🙏marketBuyAndWaitFill] 市场买入...${JSON.stringify({ tokenId, price, amount })}`
+      );
       const resp = await this.marketBuy({
         tokenId,
         price,
         amount,
       });
+      this.logInfo(`[🙏marketBuyAndWaitFill] 市场买入响应...${JSON.stringify(resp)}`);
       if (resp.orderID) {
         const order = await this.waitForOrderMatched({
           orderId: resp.orderID,
           timeout: 5 * 1000,
         });
+        this.logInfo(`[🙏marketBuyAndWaitFill] 市场买入订单成交...`);
         return order;
       }
     } catch (error) {
-      this.logInfo(`市场买入失败: ${error}`);
+      this.logInfo(`[🙏marketBuyAndWaitFill] 市场买入失败: ${error}`);
     }
 
     return null;
@@ -234,20 +238,26 @@ export default class TradeCore {
     size: number;
   }) {
     try {
+      this.logInfo(
+        `[🙏marketSellAndWaitFill] 市场卖出...${JSON.stringify({ tokenId, price, size })}`
+      );
       const resp = await this.marketSell({
         tokenId,
         price,
         size,
       });
+      this.logInfo(`[🙏marketSellAndWaitFill] 市场卖出响应...${JSON.stringify(resp)}`);
+
       if (resp.orderID) {
         const order = await this.waitForOrderMatched({
           orderId: resp.orderID,
           timeout: 5 * 1000,
         });
+        this.logInfo(`[🙏marketSellAndWaitFill] 市场卖出订单成交...`);
         return order;
       }
     } catch (error) {
-      this.logInfo(`市场卖出失败: ${error}`);
+      this.logInfo(`[🙏marketSellAndWaitFill] 市场卖出失败: ${error}`);
     }
     return null;
   }

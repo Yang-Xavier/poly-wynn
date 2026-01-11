@@ -79,21 +79,22 @@ const findingChanceAndBuying = ({
       }
       if (distanceToNextInterval(slugIntervalTimestamp) <= 0) {
         skipped = true;
-        logStrategy("本局结束, 跳过策略执行...");
+        logStrategy("[🧐findingChanceAndBuying] 本局结束, 跳过策略执行...");
         return;
       }
       const maxTradeAmount = getTrader().getMaxTradeAmount();
       const currentPosition = getTrader().position.getPosition();
-      if (currentPosition.amount >= maxTradeAmount) {
+      const remainingTradeAmount = maxTradeAmount - currentPosition.amount;
+      if (remainingTradeAmount <= 1) {
         skipped = true;
-        logStrategy(`当前持仓量已达到最大持仓量, 跳过买入...`);
+        logStrategy(`[🧐findingChanceAndBuying] 当前持仓量已达到最大持仓量, 跳过买入...`);
         return;
       }
       const isRunningTradeTask =
         getTrader().tradeTaskManage.getRunningTaskAction() === TRADE_ACTION_ENUM.buy;
 
       if (isRunningTradeTask) {
-        logStrategy(`当前有交易任务正在执行, 跳过策略执行...`);
+        logStrategy(`[🧐findingChanceAndBuying] 当前有交易任务正在执行, 跳过策略执行...`);
         return;
       }
 
@@ -146,14 +147,6 @@ const findingChanceAndBuying = ({
           maxTradeAmount
         );
 
-        getTrader().tradeTaskManage.addTask({
-          tokenId: outcomes[decisionResult.side],
-          action: TRADE_ACTION_ENUM.buy,
-          price: bestAsk,
-          amount: buyAmount,
-          outcome: decisionResult.side,
-        });
-
         logStrategy(
           `[✅Buy][🧐findingChanceAndBuying][polyOrderBookWs.onOrderBookChange]
           ${JSON.stringify({
@@ -171,6 +164,13 @@ const findingChanceAndBuying = ({
           })}
           `
         );
+        getTrader().tradeTaskManage.addTask({
+          tokenId: outcomes[decisionResult.side],
+          action: TRADE_ACTION_ENUM.buy,
+          price: bestAsk,
+          amount: buyAmount,
+          outcome: decisionResult.side,
+        });
       } else {
         logStrategy(
           `[⏩Wait][🧐findingChanceAndBuying][polyOrderBookWs.onOrderBookChange]
@@ -223,6 +223,15 @@ const watchingPosition = ({
     if (currentPosition.size < 1 || !currentPosition.outcome) {
       return;
     }
+
+    const isRunningTradeTask =
+      getTrader().tradeTaskManage.getRunningTaskAction() === TRADE_ACTION_ENUM.sell;
+
+    if (isRunningTradeTask) {
+      logStrategy(`[🙏watchingPosition] 当前有交易任务正在执行, 跳过策略执行...`);
+      return;
+    }
+
     return currentPosition;
   };
 
@@ -256,13 +265,6 @@ const watchingPosition = ({
       bestBid < config.stratgegy.sellProbabilityThreshold &&
       currentSide != position.outcome
     ) {
-      getTrader().tradeTaskManage.addTask({
-        tokenId: outcomes[position.outcome],
-        action: TRADE_ACTION_ENUM.sell,
-        price: bestBid,
-        size: position.size,
-        outcome: position.outcome,
-      });
       logStrategy(
         `[❗️Sell][🙏watchingPosition][😈polyPriceWs.onPriceChange] 预测价格胜率, 都概率低于阈值, 当前价格与买入方向不一致
         ${JSON.stringify({
@@ -279,6 +281,13 @@ const watchingPosition = ({
         })}
         `
       );
+      getTrader().tradeTaskManage.addTask({
+        tokenId: outcomes[position.outcome],
+        action: TRADE_ACTION_ENUM.sell,
+        price: bestBid,
+        size: position.size,
+        outcome: position.outcome,
+      });
     } else {
       logStrategy(
         `[🤔Hold][🙏watchingPosition][😈polyPriceWs.onPriceChange]
@@ -358,14 +367,6 @@ const watchingPosition = ({
       decisionResult.side != position.outcome &&
       currentSide != position.outcome
     ) {
-      getTrader().tradeTaskManage.addTask({
-        tokenId: outcomes[position.outcome],
-        action: TRADE_ACTION_ENUM.sell,
-        price: bestBid,
-        size: position.size,
-        outcome: position.outcome,
-      });
-
       logStrategy(
         `[❗️Sell][🙏watchingPosition][👽bnPriceWs.onPriceChange] 预测价格胜率 和 订单簿BestBid 都概率低于阈值
         ${JSON.stringify({
@@ -384,6 +385,13 @@ const watchingPosition = ({
         })}
         `
       );
+      getTrader().tradeTaskManage.addTask({
+        tokenId: outcomes[position.outcome],
+        action: TRADE_ACTION_ENUM.sell,
+        price: bestBid,
+        size: position.size,
+        outcome: position.outcome,
+      });
     } else {
       logStrategy(
         `[🤔Hold][🙏watchingPosition][👽bnPriceWs.onPriceChange]
