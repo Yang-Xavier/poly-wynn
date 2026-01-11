@@ -128,21 +128,8 @@ function ReportPage() {
     setProcessLoading(true);
     setProcessError(null);
 
-    // 将 dappName 映射到 logs 目录中的 appName
-    // 例如: crypto15min-eth -> crypto15min (需要根据实际情况调整)
-    // 这里先尝试直接使用 dappName，如果失败再尝试映射
-    let appName = dappName;
-
-    // 如果 dappName 包含 "-"，尝试提取前面的部分作为 appName
-    // 例如: crypto15min-eth -> crypto15min
-    if (dappName.includes("-")) {
-      const parts = dappName.split("-");
-      // 尝试使用第一部分作为 appName
-      appName = parts[0];
-    }
-
     try {
-      const response = await axios.get<ProcessResponse>(`/api/process?appName=${appName}`);
+      const response = await axios.get<ProcessResponse>(`/api/process?appName=${dappName}`);
 
       if (response.data.success) {
         if (response.data.process) {
@@ -157,21 +144,21 @@ function ReportPage() {
     } catch (err) {
       if (axios.isAxiosError(err)) {
         // 如果第一次尝试失败，尝试使用完整的 dappName
-        if (dappName !== appName) {
-          try {
-            const retryResponse = await axios.get<ProcessResponse>(
-              `/api/process?appName=${dappName}`
-            );
-            if (retryResponse.data.success && retryResponse.data.process) {
-              setProcessStatus(retryResponse.data.process);
-              setProcessError(null);
-              setProcessLoading(false);
-              return;
-            }
-          } catch (retryErr) {
-            // 忽略重试错误，使用原始错误
+
+        try {
+          const retryResponse = await axios.get<ProcessResponse>(
+            `/api/process?appName=${dappName}`
+          );
+          if (retryResponse.data.success && retryResponse.data.process) {
+            setProcessStatus(retryResponse.data.process);
+            setProcessError(null);
+            setProcessLoading(false);
+            return;
           }
+        } catch (retryErr) {
+          // 忽略重试错误，使用原始错误
         }
+
         setProcessError(err.response?.data?.error || err.message || "获取进程状态失败");
       } else {
         setProcessError(err instanceof Error ? err.message : "获取进程状态失败");
@@ -190,16 +177,14 @@ function ReportPage() {
     setProcessError(null);
 
     // 使用与获取状态相同的 appName 映射逻辑
-    let appName = dappName;
-    if (dappName.includes("-")) {
-      const parts = dappName.split("-");
-      appName = parts[0];
-    }
 
     try {
-      const response = await axios.post<ProcessControlResponse>(`/api/process?appName=${appName}`, {
-        action,
-      });
+      const response = await axios.post<ProcessControlResponse>(
+        `/api/process?appName=${dappName}`,
+        {
+          action,
+        }
+      );
 
       if (response.data.success) {
         // 控制成功后，等待 3 秒后重新获取进程状态
@@ -208,24 +193,24 @@ function ReportPage() {
         }, 3000);
       } else {
         // 如果第一次尝试失败，尝试使用完整的 dappName
-        if (dappName !== appName) {
-          try {
-            const retryResponse = await axios.post<ProcessControlResponse>(
-              `/api/process?appName=${dappName}`,
-              { action }
-            );
-            if (retryResponse.data.success) {
-              // 控制成功后，等待 3 秒后重新获取进程状态
-              setTimeout(async () => {
-                await fetchProcessStatus();
-              }, 3000);
-              setControlling(false);
-              return;
-            }
-          } catch (retryErr) {
-            // 忽略重试错误，使用原始错误
+
+        try {
+          const retryResponse = await axios.post<ProcessControlResponse>(
+            `/api/process?appName=${dappName}`,
+            { action }
+          );
+          if (retryResponse.data.success) {
+            // 控制成功后，等待 3 秒后重新获取进程状态
+            setTimeout(async () => {
+              await fetchProcessStatus();
+            }, 3000);
+            setControlling(false);
+            return;
           }
+        } catch (retryErr) {
+          // 忽略重试错误，使用原始错误
         }
+
         setProcessError(response.data.error || "操作失败");
       }
     } catch (err) {
