@@ -6,7 +6,7 @@ import {
   distanceToNextInterval,
   get15MinIntervalTimestamp,
   getMarketSlug15Min,
-} from "@shared/marketUtils";
+} from "@shared/utils/market";
 import gammaApi from "@shared/api/gammaApi";
 import { TMarketResponseData } from "@typings/gammaData";
 import { getAccountBalanceWithRetry, logAccountBalance } from "./utils/account";
@@ -14,13 +14,12 @@ import clobApi from "@shared/api/clobApi";
 import dataFlow from "./utils/dataFlow";
 import { findChance, IChance, watchPosition } from "./strategy";
 import { getPriceToBeat } from "./utils/getPriceToBeat";
-import { waitFor } from "@crypto15min/utils/tools";
+import { waitFor } from "@shared/utils/waitFor";
 import { WATCH_POSITION_ACTION_ENUM } from "@shared/constants";
 import { buyUntilMatched, mustGetOrder, mustSell } from "./utils/order";
 import dataRecord from "./dataRecord";
 import tradeReport from "./tradeReport";
 import { getUserpostionByMarketAsOrder } from "./utils/getUserPositionAsOrder";
-import { TOrderResult } from "@shared/utils/waitForOrderMatched";
 
 const setAllTraceId = (marketSlug: string) => {
   setTraceId(marketSlug);
@@ -297,10 +296,6 @@ const main = async () => {
       if (buyAccount <= 0) {
         tradeReport.addReport("result", {
           result: "skipped",
-        });
-      } else {
-        tradeReport.addReport("result", {
-          result: tradeReport.calcProfit() > 0 ? "won" : "lost",
         });
       }
     } catch (error) {

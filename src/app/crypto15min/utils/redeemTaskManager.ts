@@ -1,8 +1,8 @@
-import { getGammaDataModule, MarketResponse } from "../module/gammaData";
+import { getTrader } from "@crypto15min/module/Trader";
 import { logError, logInfo } from "../module/logger";
 import { redeemWithRelayer } from "./relayerRedeem";
 
-import tradeReport from "../module/tradeReport";
+import gammaApi from "@shared/api/gammaApi";
 
 /**
  * 赎回任务类型
@@ -58,10 +58,11 @@ class RedeemTaskManager {
     for (let i = 0; i < this.tasks.length; i++) {
       const task = this.tasks[i];
       try {
+        getTrader().tradeReport.setTraceId(task.traceId);
         logInfo(`[RedeemTask] 处理第 ${i + 1}/${this.tasks.length} 个任务: ${task.traceId}`);
 
         // 使用 traceId 作为 marketSlug 查询市场信息
-        const market = await getGammaDataModule().getMarketBySlug(task.traceId);
+        const market = await gammaApi.getMarketBySlug(task.traceId);
         if (!market) {
           logError(`[RedeemTask] 无法获取市场信息: ${task.traceId}`);
           remainingTasks.push(task);
@@ -99,8 +100,7 @@ class RedeemTaskManager {
               logInfo(
                 `[RedeemTask] 赎回成功: ${task.traceId}, transactionHash: ${result.transactionHash}`
               );
-              tradeReport.setTraceId(task.traceId);
-              tradeReport.addReport("result", {
+              getTrader().tradeReport.addReport("result", {
                 result: "won",
                 additionalInfo: "",
               });
@@ -116,12 +116,8 @@ class RedeemTaskManager {
             `[RedeemTask] 结果不匹配，更新报告: ${task.traceId}, 最终结果: ${finalOutcome}, 购买结果: ${task.outcome}`
           );
           try {
-            // 设置 traceId
-
-            tradeReport.setTraceId(task.traceId);
-
             // 更新结果为 "lost"（因为购买的 outcome 与最终结果不一致）
-            tradeReport.addReport("result", {
+            getTrader().tradeReport.addReport("result", {
               result: "lost",
               additionalInfo: "",
             });

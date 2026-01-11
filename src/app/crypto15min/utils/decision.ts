@@ -1,6 +1,6 @@
-import { calculateProbabilityBasedOnGBM, TailPriceTick } from "@shared/algorithm/gbm";
+import { calculateProbabilityBasedOnGBM } from "@shared/algorithm/gbm";
 import { calculateProbabilityBasedOnBSM } from "@shared/algorithm/bsm";
-import { OUTCOMES_ENUM } from "./constans";
+import { OUTCOMES_ENUM } from "@shared/constants";
 import { PriceData } from "@shared/ws/PolyPriceWs";
 
 export const decision = (historyPriceList: PriceData[], priceToBeat: number, distance: number) => {

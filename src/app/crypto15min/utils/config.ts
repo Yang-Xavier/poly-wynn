@@ -43,6 +43,7 @@ const ethConfig = {
     buyLimitCountInARoundOf15min: 1,
     buyAcceptableWinProbabilityRange: [0.995, 0.95],
     buyBestAskThreshold: 0.9,
+    buyMaxVolumeThreshold: 0.5, // 最大订单量阈值
 
     sellProbabilityThreshold: 0.45,
     sellPredictProbabilityThreshold: 0.35,
@@ -63,6 +64,7 @@ const btcConfig = {
     buyLimitCountInARoundOf15min: 1,
     buyAcceptableWinProbabilityRange: [0.995, 0.95],
     buyBestAskThreshold: 0.9,
+    buyMaxVolumeThreshold: 0.5, // 最大订单量阈值
 
     sellProbabilityThreshold: 0.4,
     sellPredictProbabilityThreshold: 0.35,
@@ -77,7 +79,10 @@ type TGlobalConfig = typeof commonConfig &
  * 获取全局配置对象
  */
 export function getGlobalConfig(): TGlobalConfig {
-  // 从json文件中读取config
+  return getConfig();
+}
+
+export const getConfig = () => {
   if (process && process.env && process.env.MARKET) {
     if (process.env.MARKET === "eth") {
       const accountConfig = getEncryptedConfig(ethConfig.accountId) as TAccountConfig;
@@ -87,4 +92,4 @@ export function getGlobalConfig(): TGlobalConfig {
       return { ...commonConfig, ...btcConfig, marketTag: "btc", account: accountConfig };
     }
   }
-}
+};

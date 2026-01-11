@@ -1,4 +1,4 @@
-import { distanceToNextInterval, getAssetIdMapOutcome } from "@shared/marketUtils";
+import { distanceToNextInterval, getAssetIdMapOutcome } from "@shared/utils/market";
 import { TMarketResponseData } from "@typings/gammaData";
 import dataFlow from "./utils/dataFlow";
 import { getConfig } from "./config";

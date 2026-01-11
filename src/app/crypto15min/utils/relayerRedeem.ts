@@ -10,9 +10,10 @@ import {
 import { BuilderConfig } from "@polymarket/builder-signing-sdk";
 
 import { getGlobalConfig } from "@crypto15min/utils/config";
-import { logError, logInfo } from "@crypto15min/module/logger";
+import { logInfo } from "@crypto15min/module/logger";
 
 import dataApi from "@shared/api/dataApi";
+import { getBuilderCreds } from "@shared/getBuilderCreds";
 
 // 参考官方示例：
 // https://github.com/Polymarket/builder-relayer-client/tree/c42a05473ed73db1d76522d6a4746013880dd56e
@@ -116,7 +117,7 @@ function createWalletAndBuilder(config: RelayerRedeemConfig) {
     account,
   });
 
-  const redeemCreds = globalConfig.account.builderCreds;
+  const redeemCreds = getBuilderCreds();
   if (!redeemCreds?.key || !redeemCreds?.secret || !redeemCreds?.passphrase) {
     throw new Error("[RelayerRedeem] 缺少 redeemCreds（builder 本地 API Key）配置");
   }
@@ -147,13 +148,6 @@ function createRelayClientForRedeem(
     builderConfig,
     RelayerTxType.PROXY
   );
-
-  logInfo("[RelayerRedeem] RelayClient 初始化完成", {
-    relayerUrl: config.relayerUrl,
-    chainId: config.chainId,
-    ctf: config.ctf,
-    usdc: config.usdc,
-  });
 
   return client;
 }
@@ -205,26 +199,15 @@ export async function redeemWithRelayer(
   rawResult: any;
 }> {
   // 1. 加载配置
-  console.log("[RelayerRedeem] 1. 加载 Redeem 配置...");
   const config = buildRelayerRedeemConfig();
 
   // 2. 创建钱包 & BuilderConfig
-  console.log("[RelayerRedeem] 2. 创建钱包和 BuilderConfig...");
-  const { account, wallet, builderConfig } = createWalletAndBuilder(config);
+  const { wallet, builderConfig } = createWalletAndBuilder(config);
 
   // 3. 初始化 RelayClient
-  console.log("[RelayerRedeem] 3. 初始化 RelayClient...");
   const client = createRelayClientForRedeem(config, wallet, builderConfig);
 
-  // 4. 构造交易并执行
-  console.log("[RelayerRedeem] 4. 构造 redeemPositions 交易并发送到 Relayer...", {
-    conditionId,
-    ctf: config.ctf,
-    usdc: config.usdc,
-    indexSets: indexSets.map((i) => i.toString()),
-    walletAddress: account.address,
-  });
-
+  // 4. 构造 redeemPositions 交易
   const redeemTx = createCtfRedeemTransaction(
     config.ctf,
     config.usdc,
@@ -236,48 +219,46 @@ export async function redeemWithRelayer(
     const response = await client.execute([redeemTx], "redeem positions");
     const result: any = await response.wait();
 
-    logInfo("[RelayerRedeem] Redeem 交易完成", {
-      transactionHash: result?.transactionHash,
-    });
-
     return {
       transactionHash: result?.transactionHash,
       rawResult: result,
     };
   } catch (error: any) {
-    logError("[RelayerRedeem] 调用 Relayer redeemPositions 失败", {
-      error: error?.message || String(error),
-    });
     throw error;
   }
 }
 
 export async function redeemAllPositions({ funderAddress }: { funderAddress: string }) {
-  const positions = await dataApi.getPositions({
-    user: funderAddress,
-    redeemable: true,
-    limit: 1000,
-  });
-  const redeemablePositions = positions.filter(
-    (position) => position.redeemable && position.currentValue > 0
-  );
+  try {
+    const positions = await dataApi.getPositions({
+      user: funderAddress,
+      redeemable: true,
+      limit: 1000,
+    });
+    const redeemablePositions = positions.filter(
+      (position) => position.redeemable && position.currentValue > 0
+    );
 
-  logInfo(`[Redeem] 有 ${redeemablePositions.length} 个仓位, 等待赎回...`);
-  for (let i = 0; i < redeemablePositions.length; i++) {
-    try {
-      const position = redeemablePositions[i];
-      logInfo(`[Redeem] 开始赎回第${i + 1}个仓位: ${position.conditionId}`);
-      const result = await redeemWithRelayer(position.conditionId);
-      if (result.transactionHash) {
-        logInfo(
-          `[Redeem] 赎回成功: ${position.conditionId}, transactionHash: ${result.transactionHash}`
-        );
-      } else {
-        logInfo(`[Redeem] 赎回失败: ${position.conditionId}`);
+    logInfo(`[Redeem] 有 ${redeemablePositions.length} 个仓位, 等待赎回...`);
+    for (let i = 0; i < redeemablePositions.length; i++) {
+      try {
+        const position = redeemablePositions[i];
+
+        const result = await redeemWithRelayer(position.conditionId);
+        if (result.transactionHash) {
+          logInfo(
+            `[Redeem] 赎回成功: ${position.conditionId}, transactionHash: ${result.transactionHash}`
+          );
+        } else {
+          logInfo(`[Redeem] 赎回失败: ${position.conditionId}`);
+        }
+      } catch (error) {
+        logInfo(`[Redeem] 赎回第${i + 1}个仓位失败: ${error}`);
       }
-    } catch (error) {
-      logInfo(`[Redeem] 赎回第${i + 1}个仓位失败: ${error}`);
     }
+  } catch (error) {
+    logInfo(`[Redeem] 赎回失败: ${error}`);
   }
+
   logInfo(`[Redeem] 赎回完成`);
 }

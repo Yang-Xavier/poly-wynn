@@ -6,7 +6,8 @@ type Trade = {
   action: "buy" | "sell";
   timestamp: number;
   price: number;
-  amount: number;
+  size: number;
+  fee: number;
   outcome: string;
 };
 
@@ -43,7 +44,7 @@ export default class TradeReport {
 
   protected traceReport: ReportData | null = null;
 
-  constructor(appName: string) {
+  constructor({ appName }: { appName: string }) {
     this.appName = appName;
   }
 
@@ -215,7 +216,7 @@ export default class TradeReport {
    * @param days 保留最近几天的报告，超过这个天数的报告将被删除
    * @returns 返回删除的文件数量
    */
-  cleanOldReports(days: number): number {
+  cleanOldReports(days: number = 7): number {
     const appNameDir = path.join(this.reportDir, this.appName);
 
     // 如果目录不存在，直接返回

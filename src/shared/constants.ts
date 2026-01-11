@@ -15,18 +15,17 @@ export const NEG_RISK_ADAPTER = "0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296";
 export const USDC_ADDRESS = "0x2791bca1f2de4661ed88a30c99a7a9449aa84174";
 export const RPC_URL = "https://polygon-rpc.com";
 
-// account
-export const WALLET_ADDRESS = "0xadc6b5af3b65479a9c4122f32ed324dc2b4265c9";
-export const FUNDER_ADDRESS = "0x8dF2E7574F5E97103F037ed45fB323FdBeABEEA8";
-
 export enum OUTCOMES_ENUM {
   Up = "Up",
   Down = "Down",
 }
 
 export enum WATCH_POSITION_ACTION_ENUM {
-  sellInProfit = "sellInProfit",
-  sellInLoss = "sellInLoss",
   hold = "hold",
+  sell = "sell",
+}
+
+export enum TRADE_ACTION_ENUM {
+  buy = "buy",
   sell = "sell",
 }

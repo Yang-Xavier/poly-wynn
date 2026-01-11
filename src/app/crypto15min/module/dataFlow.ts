@@ -4,9 +4,9 @@ import { PolyOrderBookWs } from "@shared/ws/PolyOrderBookWs";
 import { IWsLogger } from "@shared/ws/HighPerformanceWs";
 import dataRecord from "./dataRecord";
 import { UserWs } from "@shared/ws/UserWs";
+import { getConfig } from "@crypto15min/utils/config";
 
 import { customTypeLog, logData, logError, logInfo } from "./logger";
-import { getGlobalConfig } from "@crypto15min/utils/config";
 
 /**
  * 数据流实例接口
@@ -34,7 +34,7 @@ export function initializeDataFlow(params: {
   if (dataFlowInstances) {
     return dataFlowInstances;
   }
-  const config = getGlobalConfig();
+  const config = getConfig();
 
   const {
     logger = {
