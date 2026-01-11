@@ -203,12 +203,7 @@ export const runPolyWynn = async () => {
               } catch (error) {
                 logError(`购买失败: ${error}`);
               }
-            } else if (!boughtOrder) {
-              logInfo(`🈚️没有找到机会, 跳过本局购买,等待下一轮开始...`);
-              dataRecord.pin();
-              tradeReport.addReport("result", {
-                result: "skipped",
-              });
+            } else {
               await waitFor(distanceToNextInterval(slugIntervalTimestamp));
             }
 
@@ -261,6 +256,14 @@ export const runPolyWynn = async () => {
               }
 
               redeemOrder = boughtOrder;
+            }
+
+            if (!tokenChanceDetails || !boughtOrder) {
+              logInfo(`🈚️没有找到机会, 跳过本局购买,等待下一轮开始...`);
+              dataRecord.pin();
+              tradeReport.addReport("result", {
+                result: "skipped",
+              });
             }
 
             if (buyCount >= globalConfig.stratgegy.buyLimitCountInARoundOf15min) {
