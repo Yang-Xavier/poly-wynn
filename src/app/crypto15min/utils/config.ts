@@ -40,12 +40,12 @@ const ethConfig = {
     buyingMaxSplit: 3,
     buyingMaxAmount: 100,
     buyingAmountFactor: 0.5,
-    limitBuyCountInARoundOf15min: 1,
+    buyLimitCountInARoundOf15min: 1,
+    buyAcceptableWinProbabilityRange: [0.995, 0.95],
+    buyBestAskThreshold: 0.95,
 
     sellProbabilityThreshold: 0.45,
     sellPredictProbabilityThreshold: 0.35,
-
-    bestAskThreshold: 0.95,
 
     tailSweepConfig: {
       minWinProbability: 0.99,
@@ -67,12 +67,12 @@ const btcConfig = {
     buyingMaxSplit: 3,
     buyingMaxAmount: 100,
     buyingAmountFactor: 0.5,
-    limitBuyCountInARoundOf15min: 1,
+    buyLimitCountInARoundOf15min: 1,
+    buyAcceptableWinProbabilityRange: [0.995, 0.95],
+    buyBestAskThreshold: 0.9,
 
     sellProbabilityThreshold: 0.4,
     sellPredictProbabilityThreshold: 0.35,
-
-    bestAskThreshold: 0.95,
 
     tailSweepConfig: {
       minWinProbability: 0.99,

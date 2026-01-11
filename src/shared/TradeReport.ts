@@ -25,7 +25,6 @@ type ReportData = {
   result?: string;
   trades?: Trade[];
   balance?: number;
-  profit?: number;
   additionalInfo?: string;
 };
 
@@ -69,7 +68,6 @@ export default class TradeReport {
           trades: [],
           result: "waiting...",
           balance: 0,
-          profit: 0,
           additionalInfo: "",
         };
         this.dateReports.reports.push(this.traceReport);
@@ -109,25 +107,8 @@ export default class TradeReport {
     // 更新 timestamp
     this.traceReport.timestamp = Date.now();
 
-    // 计算 profit
-    this.traceReport.profit = this.calcProfit();
-
     // 保存到文件
     this.saveDateReport();
-  }
-
-  calcProfit() {
-    let profit = 0;
-    if (this.traceReport.trades && this.traceReport.trades.length > 0) {
-      this.traceReport.trades.forEach((trade) => {
-        if (trade.action === "sell") {
-          profit += trade.amount * trade.price;
-        } else if (trade.action === "buy") {
-          profit -= trade.amount * trade.price;
-        }
-      });
-    }
-    return profit;
   }
 
   protected loadDateReport() {

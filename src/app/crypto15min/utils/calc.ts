@@ -187,27 +187,3 @@ export const calcAttenuationFactor = (
 
   return x;
 };
-
-export const calcDiffEnough = (
-  currentValue: string | number,
-  targetValue: string | number,
-  diffFactor: number[],
-  diffTimeRange: number[],
-  distance: number
-) => {
-  const timeBasedRatio = calcAttenuationFactor(
-    [diffFactor.reverse(), diffTimeRange.reverse()],
-    distance,
-    2,
-    0.8
-  );
-
-  // price diff ratio
-  const diff = Math.abs(Number(currentValue) - Number(targetValue));
-  const diffRatio = diff / Number(targetValue);
-
-  return {
-    isDiffEnough: diffRatio >= timeBasedRatio,
-    avaliableValue: Number(targetValue) + timeBasedRatio,
-  };
-};

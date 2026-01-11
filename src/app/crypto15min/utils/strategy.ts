@@ -5,7 +5,7 @@ import { TOKEN_ACTION_ENUM, distanceToNextInterval } from "./tools";
 import { getGlobalConfig } from "./config";
 import { OUTCOMES_ENUM } from "./constans";
 import { decideTailSweep } from "./decision";
-import { calcDiffEnough } from "./calc";
+import { calcAttenuationFactor } from "./calc";
 import { getDataFlowInstances } from "@crypto15min/module/dataFlow";
 
 import { PriceData } from "@shared/ws/BnPriceWs";
@@ -75,7 +75,7 @@ export const findChance = async (
 
           if (
             Math.max(bestAskOfOutcomes[OUTCOMES_ENUM.Up], bestAskOfOutcomes[OUTCOMES_ENUM.Down]) >=
-            globalConfig.stratgegy.bestAskThreshold
+            globalConfig.stratgegy.buyBestAskThreshold
           ) {
             const historyPriceList = getDataFlowInstances()?.polyPriceWs.getPriceHistory();
             const currentPrice = getDataFlowInstances()?.polyPriceWs.getLatestPriceData();
@@ -89,17 +89,20 @@ export const findChance = async (
               },
               globalConfig.stratgegy.tailSweepConfig
             );
-            const { isDiffEnough, avaliableValue: acceptableWinProbability } = calcDiffEnough(
-              tailSweepResult.winProbability,
-              0.95,
-              [0.047, 0.0001],
-              [globalConfig.stratgegy.startStrategyBefore, 0],
-              distance
+            const acceptableWinProbability = calcAttenuationFactor(
+              [
+                [...globalConfig.stratgegy.buyAcceptableWinProbabilityRange].sort((a, b) => a - b), // 从小到大
+                [globalConfig.stratgegy.startStrategyBefore, 0].sort((a, b) => a - b), // 从小到大
+              ],
+              distance,
+              2,
+              0.8
             );
             if (
               tailSweepResult.shouldBet &&
-              isDiffEnough &&
-              bestAskOfOutcomes[tailSweepResult.side] >= globalConfig.stratgegy.bestAskThreshold &&
+              tailSweepResult.winProbability > acceptableWinProbability &&
+              bestAskOfOutcomes[tailSweepResult.side] >=
+                globalConfig.stratgegy.buyBestAskThreshold &&
               bestAskOfOutcomes[tailSweepResult.side] <= 0.99
             ) {
               resolved = true;
@@ -119,7 +122,8 @@ export const findChance = async (
                   side: tailSweepResult.side,
                   acceptableWinProbability,
                   winProbability: tailSweepResult.winProbability,
-                  isDiffEnough,
+                  isAcceptableWinProbability:
+                    tailSweepResult.winProbability > acceptableWinProbability,
                   bestAsk: bestAskOfOutcomes[tailSweepResult.side],
                   priceToBeat,
                   currentPrice: currentPrice?.value,
@@ -137,7 +141,8 @@ export const findChance = async (
                   side: tailSweepResult.side,
                   acceptableWinProbability,
                   winProbability: tailSweepResult.winProbability,
-                  isDiffEnough,
+                  isAcceptableWinProbability:
+                    tailSweepResult.winProbability > acceptableWinProbability,
                   bestAsk: bestAskOfOutcomes[tailSweepResult.side],
                   priceToBeat,
                   currentPrice: currentPrice?.value,

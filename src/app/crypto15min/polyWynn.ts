@@ -263,9 +263,9 @@ export const runPolyWynn = async () => {
               redeemOrder = boughtOrder;
             }
 
-            if (buyCount >= globalConfig.stratgegy.limitBuyCountInARoundOf15min) {
+            if (buyCount >= globalConfig.stratgegy.buyLimitCountInARoundOf15min) {
               logInfo(
-                `购买次数超过限制(${globalConfig.stratgegy.limitBuyCountInARoundOf15min})次, 跳过本局购买,等待下一轮开始...`
+                `购买次数超过限制(${globalConfig.stratgegy.buyLimitCountInARoundOf15min})次, 跳过本局购买,等待下一轮开始...`
               );
               await waitFor(distanceToNextInterval(slugIntervalTimestamp));
             }
