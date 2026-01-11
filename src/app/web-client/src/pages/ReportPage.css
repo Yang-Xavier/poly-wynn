@@ -352,6 +352,14 @@
   color: white;
 }
 
+.result-additional-info {
+  font-size: 0.875rem;
+  color: #9ca3af;
+  font-weight: 400;
+  font-style: italic;
+  margin-left: 0.25rem;
+}
+
 .info-tooltip-container {
   position: relative;
   display: inline-flex;

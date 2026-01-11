@@ -76,6 +76,51 @@ function ReportPage() {
     return `${year}-${month}-${day}`;
   };
 
+  // 重新计算profit
+  const recalculateProfit = (report: Report): number => {
+    if (!report.trades || report.trades.length === 0) {
+      return report.profit ?? 0;
+    }
+
+    const result = report.result.toLowerCase();
+
+    // 计算所有buy和sell的总金额
+    let totalBuyCost = 0;
+    let totalBuyAmount = 0;
+    let totalSellRevenue = 0;
+    let totalSellAmount = 0;
+
+    report.trades.forEach((trade) => {
+      const action = trade.action.toLowerCase();
+      if (action === "buy") {
+        totalBuyCost += trade.price * trade.amount;
+        totalBuyAmount += trade.amount;
+      } else if (action === "sell") {
+        totalSellRevenue += trade.price * trade.amount;
+        totalSellAmount += trade.amount;
+      }
+    });
+
+    if (result === "won") {
+      // profit = amount*(1-price)
+      // 使用总买入amount和平均买入price
+      if (totalBuyAmount > 0) {
+        const avgBuyPrice = totalBuyCost / totalBuyAmount;
+        return totalBuyAmount * (1 - avgBuyPrice);
+      }
+      return 0;
+    } else if (result === "sold") {
+      // profit = 所有sell price * amount - buy price * amount
+      return totalSellRevenue - totalBuyCost;
+    } else if (result === "lost") {
+      // profit = 0 - 所有 buy price * amount + 所有sell price * amount
+      return -totalBuyCost + totalSellRevenue;
+    }
+
+    // 其他情况返回原始profit
+    return report.profit ?? 0;
+  };
+
   // 获取 PM2 进程状态
   const fetchProcessStatus = useCallback(async () => {
     if (!dappName) return;
@@ -208,10 +253,27 @@ function ReportPage() {
         );
 
         if (response.data.success && response.data.data.reports) {
+          // 预处理数据：如果trades里有sell，result改为sold，additionalInfo改为原本的result
+          const processedReports = response.data.data.reports.map((report) => {
+            const hasSell = report.trades?.some((trade) => trade.action.toLowerCase() === "sell");
+            let updatedReport = report;
+            if (hasSell) {
+              updatedReport = {
+                ...report,
+                result: "sold",
+                additionalInfo: report.result,
+              };
+            }
+            // 重新计算profit
+            updatedReport = {
+              ...updatedReport,
+              profit: recalculateProfit(updatedReport),
+            };
+            return updatedReport;
+          });
+
           // 按timestamp从新到旧排序
-          const sortedReports = [...response.data.data.reports].sort(
-            (a, b) => b.timestamp - a.timestamp
-          );
+          const sortedReports = [...processedReports].sort((a, b) => b.timestamp - a.timestamp);
           setReports(sortedReports);
         } else {
           setError("报告数据格式错误");
@@ -525,10 +587,7 @@ function ReportPage() {
                     <div className="result-badge-wrapper">
                       {getResultBadge(report.result)}
                       {report.additionalInfo && (
-                        <div className="info-tooltip-container">
-                          <span className="info-icon">ℹ️</span>
-                          <div className="info-tooltip">{report.additionalInfo}</div>
-                        </div>
+                        <span className="result-additional-info">({report.additionalInfo})</span>
                       )}
                     </div>
                     {report.balance !== undefined && (
