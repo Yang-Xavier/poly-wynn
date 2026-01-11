@@ -42,7 +42,7 @@ const ethConfig = {
     buyingAmountFactor: 0.5,
     buyLimitCountInARoundOf15min: 1,
     buyAcceptableWinProbabilityRange: [0.995, 0.95],
-    buyBestAskThreshold: 0.95,
+    buyBestAskThreshold: 0.9,
 
     sellProbabilityThreshold: 0.45,
     sellPredictProbabilityThreshold: 0.35,
