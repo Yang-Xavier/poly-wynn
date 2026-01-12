@@ -60,7 +60,7 @@ export default class Trader {
     try {
       let order: TBriefOrder | null = null;
       if (task.action === TRADE_ACTION_ENUM.buy) {
-        if (!this.getTradeLimitation().canBuy) {
+        if (this.getTradeLimitation().canBuy) {
           this.tradeTaskManage.clearTasks(task.action, task.outcome);
           return;
         }
@@ -71,7 +71,7 @@ export default class Trader {
         });
       }
       if (task.action === TRADE_ACTION_ENUM.sell) {
-        if (!this.getTradeLimitation().canSell) {
+        if (this.getTradeLimitation().canSell) {
           this.tradeTaskManage.clearTasks(task.action, task.outcome);
           return;
         }
