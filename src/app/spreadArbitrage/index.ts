@@ -60,7 +60,7 @@ const init = ({
     logInfo: logInfo,
   });
   logInfo(`初始化交易器成功!`);
-  getTrader().tradeReport.setTraceId(marketSlug);
+  getTrader().setTraceId(marketSlug);
 };
 
 const subscribeData = async (market: TMarketResponseData) => {
