@@ -85,37 +85,62 @@ function ReportPage() {
 
     const result = report.result.toLowerCase();
 
-    // 计算所有buy和sell的总金额
-    let totalBuyCost = 0;
+    // 计算所有buy和sell的总金额（包含fee）
+    let totalBuyCost = 0; // 买入总成本（包含手续费）
     let totalBuyAmount = 0;
-    let totalSellRevenue = 0;
+    let totalBuyFee = 0; // 买入总手续费
+    let totalSellRevenue = 0; // 卖出总收入（扣除手续费后）
     let totalSellAmount = 0;
+    let totalSellFee = 0; // 卖出总手续费
 
     report.trades.forEach((trade) => {
       const action = trade.action.toLowerCase();
+      const fee = trade.fee ?? 0; // 确保 fee 有默认值
+
       if (action === "buy") {
-        totalBuyCost += trade.price * trade.size;
+        // 买入：成本 = price * size + fee
+        totalBuyCost += trade.price * trade.size + fee;
         totalBuyAmount += trade.size;
+        totalBuyFee += fee;
       } else if (action === "sell") {
-        totalSellRevenue += trade.price * trade.size;
+        // 卖出：收入 = price * size - fee
+        totalSellRevenue += trade.price * trade.size - fee;
         totalSellAmount += trade.size;
+        totalSellFee += fee;
       }
     });
 
     if (result === "won") {
-      // profit = amount*(1-price)
-      // 使用总买入amount和平均买入price
+      // profit = amount*(1-avgBuyPrice) - 总买入费用
+      // 使用总买入amount和平均买入price（包含fee的成本）
       if (totalBuyAmount > 0) {
         const avgBuyPrice = totalBuyCost / totalBuyAmount;
         return totalBuyAmount * (1 - avgBuyPrice);
       }
       return 0;
     } else if (result === "sold") {
-      // profit = 所有sell price * amount - buy price * amount
+      // profit = 卖出总收入 - 买入总成本
+      // = (卖出收入 - 卖出费用) - (买入成本 + 买入费用)
       return totalSellRevenue - totalBuyCost;
     } else if (result === "lost") {
-      // profit = 0 - 所有 buy price * amount + 所有sell price * amount
-      return -totalBuyCost + totalSellRevenue;
+      // profit = 卖出总收入 - 买入总成本
+      // = (卖出收入 - 卖出费用) - (买入成本 + 买入费用)
+      return totalSellRevenue - totalBuyCost;
+    } else if (result === "waiting...") {
+      // waiting阶段：如果有卖出，计算已实现收益；如果没有卖出，计算未实现收益
+      if (totalSellAmount > 0) {
+        // 有卖出交易，计算已实现收益（基于已卖出部分）
+        // 按比例计算已卖出部分对应的买入成本
+        const sellRatio = totalSellAmount / totalBuyAmount;
+        const buyCostForSold = totalBuyCost * sellRatio;
+        return totalSellRevenue - buyCostForSold;
+      } else if (totalBuyAmount > 0) {
+        // 只有买入，没有卖出，计算未实现收益（基于当前持仓）
+        // 未实现收益 = 持仓量 * (1 - 平均买入价格)
+        const avgBuyPrice = totalBuyCost / totalBuyAmount;
+        return totalBuyAmount * (1 - avgBuyPrice);
+      }
+      return 0;
     }
 
     // 其他情况返回原始profit
