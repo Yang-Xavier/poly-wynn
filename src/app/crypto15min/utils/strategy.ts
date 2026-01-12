@@ -8,7 +8,7 @@ import { distanceToNextInterval } from "@shared/utils/market";
 
 import { logInfo, logStrategy } from "@crypto15min/module/logger";
 import { getDataFlowInstances } from "@crypto15min/module/dataFlow";
-import { getTrader } from "@crypto15min/module/Trader";
+import { getTrader } from "@crypto15min/module/traderCtrl";
 
 import { getConfig } from "./config";
 import { OUTCOMES_ENUM } from "@shared/constants";

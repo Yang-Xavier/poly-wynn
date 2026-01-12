@@ -30,7 +30,7 @@ import dataRecord from "./module/dataRecord";
 import redeemTaskManager from "./utils/redeemTaskManager";
 import { redeemAllPositions } from "./utils/relayerRedeem";
 
-import { getTrader, initTrader } from "./module/Trader";
+import { getTrader, initTrader } from "./module/traderCtrl";
 
 const setAllTraceId = (marketSlug: string) => {
   setTraceId(marketSlug);

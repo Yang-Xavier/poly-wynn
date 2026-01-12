@@ -1,4 +1,4 @@
-import { getTrader } from "@crypto15min/module/Trader";
+import { getTrader } from "@crypto15min/module/traderCtrl";
 import { logError, logInfo } from "../module/logger";
 import { redeemWithRelayer } from "./relayerRedeem";
 
