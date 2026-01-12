@@ -40,7 +40,8 @@ const findingChance = async (params: {
     return (
       distanceToNextInterval(slugIntervalTimestamp) > 0 &&
       getTrader().tradeTaskManage.getRunningTaskAction() === null &&
-      getTrader().getRemainAmount() >= config.minBuyAmount &&
+      getTrader().maxTradeAmount - getTrader().position.getPosition().amount >=
+        config.minBuyAmount &&
       buyCount < config.maxBuyCount
     );
   };
@@ -162,7 +163,7 @@ const findingChance = async (params: {
           action: TRADE_ACTION_ENUM.buy,
           price: chance.buyPrice,
           outcome: chance.outcome,
-          amount: getTrader().getRemainAmount(),
+          amount: getTrader().maxTradeAmount - getTrader().position.getPosition().amount,
         });
       } else {
         logStrategy(`=== 未找到机会 ===
