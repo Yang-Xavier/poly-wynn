@@ -71,7 +71,7 @@ export default class Trader {
           price: task.price,
           amount: task.amount,
         });
-        this.remainAmount = this.remainAmount - order.amount;
+        this.remainAmount = this.remainAmount - (order?.amount || 0);
         this.logInfo(
           `[🙏executeTradeTask] 剩余交易量(${this.remainAmount}/${this.maxTradeAmount})`
         );

@@ -6,28 +6,31 @@ import {
   distanceToNextInterval,
   get15MinIntervalTimestamp,
   getMarketSlug15Min,
+  getTokenIdFromMarketByOutcome,
 } from "@shared/utils/market";
 import gammaApi from "@shared/api/gammaApi";
 import { TMarketResponseData } from "@typings/gammaData";
-import { getAccountBalanceWithRetry, logAccountBalance } from "./utils/account";
-import clobApi from "@shared/api/clobApi";
+
 import dataFlow from "./utils/dataFlow";
-import { findChance, IChance, watchPosition } from "./strategy";
+import { startStrategy } from "./strategy";
 import { getPriceToBeat } from "./utils/getPriceToBeat";
 import { waitFor } from "@shared/utils/waitFor";
-import { WATCH_POSITION_ACTION_ENUM } from "@shared/constants";
-import { buyUntilMatched, mustGetOrder, mustSell } from "./utils/order";
+import { OUTCOMES_ENUM, TRADE_ACTION_ENUM, USDC_ADDRESS } from "@shared/constants";
+
 import dataRecord from "./dataRecord";
-import tradeReport from "./tradeReport";
-import { getUserpostionByMarketAsOrder } from "./utils/getUserPositionAsOrder";
+
+import { getTrader, initTrader } from "./traderCtrl";
+import { APP_NAME } from "./constants";
+import { getAccountBalance } from "@shared/web3/account";
+import dataApi from "@shared/api/dataApi";
+import { PositionInfo } from "@shared/trade/Position";
 
 const setAllTraceId = (marketSlug: string) => {
   setTraceId(marketSlug);
   dataRecord.setTraceId(marketSlug);
-  tradeReport.setTraceId(marketSlug);
 };
 
-const subscribeData = async (market: TMarketResponseData) => {
+const init = ({ roundEndTimestampMs }: { roundEndTimestampMs: number }) => {
   const config = getConfig();
   logInfo(`初始化数据流 ...`);
   dataFlow.initialize({
@@ -40,6 +43,21 @@ const subscribeData = async (market: TMarketResponseData) => {
     symbol: config.marketTag,
   });
   logInfo(`初始化数据流成功!`);
+  logInfo(`初始化交易器 ...`);
+  initTrader({
+    appName: APP_NAME,
+    privKey: config.account.privKey,
+    clobCreds: config.account.clobCreds,
+    funderAddress: config.account.funderAddress,
+    userWs: dataFlow.getInstances()?.userWs,
+    roundEndTimestamp: roundEndTimestampMs,
+    logInfo: logInfo,
+  });
+  logInfo(`初始化交易器成功!`);
+};
+
+const subscribeData = async (market: TMarketResponseData) => {
+  const config = getConfig();
 
   logInfo(`订阅币安价格 ... ${config.marketTag}/usdt`);
   await dataFlow.getInstances()?.bnPriceWs.connect();
@@ -63,95 +81,33 @@ const subscribeData = async (market: TMarketResponseData) => {
   logInfo(`订阅用户交易成功!`);
 };
 
-const buyOrder = async ({ chance, buyAmount }: { chance: IChance; buyAmount: number }) => {
-  const boughtOrder = (await buyUntilMatched(
-    chance.assetId,
-    chance.buyPrice,
-    buyAmount
-  )) as TOrderResult;
-  if (!boughtOrder) {
-    logInfo(`买入订单不存在`);
-    // 进入下一次循环
-    return false;
-  }
-  logInfo(`买入订单: ${JSON.stringify(boughtOrder)}`);
-  const { original_size, received_size, price: boughtPrice } = boughtOrder;
+const getBuyMaxAmount = async () => {
+  const config = getConfig();
+  const { balance } = await getAccountBalance(config.account.funderAddress, USDC_ADDRESS);
 
-  // 记录买入信息
-  logInfo("buy", {
-    size: Number(received_size),
-    originalSize: Number(original_size),
-    price: Number(boughtPrice),
-    originalPrice: chance.buyPrice,
-    stopProfitPrice: chance.stopProfitPrice,
-    stopLossPrice: chance.stopLossPrice,
-  });
-  tradeReport.addReport("trade", {
-    action: "buy",
-    timestamp: Date.now(),
-    price: chance.buyPrice,
-    amount: Number(boughtOrder.received_size),
-    outcome: chance.outcome,
-  });
-  return boughtOrder;
+  return {
+    buyMaxAmount: Math.min(Number(balance) * config.buyingAmountFactor, config.maxBuyAmount),
+    balance: Number(balance),
+  };
 };
 
-const sellOrder = async ({
-  sellPrice,
-  boughtOrder,
-  slugIntervalTimestamp,
-  boughtTime,
-}: {
-  sellPrice: number;
-  boughtOrder: TOrderResult;
-  slugIntervalTimestamp: number;
-  boughtTime: number;
-}) => {
-  const { price: boughtPrice, outcome: boughtOutcome } = boughtOrder;
-
-  const sellResult = await mustSell(
-    boughtOrder,
-    sellPrice,
-    distanceToNextInterval(slugIntervalTimestamp)
-  );
-  if (!sellResult || !sellResult.orderID) {
-    logInfo(`卖出失败`);
-    // 进入下一次循环
-    return false;
-  }
-  logInfo(`查询卖出订单: ${sellResult.orderID}`);
-  const soldOrder = await mustGetOrder(
-    sellResult.orderID,
-    distanceToNextInterval(slugIntervalTimestamp)
-  );
-  if (!soldOrder) {
-    logInfo(`卖出订单不存在`);
-    // 进入下一次循环
-    return false;
-  }
-  logInfo(`卖出订单: ${JSON.stringify(soldOrder)}`);
-  const { original_size, size_matched, price: soldPrice } = soldOrder;
-  const soldSize = Number(size_matched) === 0 ? Number(original_size) : Number(size_matched);
-  const profit = Number(soldPrice) * Number(soldSize) - Number(boughtPrice) * Number(soldSize);
-
-  const loggerData = {
-    size: Number(soldSize),
-    originalSize: Number(original_size),
-    price: Number(soldPrice),
-    originalPrice: soldPrice,
-    profit,
-    holdTime: Date.now() - boughtTime,
-  };
-  logInfo("sell", loggerData);
-
-  tradeReport.addReport("trade", {
-    action: "sell",
-    price: Number(soldPrice),
-    amount: Number(soldOrder.size_matched || soldOrder.original_size),
-    outcome: boughtOutcome,
-    timestamp: Date.now(),
+const getOnlinePosition = async ({ marketSlug }: { marketSlug: string }) => {
+  const config = getConfig();
+  const onlinePosition = await dataApi.getPositions({
+    user: config.account.funderAddress,
+    market: [marketSlug],
   });
-  return true;
+  if (onlinePosition && onlinePosition.length > 0) {
+    const position: PositionInfo = {
+      outcome: onlinePosition[0].outcome as OUTCOMES_ENUM,
+      amount: onlinePosition[0].size * onlinePosition[0].avgPrice,
+      size: onlinePosition[0].size,
+      price: onlinePosition[0].avgPrice,
+      totalFee: 0,
+    };
+    return position;
+  }
+  return null;
 };
 
 const clean = async () => {
@@ -164,17 +120,18 @@ const clean = async () => {
   logInfo(`清理日志/数据记录/交易报告...`);
   cleanOldLogs(2);
   dataRecord.cleanOldData(2);
-  tradeReport.cleanOldReports(14);
+  getTrader().clear();
 };
 
 const main = async () => {
   const config = getConfig();
-  await clobApi.init({ clobCreds: config.account.clobCreds, privKey: config.account.privKey });
 
   runIntervalFn(async () => {
     const slugIntervalTimestamp = get15MinIntervalTimestamp();
+    const roundEndTimestampMs = get15MinIntervalTimestamp(1) * 1000;
     const marketSlug = getMarketSlug15Min(config.marketTag, slugIntervalTimestamp);
     setAllTraceId(marketSlug);
+    init({ roundEndTimestampMs });
 
     try {
       logInfo(`获取市场信息: ${marketSlug} ...`);
@@ -198,104 +155,56 @@ const main = async () => {
       logInfo(`获取对赌价格成功: ${priceToBeat}`);
 
       logInfo(`策略开始...`);
-      let buyAccount = 0;
-      while (
-        distanceToNextInterval(slugIntervalTimestamp) > 0 &&
-        buyAccount < config.maxBuyAccount
-      ) {
-        let boughtOrder;
-        let boughtTime;
 
+      while (distanceToNextInterval(slugIntervalTimestamp) > 0) {
         logInfo(`获取账户余额 ...`);
-        const balance = await getAccountBalanceWithRetry();
-        logInfo(`获取账户余额成功: ${balance}`);
+        const { balance, buyMaxAmount } = await getBuyMaxAmount();
+        logInfo(`获取账户余额成功: ${balance}, 购买金额: ${buyMaxAmount}`);
 
-        const buyAmount = Number(
-          Math.min(Number(balance) * config.buyingAmountFactor, config.maxBuyAmount).toFixed(2)
-        );
-        logInfo(`计算购买金额: ${buyAmount}`);
+        getTrader().setMaxTradeAmount(buyMaxAmount);
 
         logInfo(`查询持仓订单...`);
-        [boughtOrder] = await getUserpostionByMarketAsOrder(
-          market.conditionId,
-          config.account.funderAddress
-        );
-        logInfo(`查询持仓订单成功: ${JSON.stringify(boughtOrder)}`);
+        const onlinePosition = await getOnlinePosition({ marketSlug });
 
-        if (!boughtOrder) {
-          logInfo(`没有持仓订单，等待机会...`);
-          const chance = await findChance({
-            market,
-            priceToBeat,
-            slugIntervalTimestamp,
-          });
-          if (chance) {
-            dataRecord.pin();
-            logInfo(`找到机会: ${JSON.stringify(chance)}`);
-            logInfo(`本局买入次数: ${buyAccount}`);
-            boughtOrder = await buyOrder({ chance, buyAmount });
-            boughtTime = Date.now();
-
-            if (!boughtOrder) {
-              logInfo(`买入失败`);
-              // 进入下一次循环
-              continue;
-            }
-            buyAccount++;
-          }
-
-          if (boughtOrder) {
-            logInfo(`监听仓位...`);
-            const { action, price: sellPrice } = await watchPosition({
-              chance,
-              slugIntervalTimestamp,
-            });
-            dataRecord.pin();
-            logInfo(`监听仓位返回结果: ${action}`);
-
-            if (action === WATCH_POSITION_ACTION_ENUM.sell) {
-              const sellResult = await sellOrder({
-                sellPrice,
-                boughtOrder,
-                slugIntervalTimestamp,
-                boughtTime,
-              });
-              if (!sellResult) {
-                logInfo(`卖出失败`);
-                // 进入下一次循环
-                continue;
-              }
-              logInfo(`卖出成功`);
-              await waitFor(5 * 1000);
-              await logAccountBalance();
-            } else if (action === WATCH_POSITION_ACTION_ENUM.hold) {
-              logInfo("hold", {
-                holdTime: Date.now() - boughtTime,
-              });
-            }
-          }
-        } else {
+        if (onlinePosition) {
+          logInfo(`查询持仓订单成功: ${JSON.stringify(onlinePosition)}`);
           logInfo(`有持仓订单, 直接卖出...`);
-          const sellResult = await sellOrder({
-            sellPrice: Number(0.01),
-            boughtOrder,
-            slugIntervalTimestamp,
-            boughtTime: Date.now(),
+          getTrader().position.setPosition(onlinePosition);
+          getTrader().tradeTaskManage.addTask({
+            tokenId: getTokenIdFromMarketByOutcome(market, onlinePosition.outcome),
+            action: TRADE_ACTION_ENUM.sell,
+            price: onlinePosition.price,
+            outcome: onlinePosition.outcome,
           });
-          if (!sellResult) {
-            logInfo(`卖出失败`);
-            // 进入下一次循环
-            continue;
-          }
-          logInfo(`卖出成功`);
-          await waitFor(5 * 1000);
-          await logAccountBalance();
+        } else {
+          logInfo(`没有持仓订单，等待机会...`);
         }
+
+        logInfo(`开始策略...`);
+        await startStrategy({ market, priceToBeat, slugIntervalTimestamp });
+
+        logInfo("====================本局结束=====================");
       }
 
-      if (buyAccount <= 0) {
-        tradeReport.addReport("result", {
+      const trades = getTrader().position.getTrades();
+      const buyCount = trades.filter((trade) => trade.action === TRADE_ACTION_ENUM.buy).length;
+      const sellCount = trades.filter((trade) => trade.action === TRADE_ACTION_ENUM.sell).length;
+
+      if (Math.max(buyCount, sellCount) <= 0) {
+        logInfo(`没有买入订单，跳过...`);
+        getTrader().tradeReport.addReport("result", {
           result: "skipped",
+        });
+      } else {
+        logInfo(`有交易订单，计算收益...`);
+        const buyTrades = trades.filter((trade) => trade.action === TRADE_ACTION_ENUM.buy);
+        const sellTrades = trades.filter((trade) => trade.action === TRADE_ACTION_ENUM.sell);
+        const buyPrice = buyTrades[0].price;
+        const sellPrice = sellTrades[0].price;
+        const profit = sellPrice - buyPrice;
+        logInfo(`收益: ${profit}`);
+        getTrader().tradeReport.addReport("result", {
+          result: profit > 0 ? "won" : "lost",
         });
       }
     } catch (error) {

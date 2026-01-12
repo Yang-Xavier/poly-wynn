@@ -95,6 +95,7 @@ const cleanAtEndOfRound = () => {
   logInfo(`清理日志/数据记录/交易报告...`);
   getLoggerModule().cleanOldLogs(2);
   dataRecord.cleanOldData(2);
+  getTrader().clear();
   getTrader().tradeReport.cleanOldReports(14);
 };
 
@@ -302,7 +303,7 @@ export const runPolyWynn = async () => {
         logInfo(`根据价格自检最终结果...`);
         const finalOutcome = await checkResultByPrice({ roundEndTimestampMs, priceToBeat });
         if (finalOutcome) {
-          const result = positionInfo.outcome === OUTCOMES_ENUM.Up ? "won" : "lost";
+          const result = positionInfo.outcome === finalOutcome ? "won" : "lost";
           logInfo(
             `最终结果: ${result === "won" ? "🥳Won" : "🤕Lost"}, finalOutcome: ${finalOutcome}`
           );
@@ -347,5 +348,6 @@ export const runPolyWynn = async () => {
     }
 
     cleanAtEndOfRound();
+    await waitFor(1000);
   });
 };

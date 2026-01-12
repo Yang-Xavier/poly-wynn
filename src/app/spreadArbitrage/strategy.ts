@@ -1,13 +1,14 @@
-import { distanceToNextInterval, getAssetIdMapOutcome } from "@shared/utils/market";
+import { distanceToNextInterval, getTokenIdFromMarketByOutcome } from "@shared/utils/market";
 import { TMarketResponseData } from "@typings/gammaData";
 import dataFlow from "./utils/dataFlow";
 import { getConfig } from "./config";
 import { calculateProbabilityBasedOnBSM } from "@shared/algorithm/bsm";
-import { customTypeLog, logInfo } from "./logger";
-import { race } from "@shared/utils/race";
-import { OUTCOMES_ENUM, WATCH_POSITION_ACTION_ENUM } from "@shared/constants";
+import { logInfo, logStrategy } from "./logger";
+import { OUTCOMES_ENUM, TRADE_ACTION_ENUM } from "@shared/constants";
 import { predictSpreadChange } from "@shared/algorithm/spreadPredictor";
 import { calculateStopLoss } from "./calc";
+import { getTrader } from "./traderCtrl";
+import { waitFor } from "@shared/utils/waitFor";
 
 export interface IChance {
   assetId: string;
@@ -17,170 +18,212 @@ export interface IChance {
   stopLossPrice: number;
 }
 
-export const findChance = async (params: {
+let chance: IChance | null = null;
+
+const findingChance = async (params: {
   market: TMarketResponseData;
   priceToBeat: number;
   slugIntervalTimestamp: number;
-}): Promise<IChance | null> => {
+}) => {
   const { market, priceToBeat, slugIntervalTimestamp } = params;
-  const assetIdMapOutcome = getAssetIdMapOutcome(market);
+  const tokenIds = {
+    [OUTCOMES_ENUM.Up]: getTokenIdFromMarketByOutcome(market, OUTCOMES_ENUM.Up),
+    [OUTCOMES_ENUM.Down]: getTokenIdFromMarketByOutcome(market, OUTCOMES_ENUM.Down),
+  };
   const dataFlowInstances = dataFlow.getInstances();
   const config = getConfig();
-  let resolved = false;
 
-  return await race(
-    new Promise((resolve) => {
-      let predictPriceHistory = [];
-      dataFlowInstances.polyPriceWs.onPriceChange(() => {
-        if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) return;
-        predictPriceHistory = [...dataFlowInstances.polyPriceWs.getPriceHistory()];
+  const shouldFinding = () => {
+    const trades = getTrader().position.getTrades();
+    const buyCount = trades.filter((trade) => trade.action === TRADE_ACTION_ENUM.buy).length;
+    return (
+      distanceToNextInterval(slugIntervalTimestamp) > 0 &&
+      getTrader().tradeTaskManage.getRunningTaskAction() === null &&
+      getTrader().getRemainAmount() >= config.minBuyAmount &&
+      buyCount < config.maxBuyAccount
+    );
+  };
+
+  let predictPriceHistory = [];
+  dataFlowInstances.polyPriceWs.onPriceChange(() => {
+    if (!shouldFinding()) return;
+    predictPriceHistory = [...dataFlowInstances.polyPriceWs.getPriceHistory()];
+  });
+
+  dataFlowInstances.bnPriceWs.onPriceChange((bnPrice) => {
+    if (!shouldFinding()) return;
+
+    const polyPrice = dataFlowInstances.polyPriceWs.getLatestPriceData();
+    const upOrderbook = dataFlowInstances.polyOrderBookWs.getLatestOrderBookData(
+      tokenIds[OUTCOMES_ENUM.Up]
+    );
+    const downOrderbook = dataFlowInstances.polyOrderBookWs.getLatestOrderBookData(
+      tokenIds[OUTCOMES_ENUM.Down]
+    );
+
+    const upBestAsk = upOrderbook[tokenIds[OUTCOMES_ENUM.Up]]?.bestAsk ?? 0;
+    const downBestAsk = downOrderbook[tokenIds[OUTCOMES_ENUM.Down]]?.bestAsk ?? 0;
+
+    const bnPriceHistory = dataFlowInstances.bnPriceWs.getPriceHistory();
+
+    if (!polyPrice || !upOrderbook || !downOrderbook || upBestAsk === 0 || downBestAsk === 0) {
+      logInfo(`没有获取到价格 或 订单簿数据`);
+      return;
+    }
+
+    if (
+      Math.min(bnPriceHistory.length, predictPriceHistory.length) > config.startCalcMinDataPoints
+    ) {
+      // 预测价格
+      const { predictedNewPrice } = predictSpreadChange(
+        bnPriceHistory,
+        predictPriceHistory,
+        bnPrice.value,
+        polyPrice.value
+      );
+
+      predictPriceHistory.push({
+        value: predictedNewPrice,
+        timestamp: Date.now(),
       });
 
-      dataFlowInstances.bnPriceWs.onPriceChange((bnPrice) => {
-        if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) return;
+      const bsmResult = calculateProbabilityBasedOnBSM(
+        predictPriceHistory,
+        priceToBeat,
+        distanceToNextInterval(slugIntervalTimestamp)
+      );
+      if (
+        Math.max(bsmResult.probUp - Number(upBestAsk), bsmResult.probDown - Number(downBestAsk)) >
+        config.bsmProbThreshold
+      ) {
+        // up或者down 大于阈值，则认为有机会
 
-        const polyPrice = dataFlowInstances.polyPriceWs.getLatestPriceData();
-        const upOrderbook = dataFlowInstances.polyOrderBookWs.getLatestOrderBookData(
-          assetIdMapOutcome[OUTCOMES_ENUM.Up]
+        const outcome =
+          bsmResult.probUp - Number(upBestAsk) > bsmResult.probDown - Number(downBestAsk)
+            ? OUTCOMES_ENUM.Up
+            : OUTCOMES_ENUM.Down;
+
+        const buyPrice = outcome === OUTCOMES_ENUM.Up ? upBestAsk : downBestAsk;
+
+        const probAdvantage =
+          outcome === OUTCOMES_ENUM.Up
+            ? bsmResult.probUp - Number(upBestAsk)
+            : bsmResult.probDown - Number(downBestAsk);
+
+        const stopProfitPrice = Number(
+          (probAdvantage * config.stopProfitFactor + Number(buyPrice)).toFixed(2)
         );
-        const downOrderbook = dataFlowInstances.polyOrderBookWs.getLatestOrderBookData(
-          assetIdMapOutcome[OUTCOMES_ENUM.Down]
-        );
 
-        const upBestAsk = upOrderbook[assetIdMapOutcome[OUTCOMES_ENUM.Up]]?.bestAsk ?? 0;
-        const downBestAsk = downOrderbook[assetIdMapOutcome[OUTCOMES_ENUM.Down]]?.bestAsk ?? 0;
+        // 计算科学的止损点
+        const stopLossPrice = calculateStopLoss({
+          bsmProbability: outcome === OUTCOMES_ENUM.Up ? bsmResult.probUp : bsmResult.probDown,
+          confidence: bsmResult.confidence,
+          timeToExpiryMs: distanceToNextInterval(slugIntervalTimestamp),
+          buyPrice,
+          probAdvantage,
+          outcome,
+        });
 
-        const bnPriceHistory = dataFlowInstances.bnPriceWs.getPriceHistory();
-
-        if (!polyPrice || !upOrderbook || !downOrderbook || upBestAsk === 0 || downBestAsk === 0) {
-          logInfo(`没有获取到价格 或 订单簿数据`);
-          return;
-        }
-
-        if (
-          Math.min(bnPriceHistory.length, predictPriceHistory.length) >
-          config.startCalcMinDataPoints
-        ) {
-          // 开始计算的最小数据量
-          const { predictedNewPrice } = predictSpreadChange(
-            bnPriceHistory,
-            predictPriceHistory,
-            bnPrice.value,
-            polyPrice.value
-          );
-
-          predictPriceHistory.push({
-            value: predictedNewPrice,
-            timestamp: Date.now(),
-          });
-
-          const bsmResult = calculateProbabilityBasedOnBSM(
-            predictPriceHistory,
+        chance = {
+          assetId: tokenIds[outcome],
+          outcome,
+          buyPrice,
+          stopProfitPrice,
+          stopLossPrice,
+        };
+        logStrategy(
+          `=== 💡找到机会 ===
+          ${JSON.stringify({
+            predictedNewPrice,
+            curentPrice: polyPrice.value,
             priceToBeat,
-            distanceToNextInterval(slugIntervalTimestamp)
-          );
-          if (
-            Math.max(
-              bsmResult.probUp - Number(upBestAsk),
-              bsmResult.probDown - Number(downBestAsk)
-            ) > config.bsmProbThreshold
-          ) {
-            // up或者down 大于阈值，则认为有机会
-
-            const outcome =
-              bsmResult.probUp - Number(upBestAsk) > bsmResult.probDown - Number(downBestAsk)
-                ? OUTCOMES_ENUM.Up
-                : OUTCOMES_ENUM.Down;
-
-            const buyPrice = outcome === OUTCOMES_ENUM.Up ? upBestAsk : downBestAsk;
-
-            const probAdvantage =
-              outcome === OUTCOMES_ENUM.Up
-                ? bsmResult.probUp - Number(upBestAsk)
-                : bsmResult.probDown - Number(downBestAsk);
-
-            const stopProfitPrice = (
-              probAdvantage * config.stopProfitFactor +
-              Number(buyPrice)
-            ).toFixed(2);
-
-            // 计算科学的止损点
-            const stopLossPrice = calculateStopLoss({
-              bsmProbability: outcome === OUTCOMES_ENUM.Up ? bsmResult.probUp : bsmResult.probDown,
-              confidence: bsmResult.confidence,
-              timeToExpiryMs: distanceToNextInterval(slugIntervalTimestamp),
-              buyPrice,
-              probAdvantage,
-              outcome,
-            });
-
-            const result = {
-              assetId: assetIdMapOutcome[outcome],
-              outcome,
-              buyPrice,
-              stopProfitPrice,
-              stopLossPrice,
-            };
-            customTypeLog(
-              "Chance",
-              `=== 💡找到机会 ===    
-                ${JSON.stringify({
-                  predictedNewPrice,
-                  curentPrice: polyPrice.value,
-                  priceToBeat,
-                  upBestAsk,
-                  downBestAsk,
-                  bsmResult,
-                  chance: result,
-                  calcCost: `${Date.now() - bnPrice.receivedAt}ms`,
-                })}
-              `
-            );
-            resolved = true;
-            resolve(result);
-          } else {
-            customTypeLog(
-              "Chance",
-              `=== 未找到机会 ===    
-              ${JSON.stringify({
-                predictedNewPrice,
-                curentPrice: polyPrice.value,
-                priceToBeat,
-                upBestAsk,
-                downBestAsk,
-                bsmResult,
-                cost: `${Date.now() - bnPrice.receivedAt}ms`,
-              })}
-              `
-            );
-          }
-        }
-      });
-    }),
-    distanceToNextInterval(slugIntervalTimestamp)
-  );
+            upBestAsk,
+            downBestAsk,
+            bsmResult,
+            chance: chance,
+            calcCost: `${Date.now() - bnPrice.receivedAt}ms`,
+          })}
+          `
+        );
+        getTrader().tradeTaskManage.addTask({
+          tokenId: tokenIds[chance.outcome],
+          action: TRADE_ACTION_ENUM.buy,
+          price: chance.buyPrice,
+          outcome: chance.outcome,
+          amount: getTrader().getRemainAmount(),
+        });
+      } else {
+        // customTypeLog(
+        //   "Chance",
+        //   `=== 未找到机会 ===
+        //   ${JSON.stringify({
+        //     predictedNewPrice,
+        //     curentPrice: polyPrice.value,
+        //     priceToBeat,
+        //     upBestAsk,
+        //     downBestAsk,
+        //     bsmResult,
+        //     cost: `${Date.now() - bnPrice.receivedAt}ms`,
+        //   })}
+        //   `
+        // );
+      }
+    }
+  });
 };
 
-export const watchPosition = async (params: { chance: IChance; slugIntervalTimestamp: number }) => {
-  const { chance, slugIntervalTimestamp } = params;
-  const { assetId, stopProfitPrice, stopLossPrice } = chance;
+const watchingPosition = async (params: {
+  market: TMarketResponseData;
+  slugIntervalTimestamp: number;
+}) => {
+  const { market, slugIntervalTimestamp } = params;
   const dataFlowInstances = dataFlow.getInstances();
-  let resolved = false;
+  const config = getConfig();
 
-  return await race(
-    new Promise((resolve) => {
-      dataFlowInstances.polyOrderBookWs.onOrderBookChange((orderBook) => {
-        if (resolved || distanceToNextInterval(slugIntervalTimestamp) <= 0) return;
-        const bestBid = orderBook[assetId]?.bestBid;
-        if (bestBid && (Number(bestBid) <= stopLossPrice || Number(bestBid) >= stopProfitPrice)) {
-          resolved = true;
-          resolve({ action: WATCH_POSITION_ACTION_ENUM.sell, price: bestBid });
-        }
+  const shouldWatching = () => {
+    const position = getTrader().position.getPosition();
+    return (
+      distanceToNextInterval(slugIntervalTimestamp) > 0 &&
+      position.size > config.minSellSize &&
+      getTrader().tradeTaskManage.getRunningTaskAction() === null
+    );
+  };
+  dataFlowInstances.polyOrderBookWs.onOrderBookChange((orderBook) => {
+    if (!shouldWatching()) return;
+    const position = getTrader().position.getPosition();
+    const tokenId = getTokenIdFromMarketByOutcome(market, position.outcome);
+
+    const { stopProfitPrice, stopLossPrice } = chance;
+    const bestBid = orderBook[tokenId]?.bestBid;
+
+    if (bestBid && (Number(bestBid) <= stopLossPrice || Number(bestBid) >= stopProfitPrice)) {
+      logStrategy(`=== 💡卖出 ===
+        ${JSON.stringify({
+          bestBid,
+          stopLossPrice,
+          stopProfitPrice,
+          position,
+        })}
+      `);
+      getTrader().tradeTaskManage.addTask({
+        tokenId: tokenId,
+        action: TRADE_ACTION_ENUM.sell,
+        price: bestBid,
+        outcome: position.outcome,
+        size: position.size,
       });
-    }),
-    distanceToNextInterval(slugIntervalTimestamp),
-    () => {
-      return WATCH_POSITION_ACTION_ENUM.hold;
     }
-  );
+  });
+};
+
+export const startStrategy = async (params: {
+  market: TMarketResponseData;
+  priceToBeat: number;
+  slugIntervalTimestamp: number;
+}) => {
+  const { market, slugIntervalTimestamp, priceToBeat } = params;
+  findingChance({ market, priceToBeat, slugIntervalTimestamp });
+  watchingPosition({ market, slugIntervalTimestamp });
+
+  await waitFor(distanceToNextInterval(slugIntervalTimestamp));
 };

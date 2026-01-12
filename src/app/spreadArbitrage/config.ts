@@ -10,9 +10,14 @@ const config = {
   stopProfitFactor: 0.5, // 止盈因子
   bsmProbThreshold: 0.17, // 概率阈值
   maxBuyAccount: 5, // 最大购买次数
+
+  minBuyAmount: 1, // 最小购买金额
+  minSellSize: 1, // 最小卖出数量
+
+  accountId: "account2",
 };
 
 export const getConfig = () => {
-  const accountConfig = getEncryptedConfig("account1") as TAccountConfig;
+  const accountConfig = getEncryptedConfig(config.accountId) as TAccountConfig;
   return { ...config, account: accountConfig };
 };

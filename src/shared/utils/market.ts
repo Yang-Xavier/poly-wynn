@@ -1,5 +1,6 @@
 // 计算当前时间属于哪个15分钟区间，并返回该区间开始的时间戳（单位：秒）
 
+import { OUTCOMES_ENUM } from "@shared/constants";
 import { TMarketResponseData } from "@typings/gammaData";
 
 // 支持传入参数 n，获取下 n 个 interval（n 默认为 0，表示当前 interval）
@@ -36,4 +37,14 @@ export const getAssetIdMapOutcome = (market: TMarketResponseData) => {
     outcomes[getOutcomeByAssetId(market, id)] = id;
   });
   return outcomes;
+};
+
+export const getTokenIdFromMarketByOutcome = (
+  market: TMarketResponseData,
+  outcome: OUTCOMES_ENUM
+) => {
+  const tokenIds = JSON.parse(market.clobTokenIds) as string[];
+  const outcomes = JSON.parse(market.outcomes) as OUTCOMES_ENUM[];
+  const index = outcomes.indexOf(outcome);
+  return tokenIds[index];
 };

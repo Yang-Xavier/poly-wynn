@@ -184,7 +184,6 @@ export type TAccountConfig = {
   funderAddress: string;
   privKey: string;
   clobCreds: TCreds;
-  builderCreds: TCreds;
 };
 
 export type TEncryptedConfig = {
