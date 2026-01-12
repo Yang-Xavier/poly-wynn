@@ -164,20 +164,17 @@ const findingChance = async (params: {
           amount: getTrader().getRemainAmount(),
         });
       } else {
-        // customTypeLog(
-        //   "Chance",
-        //   `=== 未找到机会 ===
-        //   ${JSON.stringify({
-        //     predictedNewPrice,
-        //     curentPrice: polyPrice.value,
-        //     priceToBeat,
-        //     upBestAsk,
-        //     downBestAsk,
-        //     bsmResult,
-        //     cost: `${Date.now() - bnPrice.receivedAt}ms`,
-        //   })}
-        //   `
-        // );
+        logStrategy(`=== 未找到机会 ===
+          ${JSON.stringify({
+            predictedNewPrice,
+            curentPrice: polyPrice.value,
+            priceToBeat,
+            upBestAsk,
+            downBestAsk,
+            bsmResult,
+            calcCost: `${Date.now() - bnPrice.receivedAt}ms`,
+          })}
+        `);
       }
     }
   });
