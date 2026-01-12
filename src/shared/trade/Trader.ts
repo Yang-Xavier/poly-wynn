@@ -128,7 +128,7 @@ export default class Trader {
   }
 
   getRemainAmount() {
-    return this.maxTradeAmount;
+    return this.remainAmount;
   }
 
   clear() {
