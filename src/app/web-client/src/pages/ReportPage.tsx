@@ -323,7 +323,7 @@ function ReportPage() {
       return <span className="result-badge result-hold">⏸ Hold</span>;
     } else if (lowerResult === "skipped") {
       return <span className="result-badge result-skipped">⊘ Skipped</span>;
-    } else if (lowerResult === "waiting..." || lowerResult === "waiting") {
+    } else if (lowerResult === "waiting...") {
       return <span className="result-badge result-waiting">⏳ Waiting...</span>;
     } else if (lowerResult === "error") {
       return <span className="result-badge result-error">⚠ Error</span>;
@@ -598,7 +598,7 @@ function ReportPage() {
                     <div className="result-badge-wrapper">
                       {getResultBadge(report.result)}
                       {report.additionalInfo && (
-                        <span className="result-additional-info">({report.additionalInfo})</span>
+                        <span className="result-additional-info">{report.additionalInfo}</span>
                       )}
                     </div>
                     {report.balance !== undefined && (

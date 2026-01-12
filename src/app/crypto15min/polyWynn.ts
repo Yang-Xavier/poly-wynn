@@ -292,11 +292,13 @@ export const runPolyWynn = async () => {
         logInfo(`🈚️本局没有机会，持仓为空....`);
         getTrader().tradeReport.addReport("result", {
           result: "skipped",
+          additionalInfo: "",
         });
       } else if (isSold) {
         logInfo(`👿本局有卖出记录....`);
         getTrader().tradeReport.addReport("result", {
           result: "sold",
+          additionalInfo: "",
         });
         redeemTaskManager.addTask(marketSlug, market.conditionId, positionInfo.outcome, true);
       } else if (positionInfo.size > config.stratgegy.sellMinimumSize) {
