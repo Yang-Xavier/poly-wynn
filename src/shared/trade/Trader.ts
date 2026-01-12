@@ -23,8 +23,9 @@ export default class Trader {
   public position: Position;
   public tradeReport: TradeReport;
   public tradeCore: TradeCore;
-  public maxTradeAmount: number;
-  private remainAmount: number;
+  public maxTradeAmount: number = 100;
+  public traceId: string;
+
   private logInfo: (message: string) => void;
 
   constructor({
@@ -41,6 +42,7 @@ export default class Trader {
     this.tradeTaskManage = new TradeTaskManage({
       tradeTaskExecutor: (task: TradeTask) => this.executeTradeTask(task),
       taskEndTimestamp: roundEndTimestamp,
+      onTrade: (task: TradeTask, remainTasks: TradeTask[]) => this.onTrade(task, remainTasks),
     });
     this.tradeReport = new TradeReport({ appName });
     this.position = new Position();
@@ -58,29 +60,18 @@ export default class Trader {
     try {
       let order: TBriefOrder | null = null;
       if (task.action === TRADE_ACTION_ENUM.buy) {
-        if (this.remainAmount <= 1) {
-          this.logInfo(
-            `[🙏executeTradeTask] 剩余交易量(amount: ${this.remainAmount}/${this.maxTradeAmount})不足, 跳过交易任务...`
-          );
+        if (!this.getTradeLimitation().canBuy) {
           this.tradeTaskManage.clearTasks(task.action, task.outcome);
           return;
         }
-
         order = await this.tradeCore.marketBuyAndWaitFill({
           tokenId: task.tokenId,
           price: task.price,
           amount: task.amount,
         });
-        this.remainAmount = this.remainAmount - (order?.amount || 0);
-        this.logInfo(
-          `[🙏executeTradeTask] 剩余交易量(${this.remainAmount}/${this.maxTradeAmount})`
-        );
       }
       if (task.action === TRADE_ACTION_ENUM.sell) {
-        if (this.position.getPosition().size < 1) {
-          this.logInfo(
-            `[🙏executeTradeTask] 剩余持仓量(size: ${this.position.getPosition().size})不足, 跳过交易任务...`
-          );
+        if (!this.getTradeLimitation().canSell) {
           this.tradeTaskManage.clearTasks(task.action, task.outcome);
           return;
         }
@@ -114,7 +105,22 @@ export default class Trader {
     }
   }
 
+  // 继承,重写
+  onTrade(task: TradeTask, remainTasks: TradeTask[]) {
+    return;
+  }
+
+  // 继承,重写
+  getTradeLimitation() {
+    return { canBuy: true, canSell: true };
+  }
+
+  get remainAmount() {
+    return this.maxTradeAmount - this.position.getPosition().amount;
+  }
+
   setTraceId(traceId: string) {
+    this.traceId = traceId;
     this.tradeReport.setTraceId(traceId);
   }
 
@@ -124,11 +130,6 @@ export default class Trader {
 
   setMaxTradeAmount(maxTradeAmount: number) {
     this.maxTradeAmount = maxTradeAmount;
-    this.remainAmount = maxTradeAmount;
-  }
-
-  getRemainAmount() {
-    return this.remainAmount;
   }
 
   clear() {

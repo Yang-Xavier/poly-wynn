@@ -86,17 +86,10 @@ const findingChanceAndBuying = ({
         logStrategy("[🧐findingChanceAndBuying] 本局结束, 跳过策略执行...");
         return;
       }
-      const remainingTradeAmount = getTrader().getRemainAmount();
-      if (remainingTradeAmount < config.stratgegy.buyMinimumAmount) {
-        skipped = true;
-        logStrategy(`[🧐findingChanceAndBuying] 当前持仓量已达到最大持仓量, 跳过买入...`);
-        return;
-      }
-      const isRunningTradeTask =
-        getTrader().tradeTaskManage.getRunningTaskAction() === TRADE_ACTION_ENUM.buy;
 
-      if (isRunningTradeTask) {
-        logStrategy(`[🧐findingChanceAndBuying] 当前有交易任务正在执行, 跳过策略执行...`);
+      const tradeLimitation = getTrader().getTradeLimitation();
+
+      if (!tradeLimitation.canBuy) {
         return;
       }
 
@@ -146,7 +139,7 @@ const findingChanceAndBuying = ({
 
         const buyAmount = Math.min(
           asksVolume * config.stratgegy.buyMaxVolumeThreshold,
-          remainingTradeAmount
+          getTrader().remainAmount
         );
 
         logStrategy(
@@ -221,18 +214,11 @@ const watchingPosition = ({
       skipped = true;
       return;
     }
+    const tradeLimitation = getTrader().getTradeLimitation();
+    if (!tradeLimitation.canSell) {
+      return;
+    }
     const currentPosition = getTrader().position.getPosition();
-    if (currentPosition.size < config.stratgegy.sellMinimumSize || !currentPosition.outcome) {
-      return;
-    }
-
-    const isRunningTradeTask =
-      getTrader().tradeTaskManage.getRunningTaskAction() === TRADE_ACTION_ENUM.sell;
-
-    if (isRunningTradeTask) {
-      logStrategy(`[🙏watchingPosition] 当前有交易任务正在执行, 跳过策略执行...`);
-      return;
-    }
 
     return currentPosition;
   };

@@ -25,16 +25,19 @@ export class TradeTaskManage {
   private tradeTaskExecutor: TradeTaskExecutor;
   private runningTaskAction: TRADE_ACTION_ENUM | null = null;
   private taskEndTimestamp: number | null = null;
-
+  private onTrade: (task: TradeTask, remainTasks: TradeTask[]) => void;
   constructor({
     tradeTaskExecutor,
     taskEndTimestamp,
+    onTrade,
   }: {
     tradeTaskExecutor: TradeTaskExecutor;
     taskEndTimestamp: number;
+    onTrade?: (task: TradeTask, remainTasks: TradeTask[]) => void;
   }) {
     this.tradeTaskExecutor = tradeTaskExecutor;
     this.taskEndTimestamp = taskEndTimestamp;
+    this.onTrade = onTrade;
   }
 
   getRunningTaskAction(): TRADE_ACTION_ENUM | null {
@@ -64,6 +67,7 @@ export class TradeTaskManage {
     this.runningTaskAction = task.action;
     await this.tradeTaskExecutor(task);
     this.runningTaskAction = null;
+    this.onTrade?.(task, this.taskList);
     this.autoRunNextTask();
   }
 

@@ -34,16 +34,8 @@ const findingChance = async (params: {
   const config = getConfig();
 
   const shouldFinding = () => {
-    const trades = getTrader().position.getTrades();
-    const buyCount = trades.filter((trade) => trade.action === TRADE_ACTION_ENUM.buy).length;
-
-    return (
-      distanceToNextInterval(slugIntervalTimestamp) > 0 &&
-      getTrader().tradeTaskManage.getRunningTaskAction() === null &&
-      getTrader().maxTradeAmount - getTrader().position.getPosition().amount >=
-        config.minBuyAmount &&
-      buyCount < config.maxBuyCount
-    );
+    const tradeLimitation = getTrader().getTradeLimitation();
+    return distanceToNextInterval(slugIntervalTimestamp) > 0 && tradeLimitation.canBuy;
   };
 
   let predictPriceHistory = [];
@@ -188,15 +180,10 @@ const watchingPosition = async (params: {
 }) => {
   const { market, slugIntervalTimestamp } = params;
   const dataFlowInstances = dataFlow.getInstances();
-  const config = getConfig();
 
   const shouldWatching = () => {
-    const position = getTrader().position.getPosition();
-    return (
-      distanceToNextInterval(slugIntervalTimestamp) > 0 &&
-      position.size > config.minSellSize &&
-      getTrader().tradeTaskManage.getRunningTaskAction() === null
-    );
+    const tradeLimitation = getTrader().getTradeLimitation();
+    return distanceToNextInterval(slugIntervalTimestamp) > 0 && tradeLimitation.canSell;
   };
   dataFlowInstances.polyOrderBookWs.onOrderBookChange((orderBook) => {
     if (!shouldWatching()) return;
