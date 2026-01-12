@@ -66,9 +66,12 @@ const findingChance = async (params: {
 
     const bnPriceHistory = dataFlowInstances.bnPriceWs.getPriceHistory();
 
-    if (!polyPrice || !upOrderbook || !downOrderbook || upBestAsk === 0 || downBestAsk === 0) {
-      logInfo(`没有获取到价格 或 订单簿数据`);
+    if (!polyPrice || !upOrderbook || !downOrderbook) {
+      logInfo(`没有获取到价格`);
       return;
+    }
+    if (upBestAsk === 0 || downBestAsk === 0) {
+      logInfo(`没有获取到最佳报价`);
     }
 
     if (
