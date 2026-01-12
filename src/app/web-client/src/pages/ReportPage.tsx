@@ -264,23 +264,12 @@ function ReportPage() {
         );
 
         if (response.data.success && response.data.data.reports) {
-          // 预处理数据：如果trades里有sell，result改为sold，additionalInfo改为原本的result
+          // 重新计算profit
           const processedReports = response.data.data.reports.map((report) => {
-            const hasSell = report.trades?.some((trade) => trade.action.toLowerCase() === "sell");
-            let updatedReport = report;
-            if (hasSell) {
-              updatedReport = {
-                ...report,
-                result: "sold",
-                additionalInfo: report.result,
-              };
-            }
-            // 重新计算profit
-            updatedReport = {
-              ...updatedReport,
-              profit: recalculateProfit(updatedReport),
+            return {
+              ...report,
+              profit: recalculateProfit(report),
             };
-            return updatedReport;
           });
 
           // 按timestamp从新到旧排序
