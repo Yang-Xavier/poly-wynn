@@ -160,6 +160,9 @@ const main = async () => {
         logInfo(`获取账户余额 ...`);
         const { balance, buyMaxAmount } = await getBuyMaxAmount();
         logInfo(`获取账户余额成功: ${balance}, 购买金额: ${buyMaxAmount}`);
+        getTrader().tradeReport.addReport("balance", {
+          balance: Number(balance),
+        });
 
         getTrader().setMaxTradeAmount(buyMaxAmount);
 
