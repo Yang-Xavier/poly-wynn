@@ -1,7 +1,7 @@
 import { getEncryptedConfig, TAccountConfig } from "@shared/encryptConfig";
 
 const config = {
-  marketTag: "eth",
+  marketTag: "btc",
 
   delayToStart: 3 * 60 * 1000, // 延迟开始时间
   buyingAmountFactor: 0.1, // 购买金额因子
