@@ -24,6 +24,7 @@ export default class Trader {
   public tradeReport: TradeReport;
   public tradeCore: TradeCore;
   public maxTradeAmount: number;
+  private remainAmount: number;
   private logInfo: (message: string) => void;
 
   constructor({
@@ -57,13 +58,32 @@ export default class Trader {
     try {
       let order: TBriefOrder | null = null;
       if (task.action === TRADE_ACTION_ENUM.buy) {
+        if (this.remainAmount <= 0) {
+          this.logInfo(
+            `[🙏executeTradeTask] 剩余交易量(amount: ${this.remainAmount}/${this.maxTradeAmount})不足, 跳过交易任务...`
+          );
+          this.tradeTaskManage.clearTasks(task.action, task.outcome);
+          return;
+        }
+
         order = await this.tradeCore.marketBuyAndWaitFill({
           tokenId: task.tokenId,
           price: task.price,
           amount: task.amount,
         });
+        this.remainAmount = this.maxTradeAmount - order.amount;
+        this.logInfo(
+          `[🙏executeTradeTask] 剩余交易量(${this.remainAmount}/${this.maxTradeAmount})`
+        );
       }
       if (task.action === TRADE_ACTION_ENUM.sell) {
+        if (this.position.getPosition().size < 1) {
+          this.logInfo(
+            `[🙏executeTradeTask] 剩余持仓量(size: ${this.position.getPosition().size})不足, 跳过交易任务...`
+          );
+          this.tradeTaskManage.clearTasks(task.action, task.outcome);
+          return;
+        }
         order = await this.tradeCore.marketSellAndWaitFill({
           tokenId: task.tokenId,
           price: task.price,
@@ -89,14 +109,6 @@ export default class Trader {
           fee: order.fee,
         });
       }
-
-      if (
-        this.position.getPosition().amount >= this.maxTradeAmount ||
-        this.position.getPosition().size <= 1
-      ) {
-        this.tradeTaskManage.clearTasks(task.action, task.outcome);
-        return;
-      }
     } catch (error) {
       this.logInfo(`[🙏executeTradeTask] 执行交易任务失败: ${error}`);
     }
@@ -112,9 +124,10 @@ export default class Trader {
 
   setMaxTradeAmount(maxTradeAmount: number) {
     this.maxTradeAmount = maxTradeAmount;
+    this.remainAmount = maxTradeAmount;
   }
 
-  getMaxTradeAmount() {
+  getRemainAmount() {
     return this.maxTradeAmount;
   }
 

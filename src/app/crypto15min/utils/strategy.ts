@@ -86,9 +86,7 @@ const findingChanceAndBuying = ({
         logStrategy("[🧐findingChanceAndBuying] 本局结束, 跳过策略执行...");
         return;
       }
-      const maxTradeAmount = getTrader().getMaxTradeAmount();
-      const currentPosition = getTrader().position.getPosition();
-      const remainingTradeAmount = maxTradeAmount - currentPosition.amount;
+      const remainingTradeAmount = getTrader().getRemainAmount();
       if (remainingTradeAmount <= config.stratgegy.buyMinimumAmount) {
         skipped = true;
         logStrategy(`[🧐findingChanceAndBuying] 当前持仓量已达到最大持仓量, 跳过买入...`);
@@ -148,7 +146,7 @@ const findingChanceAndBuying = ({
 
         const buyAmount = Math.min(
           asksVolume * config.stratgegy.buyMaxVolumeThreshold,
-          maxTradeAmount
+          remainingTradeAmount
         );
 
         logStrategy(
