@@ -58,7 +58,7 @@ export default class Trader {
     try {
       let order: TBriefOrder | null = null;
       if (task.action === TRADE_ACTION_ENUM.buy) {
-        if (this.remainAmount <= 0) {
+        if (this.remainAmount <= 1) {
           this.logInfo(
             `[🙏executeTradeTask] 剩余交易量(amount: ${this.remainAmount}/${this.maxTradeAmount})不足, 跳过交易任务...`
           );
@@ -71,7 +71,7 @@ export default class Trader {
           price: task.price,
           amount: task.amount,
         });
-        this.remainAmount = this.maxTradeAmount - order.amount;
+        this.remainAmount = this.remainAmount - order.amount;
         this.logInfo(
           `[🙏executeTradeTask] 剩余交易量(${this.remainAmount}/${this.maxTradeAmount})`
         );

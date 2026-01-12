@@ -87,7 +87,7 @@ const findingChanceAndBuying = ({
         return;
       }
       const remainingTradeAmount = getTrader().getRemainAmount();
-      if (remainingTradeAmount <= config.stratgegy.buyMinimumAmount) {
+      if (remainingTradeAmount < config.stratgegy.buyMinimumAmount) {
         skipped = true;
         logStrategy(`[🧐findingChanceAndBuying] 当前持仓量已达到最大持仓量, 跳过买入...`);
         return;
