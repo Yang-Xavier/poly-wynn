@@ -75,6 +75,9 @@ const findingChance = async (params: {
       return;
     }
     if (upBestAsk === 0 || downBestAsk === 0) {
+      logInfo(
+        `upBestAsk: ${JSON.stringify(upOrderbook)}, downBestAsk: ${JSON.stringify(downOrderbook)}`
+      );
       logInfo(`没有获取到最佳报价`);
       return;
     }
