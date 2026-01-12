@@ -138,7 +138,7 @@ const main = async () => {
     const roundEndTimestampMs = get15MinIntervalTimestamp(1) * 1000;
     const marketSlug = getMarketSlug15Min(config.marketTag, slugIntervalTimestamp);
     setAllTraceId(marketSlug);
-    init({ roundEndTimestampMs });
+    init({ marketSlug, roundEndTimestampMs });
 
     try {
       logInfo(`获取市场信息: ${marketSlug} ...`);
