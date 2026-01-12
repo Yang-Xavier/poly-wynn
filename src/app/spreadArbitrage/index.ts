@@ -30,7 +30,13 @@ const setAllTraceId = (marketSlug: string) => {
   dataRecord.setTraceId(marketSlug);
 };
 
-const init = ({ roundEndTimestampMs }: { roundEndTimestampMs: number }) => {
+const init = ({
+  marketSlug,
+  roundEndTimestampMs,
+}: {
+  marketSlug: string;
+  roundEndTimestampMs: number;
+}) => {
   const config = getConfig();
   logInfo(`初始化数据流 ...`);
   dataFlow.initialize({
@@ -54,6 +60,7 @@ const init = ({ roundEndTimestampMs }: { roundEndTimestampMs: number }) => {
     logInfo: logInfo,
   });
   logInfo(`初始化交易器成功!`);
+  getTrader().tradeReport.setTraceId(marketSlug);
 };
 
 const subscribeData = async (market: TMarketResponseData) => {
