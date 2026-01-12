@@ -7,7 +7,8 @@ interface Trade {
   action: string;
   timestamp: number;
   price: number;
-  amount: number;
+  size: number;
+  fee: number;
   outcome: string;
 }
 
@@ -93,11 +94,11 @@ function ReportPage() {
     report.trades.forEach((trade) => {
       const action = trade.action.toLowerCase();
       if (action === "buy") {
-        totalBuyCost += trade.price * trade.amount;
-        totalBuyAmount += trade.amount;
+        totalBuyCost += trade.price * trade.size;
+        totalBuyAmount += trade.size;
       } else if (action === "sell") {
-        totalSellRevenue += trade.price * trade.amount;
-        totalSellAmount += trade.amount;
+        totalSellRevenue += trade.price * trade.size;
+        totalSellAmount += trade.size;
       }
     });
 
@@ -601,7 +602,7 @@ function ReportPage() {
                           </span>
                           <span className="trade-outcome">{trade.outcome}</span>
                           <span className="trade-details">
-                            {(trade.amount ?? 0).toFixed(2)}@{(trade.price ?? 0).toFixed(2)}
+                            {(trade.size ?? 0).toFixed(2)}@{(trade.price ?? 0).toFixed(2)}
                           </span>
                           <button
                             className="trade-view-data-btn"
