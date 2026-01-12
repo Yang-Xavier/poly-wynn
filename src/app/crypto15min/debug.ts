@@ -2,7 +2,7 @@ import { getGlobalConfig } from "@crypto15min/utils/config";
 
 // import { getClobModule } from "./module/clob";
 import { OrderType, Side } from "@polymarket/clob-client";
-import { getDataFlowInstances, initializeDataFlow } from "./module/dataFlow";
+import dataFlow from "./module/dataFlow";
 import { logInfo } from "./module/logger";
 import { getAccountBalance } from "@shared/web3/account";
 

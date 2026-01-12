@@ -111,3 +111,9 @@ export function destroyDataFlow(): void {
     dataFlowInstances = null;
   }
 }
+
+export default {
+  initialize: initializeDataFlow,
+  getInstances: getDataFlowInstances,
+  destroy: destroyDataFlow,
+};

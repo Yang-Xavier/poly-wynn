@@ -11,7 +11,7 @@ type Trade = {
   outcome: string;
 };
 
-type Result = {
+export type TReportResult = {
   result: "won" | "lost" | "hold" | "sold" | "skipped" | "waiting..." | "error";
   additionalInfo?: string;
 };
@@ -79,7 +79,7 @@ export default class TradeReport {
 
   addReport<T extends TradeReportType>(
     type: T,
-    data: T extends "trade" ? Trade : T extends "result" ? Result : Balance
+    data: T extends "trade" ? Trade : T extends "result" ? TReportResult : Balance
   ) {
     if (!this.traceId) {
       throw new Error("请先调用 setTraceId 设置 traceId");
@@ -97,8 +97,8 @@ export default class TradeReport {
         }
         break;
       case "result":
-        this.traceReport.result = (data as Result).result;
-        this.traceReport.additionalInfo = (data as Result).additionalInfo;
+        this.traceReport.result = (data as TReportResult).result;
+        this.traceReport.additionalInfo = (data as TReportResult).additionalInfo;
         break;
       case "balance":
         this.traceReport.balance = (data as Balance).balance;

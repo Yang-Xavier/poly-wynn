@@ -7,7 +7,7 @@ import { waitFor } from "@shared/utils/waitFor";
 import { distanceToNextInterval } from "@shared/utils/market";
 
 import { logInfo, logStrategy } from "@crypto15min/module/logger";
-import { getDataFlowInstances } from "@crypto15min/module/dataFlow";
+import dataFlow from "@crypto15min/module/dataFlow";
 import { getTrader } from "@crypto15min/module/traderCtrl";
 
 import { getConfig } from "./config";
@@ -35,18 +35,22 @@ const getAssetIdToOutcomeMap = (market: TMarketResponseData) => {
 
 const getOrderBookOfOutcomes = (outcomes: { [key in OUTCOMES_ENUM]: string }) => {
   return {
-    [OUTCOMES_ENUM.Up]: getDataFlowInstances()?.polyOrderBookWs.getLatestOrderBookData(
+    [OUTCOMES_ENUM.Up]: dataFlow
+      .getInstances()
+      ?.polyOrderBookWs.getLatestOrderBookData(outcomes[OUTCOMES_ENUM.Up])?.[
       outcomes[OUTCOMES_ENUM.Up]
-    )?.[outcomes[OUTCOMES_ENUM.Up]] ?? {
+    ] ?? {
       bestAsk: 0,
       bestBid: 0,
       asksVolume: 0,
       bidsVolume: 0,
       receivedAt: 0,
     },
-    [OUTCOMES_ENUM.Down]: getDataFlowInstances()?.polyOrderBookWs.getLatestOrderBookData(
+    [OUTCOMES_ENUM.Down]: dataFlow
+      .getInstances()
+      ?.polyOrderBookWs.getLatestOrderBookData(outcomes[OUTCOMES_ENUM.Down])?.[
       outcomes[OUTCOMES_ENUM.Down]
-    )?.[outcomes[OUTCOMES_ENUM.Down]] ?? {
+    ] ?? {
       bestAsk: 0,
       bestBid: 0,
       asksVolume: 0,
@@ -73,7 +77,7 @@ const findingChanceAndBuying = ({
   let skipped = false;
 
   try {
-    getDataFlowInstances()?.polyOrderBookWs.onOrderBookChange(() => {
+    dataFlow.getInstances()?.polyOrderBookWs.onOrderBookChange(() => {
       if (skipped) {
         return;
       }
@@ -85,7 +89,7 @@ const findingChanceAndBuying = ({
       const maxTradeAmount = getTrader().getMaxTradeAmount();
       const currentPosition = getTrader().position.getPosition();
       const remainingTradeAmount = maxTradeAmount - currentPosition.amount;
-      if (remainingTradeAmount <= 1) {
+      if (remainingTradeAmount <= config.stratgegy.buyMinimumAmount) {
         skipped = true;
         logStrategy(`[🧐findingChanceAndBuying] 当前持仓量已达到最大持仓量, 跳过买入...`);
         return;
@@ -115,8 +119,8 @@ const findingChanceAndBuying = ({
         return;
       }
 
-      const historyPriceList = getDataFlowInstances()?.polyPriceWs.getPriceHistory();
-      const currentPrice = getDataFlowInstances()?.polyPriceWs.getLatestPriceData();
+      const historyPriceList = dataFlow.getInstances()?.polyPriceWs.getPriceHistory();
+      const currentPrice = dataFlow.getInstances()?.polyPriceWs.getLatestPriceData();
 
       const acceptableWinProbability = calcAttenuation(
         [
@@ -220,7 +224,7 @@ const watchingPosition = ({
       return;
     }
     const currentPosition = getTrader().position.getPosition();
-    if (currentPosition.size < 1 || !currentPosition.outcome) {
+    if (currentPosition.size < config.stratgegy.sellMinimumSize || !currentPosition.outcome) {
       return;
     }
 
@@ -235,13 +239,13 @@ const watchingPosition = ({
     return currentPosition;
   };
 
-  getDataFlowInstances()?.polyPriceWs.onPriceChange((polyPrice: PriceData) => {
+  dataFlow.getInstances()?.polyPriceWs.onPriceChange((polyPrice: PriceData) => {
     const position = getPositionToWatch();
     if (!position) {
       return;
     }
 
-    const polHitoryPrice = getDataFlowInstances()?.polyPriceWs.getPriceHistory();
+    const polHitoryPrice = dataFlow.getInstances()?.polyPriceWs.getPriceHistory();
     predictPriceHistory = [...polHitoryPrice];
 
     const decisionResult = decision(
@@ -306,13 +310,13 @@ const watchingPosition = ({
     }
   });
 
-  getDataFlowInstances()?.bnPriceWs.onPriceChange(() => {
+  dataFlow.getInstances()?.bnPriceWs.onPriceChange(() => {
     const position = getPositionToWatch();
     if (!position) {
       return;
     }
 
-    const bnPrice = getDataFlowInstances()?.bnPriceWs.getLatestPriceData();
+    const bnPrice = dataFlow.getInstances()?.bnPriceWs.getLatestPriceData();
     const polyPrice = predictPriceHistory[predictPriceHistory.length - 1] ?? {
       value: bnPrice.value,
       timestamp: Date.now(),
@@ -336,7 +340,7 @@ const watchingPosition = ({
 
     const orderBook = getOrderBookOfOutcomes(outcomes);
     const bestBid = orderBook[position.outcome]?.bestBid;
-    const bnPriceHistory = getDataFlowInstances()?.bnPriceWs.getPriceHistory();
+    const bnPriceHistory = dataFlow.getInstances()?.bnPriceWs.getPriceHistory();
 
     const { predictedNewPrice } = predictSpreadChange(
       bnPriceHistory,

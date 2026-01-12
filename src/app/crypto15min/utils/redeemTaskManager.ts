@@ -3,6 +3,7 @@ import { logError, logInfo } from "../module/logger";
 import { redeemWithRelayer } from "./relayerRedeem";
 
 import gammaApi from "@shared/api/gammaApi";
+import { TReportResult } from "@shared/trade/TradeReport";
 
 /**
  * 赎回任务类型
@@ -11,6 +12,7 @@ export type RedeemTask = {
   traceId: string; // 用作 marketSlug
   conditionId: string;
   outcome: string; // 购买的 outcome（例如 "Up" 或 "Down"）
+  isSold: boolean; // 是否已卖出
 };
 
 /**
@@ -25,7 +27,7 @@ class RedeemTaskManager {
    * @param conditionId 市场条件ID
    * @param outcome 购买的 outcome
    */
-  addTask(traceId: string, conditionId: string, outcome: string): void {
+  addTask(traceId: string, conditionId: string, outcome: string, isSold: boolean): void {
     // 检查是否已存在相同 traceId 的任务
     const existingTask = this.tasks.find((task) => task.traceId === traceId);
     if (existingTask) {
@@ -37,6 +39,7 @@ class RedeemTaskManager {
       traceId,
       conditionId,
       outcome,
+      isSold,
     });
     logInfo(`[RedeemTask] 添加任务: ${traceId}, conditionId: ${conditionId}, outcome: ${outcome}`);
   }
@@ -45,7 +48,7 @@ class RedeemTaskManager {
    * 执行赎回任务
    * 遍历所有任务，查询市场信息，对比 outcome，执行赎回或更新结果
    */
-  async runRedeem(): Promise<void> {
+  async runCheckResultAndRedeem(): Promise<void> {
     if (this.tasks.length === 0) {
       logInfo(`[RedeemTask] 没有待处理的任务`);
       return;
@@ -63,68 +66,77 @@ class RedeemTaskManager {
 
         // 使用 traceId 作为 marketSlug 查询市场信息
         const market = await gammaApi.getMarketBySlug(task.traceId);
-        if (!market) {
-          logError(`[RedeemTask] 无法获取市场信息: ${task.traceId}`);
+        if (!market || !market.closed) {
+          logError(`[RedeemTask] 市场尚未关闭，稍后重试: ${task.traceId}`);
           remainingTasks.push(task);
           continue;
-        }
-
-        // 检查市场是否已关闭
-        if (!market.closed) {
-          logInfo(`[RedeemTask] 市场尚未关闭，稍后重试: ${task.traceId}`);
-          remainingTasks.push(task);
-          continue;
-        }
-
-        // 解析市场结果
-        const { outcomes, outcomePrices } = market;
-        const finalOutcomes = JSON.parse(outcomes) as string[];
-        const finalOutcomePrices = JSON.parse(outcomePrices).map(Number) as number[];
-        const outcomePrice = Math.max(...finalOutcomePrices);
-        const finalOutcome =
-          finalOutcomes[finalOutcomePrices.findIndex((item) => Number(item) === outcomePrice)];
-
-        logInfo(
-          `[RedeemTask] 市场结果: ${task.traceId}, 最终结果: ${finalOutcome}, 购买结果: ${task.outcome}`
-        );
-
-        // 对比购买的 outcome 是否与市场最终结果一致
-        if (task.outcome === finalOutcome) {
-          // 结果一致，执行赎回
-          logInfo(
-            `[RedeemTask] 结果匹配，开始赎回: ${task.traceId}, conditionId: ${task.conditionId}`
-          );
-          try {
-            const result = await redeemWithRelayer(task.conditionId);
-            if (result.transactionHash) {
-              logInfo(
-                `[RedeemTask] 赎回成功: ${task.traceId}, transactionHash: ${result.transactionHash}`
-              );
-              getTrader().tradeReport.addReport("result", {
-                result: "won",
-                additionalInfo: "",
-              });
-            } else {
-              logError(`[RedeemTask] 赎回失败: ${task.traceId}`);
-            }
-          } catch (error) {
-            logError(`[RedeemTask] 赎回异常: ${task.traceId}, error: ${error}`);
-          }
         } else {
-          // 结果不一致，更新报告结果
-          logInfo(
-            `[RedeemTask] 结果不匹配，更新报告: ${task.traceId}, 最终结果: ${finalOutcome}, 购买结果: ${task.outcome}`
-          );
-          try {
-            // 更新结果为 "lost"（因为购买的 outcome 与最终结果不一致）
-            getTrader().tradeReport.addReport("result", {
-              result: "lost",
-              additionalInfo: "",
-            });
+          // 解析市场结果
+          const { outcomes, outcomePrices } = market;
+          const finalOutcomes = JSON.parse(outcomes) as string[];
+          const finalOutcomePrices = JSON.parse(outcomePrices).map(Number) as number[];
+          const outcomePrice = Math.max(...finalOutcomePrices);
+          const finalOutcome =
+            finalOutcomes[finalOutcomePrices.findIndex((item) => Number(item) === outcomePrice)];
 
-            logInfo(`[RedeemTask] 报告已更新: ${task.traceId}`);
-          } catch (error) {
-            logError(`[RedeemTask] 更新报告失败: ${task.traceId}, error: ${error}`);
+          logInfo(
+            `[RedeemTask] 市场结果: ${task.traceId}, 最终结果: ${finalOutcome}, 购买结果: ${task.outcome}`
+          );
+
+          // 对比购买的 outcome 是否与市场最终结果一致, 且未卖出
+          if (task.outcome === finalOutcome) {
+            // 结果一致，执行赎回
+            logInfo(
+              `[RedeemTask] 结果匹配，开始赎回: ${task.traceId}, conditionId: ${task.conditionId}`
+            );
+            try {
+              const result = await redeemWithRelayer(task.conditionId);
+              if (result.transactionHash) {
+                logInfo(
+                  `[RedeemTask] 赎回成功: ${task.traceId}, transactionHash: ${result.transactionHash}`
+                );
+                let resultPayload: TReportResult;
+                if (task.isSold) {
+                  resultPayload = {
+                    result: "sold",
+                    additionalInfo: "won",
+                  };
+                } else {
+                  resultPayload = {
+                    result: "won",
+                    additionalInfo: "",
+                  };
+                }
+                getTrader().tradeReport.addReport("result", resultPayload);
+              } else {
+                logError(`[RedeemTask] 赎回失败: ${task.traceId}`);
+                remainingTasks.push(task);
+              }
+            } catch (error) {
+              logError(`[RedeemTask] 赎回异常: ${task.traceId}, error: ${error}`);
+              remainingTasks.push(task);
+            }
+          } else {
+            // 结果不一致，更新报告结果
+            logInfo(
+              `[RedeemTask] 结果不匹配，更新报告: ${task.traceId}, 最终结果: ${finalOutcome}, 购买结果: ${task.outcome}`
+            );
+
+            // 更新结果为 "lost"（因为购买的 outcome 与最终结果不一致）
+
+            let resultPayload: TReportResult;
+            if (task.isSold) {
+              resultPayload = {
+                result: "sold",
+                additionalInfo: "lost",
+              };
+            } else {
+              resultPayload = {
+                result: "lost",
+                additionalInfo: "",
+              };
+            }
+            getTrader().tradeReport.addReport("result", resultPayload);
           }
         }
       } catch (error) {

@@ -44,9 +44,11 @@ const ethConfig = {
     buyAcceptableWinProbabilityRange: [0.995, 0.95],
     buyBestAskThreshold: 0.9,
     buyMaxVolumeThreshold: 0.5, // 最大订单量阈值
+    buyMinimumAmount: 1,
 
     sellProbabilityThreshold: 0.45,
     sellPredictProbabilityThreshold: 0.35,
+    sellMinimumSize: 1,
   },
 };
 
@@ -65,9 +67,11 @@ const btcConfig = {
     buyAcceptableWinProbabilityRange: [0.995, 0.95],
     buyBestAskThreshold: 0.9,
     buyMaxVolumeThreshold: 0.5, // 最大订单量阈值
+    buyMinimumAmount: 1,
 
     sellProbabilityThreshold: 0.4,
     sellPredictProbabilityThreshold: 0.35,
+    sellMinimumSize: 1,
   },
 };
 

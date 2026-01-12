@@ -25,7 +25,7 @@ import {
   logData,
   customTypeLog,
 } from "./module/logger";
-import { destroyDataFlow, getDataFlowInstances, initializeDataFlow } from "./module/dataFlow";
+import dataFlow from "./module/dataFlow";
 import dataRecord from "./module/dataRecord";
 import redeemTaskManager from "./utils/redeemTaskManager";
 import { redeemAllPositions } from "./utils/relayerRedeem";
@@ -55,39 +55,39 @@ const getBuyMaxAmount = async () => {
 const connectWsBeforeStrategy = async () => {
   const config = getConfig();
   logInfo(`订阅PolyCrypto价格: ${config.marketTag}/usd`);
-  await getDataFlowInstances()?.polyPriceWs.connect();
-  await getDataFlowInstances()?.polyPriceWs.subscribeCryptoPrices(`${config.marketTag}/usd`);
+  await dataFlow.getInstances()?.polyPriceWs.connect();
+  await dataFlow.getInstances()?.polyPriceWs.subscribeCryptoPrices(`${config.marketTag}/usd`);
   logInfo(`订阅BN价格: ${config.marketTag}usdc`);
-  await getDataFlowInstances()?.bnPriceWs.connect();
+  await dataFlow.getInstances()?.bnPriceWs.connect();
 };
 
 const connectWsOnStrategy = async (market: TMarketResponseData) => {
   const config = getConfig();
   logInfo(`订阅市场订单簿数据: ${market.clobTokenIds}`);
-  await getDataFlowInstances()?.polyOrderBookWs.connect();
-  await getDataFlowInstances()?.polyOrderBookWs.subscribeOrderBook(
-    JSON.parse(market.clobTokenIds) as string[]
-  );
+  await dataFlow.getInstances()?.polyOrderBookWs.connect();
+  await dataFlow
+    .getInstances()
+    ?.polyOrderBookWs.subscribeOrderBook(JSON.parse(market.clobTokenIds) as string[]);
 
   logInfo(`订阅用户交易数据: ${config.account.funderAddress}`);
-  await getDataFlowInstances()?.userWs.connect();
-  await getDataFlowInstances()?.userWs.subscribe();
+  await dataFlow.getInstances()?.userWs.connect();
+  await dataFlow.getInstances()?.userWs.subscribe();
 };
 
 const disconnectAllWs = async () => {
   logInfo(`断开与PolyPriceWs的连接`);
-  await getDataFlowInstances()?.polyPriceWs.disconnect();
+  await dataFlow.getInstances()?.polyPriceWs.disconnect();
   logInfo(`断开与BNPriceWs的连接`);
-  await getDataFlowInstances()?.bnPriceWs.disconnect();
+  await dataFlow.getInstances()?.bnPriceWs.disconnect();
   logInfo(`断开与PolyOrderBookWs的连接`);
-  await getDataFlowInstances()?.polyOrderBookWs.disconnect();
+  await dataFlow.getInstances()?.polyOrderBookWs.disconnect();
   logInfo(`断开与UserWs的连接`);
-  await getDataFlowInstances()?.userWs.disconnect();
+  await dataFlow.getInstances()?.userWs.disconnect();
 };
 
 const cleanAtEndOfRound = () => {
   logInfo(`销毁数据流...`);
-  destroyDataFlow();
+  dataFlow.destroy();
   logInfo(`保存数据...`);
   dataRecord.saveToJson();
   dataRecord.close();
@@ -150,6 +150,29 @@ const getOnlinePosition = async ({ marketSlug }: { marketSlug: string }) => {
   return null;
 };
 
+const checkResultByPrice = async ({
+  roundEndTimestampMs,
+  priceToBeat,
+}: {
+  roundEndTimestampMs: number;
+  priceToBeat: number;
+}) => {
+  const { before, after } = dataFlow
+    .getInstances()
+    ?.polyPriceWs.getPriceAroundTimestamp(roundEndTimestampMs);
+
+  if (before && after) {
+    if (Math.min(before.value, after.value) > priceToBeat) {
+      return OUTCOMES_ENUM.Up;
+    }
+    if (Math.max(before.value, after.value) < priceToBeat) {
+      return OUTCOMES_ENUM.Down;
+    }
+    return null;
+  }
+  return null;
+};
+
 export const runPolyWynn = async () => {
   const config = getConfig();
 
@@ -167,7 +190,7 @@ export const runPolyWynn = async () => {
         privKey: config.account.privKey,
         clobCreds: config.account.clobCreds,
         funderAddress: config.account.funderAddress,
-        userWs: getDataFlowInstances()?.userWs,
+        userWs: dataFlow.getInstances()?.userWs,
         roundEndTimestamp: roundEndTimestampMs,
         logInfo: logInfo,
       });
@@ -178,7 +201,7 @@ export const runPolyWynn = async () => {
       await redeemAllPositions({ funderAddress: config.account.funderAddress });
 
       logInfo(`初始化数据流...`);
-      initializeDataFlow({
+      dataFlow.initialize({
         logger: {
           logInfo,
           logError,
@@ -189,7 +212,7 @@ export const runPolyWynn = async () => {
       });
       logInfo(`数据流初始化完成...`);
 
-      getTrader().setUserWs(getDataFlowInstances()?.userWs);
+      getTrader().setUserWs(dataFlow.getInstances()?.userWs);
 
       await waitToStart(slugIntervalTimestamp);
       await connectWsBeforeStrategy();
@@ -251,40 +274,61 @@ export const runPolyWynn = async () => {
         }
       }
 
+      logInfo(`==========本回合结束(等待5s后开始验证)==========`);
       await waitFor(distanceToNextInterval(slugIntervalTimestamp));
       await waitFor(5 * 1000); // 等待5秒，让数据流有时间记录数据
+      logInfo(`断开与所有WebSocket的连接...`);
       await disconnectAllWs();
 
       // 获取持有仓位
-      const position = getTrader().position.getPosition();
-      // 如果持有仓位，则检查价格和最终结果
-      if (position.amount > 1) {
-        redeemTaskManager.addTask(marketSlug, market.conditionId, position.outcome);
-      } else if (position.outcome === undefined) {
-        logInfo(`🈚️本局没有机会没有仓位....`);
+      const positionCtrl = getTrader().position;
+      const positionInfo = positionCtrl.getPosition();
+      const trades = positionCtrl.getTrades();
+      const isSold = Boolean(trades?.find((trade) => trade.action === TRADE_ACTION_ENUM.sell));
+      logInfo(`持有仓位: ${JSON.stringify(positionInfo)}`);
+
+      if (positionInfo.outcome === undefined) {
+        logInfo(`🈚️本局没有机会，持仓为空....`);
         getTrader().tradeReport.addReport("result", {
           result: "skipped",
         });
-      }
-
-      if (
-        getTrader()
-          .position.getTrades()
-          .find((trade) => trade.action === TRADE_ACTION_ENUM.sell)
-      ) {
+      } else if (isSold) {
         logInfo(`👿本局有卖出记录....`);
         getTrader().tradeReport.addReport("result", {
           result: "sold",
         });
+        redeemTaskManager.addTask(marketSlug, market.conditionId, positionInfo.outcome, true);
+      } else if (positionInfo.size > config.stratgegy.sellMinimumSize) {
+        logInfo(`根据价格自检最终结果...`);
+        const finalOutcome = await checkResultByPrice({ roundEndTimestampMs, priceToBeat });
+        if (finalOutcome) {
+          const result = positionInfo.outcome === OUTCOMES_ENUM.Up ? "won" : "lost";
+          logInfo(
+            `最终结果: ${result === "won" ? "🥳Won" : "🤕Lost"}, finalOutcome: ${finalOutcome}`
+          );
+
+          getTrader().tradeReport.addReport("result", {
+            result,
+            additionalInfo: "等待最终验证",
+          });
+        } else {
+          logInfo(`自检结果存在争议: 等待最终验证`);
+          getTrader().tradeReport.addReport("result", {
+            result: "waiting...",
+            additionalInfo: "自检结果存在争议",
+          });
+        }
+        redeemTaskManager.addTask(marketSlug, market.conditionId, positionInfo.outcome, false);
       }
 
-      if (redeemTaskManager.getTaskCount() === 1) {
+      if (redeemTaskManager.getTaskCount() >= 1) {
         logInfo(`等待赎回仓位...${config.redeemConfig.delyRedeem / 1000}s`);
         await waitFor(config.redeemConfig.delyRedeem);
 
         logInfo(`检查价格和最终结果...`);
-        await redeemTaskManager.runRedeem();
+        await redeemTaskManager.runCheckResultAndRedeem();
       }
+
       const { balance } = await getAccountBalance(
         config.account.funderAddress,
         config.collateralAddress

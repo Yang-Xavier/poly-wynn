@@ -249,4 +249,35 @@ export class PolyPriceWs extends HighPerformanceWs {
       return null;
     }
   }
+
+  /**
+   * 获取指定时间戳前后的价格数据
+   * @param timestamp 目标时间戳
+   * @returns 包含 timestamp 前后各一个最接近的价格数据，如果没有则对应字段返回 null
+   */
+  getPriceAroundTimestamp(timestamp: number): {
+    before: PriceData | null;
+    after: PriceData | null;
+  } {
+    const priceHistory = this.getPriceHistory();
+    if (priceHistory.length === 0) {
+      return { before: null, after: null };
+    }
+
+    // 过滤出所有小于指定时间戳的价格，并按时间戳降序排序
+    const pricesBeforeTimestamp = priceHistory
+      .filter((price) => price.timestamp < timestamp)
+      .sort((a, b) => b.timestamp - a.timestamp);
+
+    // 过滤出所有大于等于指定时间戳的价格，并按时间戳升序排序
+    const pricesAfterTimestamp = priceHistory
+      .filter((price) => price.timestamp >= timestamp)
+      .sort((a, b) => a.timestamp - b.timestamp);
+
+    // 返回最接近的时间戳前后的价格
+    return {
+      before: pricesBeforeTimestamp.length > 0 ? pricesBeforeTimestamp[0] : null,
+      after: pricesAfterTimestamp.length > 0 ? pricesAfterTimestamp[0] : null,
+    };
+  }
 }
