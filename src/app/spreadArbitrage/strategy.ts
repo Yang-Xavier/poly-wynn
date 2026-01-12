@@ -36,6 +36,7 @@ const findingChance = async (params: {
   const shouldFinding = () => {
     const trades = getTrader().position.getTrades();
     const buyCount = trades.filter((trade) => trade.action === TRADE_ACTION_ENUM.buy).length;
+
     return (
       distanceToNextInterval(slugIntervalTimestamp) > 0 &&
       getTrader().tradeTaskManage.getRunningTaskAction() === null &&

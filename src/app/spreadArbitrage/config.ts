@@ -4,7 +4,7 @@ const config = {
   marketTag: "btc",
 
   delayToStart: 3 * 60 * 1000, // 延迟开始时间
-  buyingAmountFactor: 0.1, // 购买金额因子
+  buyingAmountFactor: 1, // 购买金额因子
   maxBuyAmount: 2, // 最大购买金额
   startCalcMinDataPoints: 100, // 开始计算的最小数据量
   stopProfitFactor: 0.5, // 止盈因子
