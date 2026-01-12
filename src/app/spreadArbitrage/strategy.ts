@@ -40,7 +40,7 @@ const findingChance = async (params: {
       distanceToNextInterval(slugIntervalTimestamp) > 0 &&
       getTrader().tradeTaskManage.getRunningTaskAction() === null &&
       getTrader().getRemainAmount() >= config.minBuyAmount &&
-      buyCount < config.maxBuyAccount
+      buyCount < config.maxBuyCount
     );
   };
 
