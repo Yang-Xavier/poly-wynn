@@ -113,7 +113,13 @@ function createWalletAndBuilder(config: RelayerRedeemConfig) {
   const account = privateKeyToAccount(privKey);
   const wallet = createWalletClient({
     chain: polygon,
-    transport: http(config.rpcUrl),
+    transport: http(globalConfig.redeemConfig.polymarketRpc, {
+      fetchOptions: {
+        headers: {
+          origin: globalConfig.redeemConfig.polymarketRpcOrigin,
+        },
+      },
+    }),
     account,
   });
 
@@ -201,14 +207,14 @@ export async function redeemWithRelayer(
 }> {
   // 1. 加载配置
   const config = buildRelayerRedeemConfig();
-  logInfo(`[Redeem] 加载配置: ${JSON.stringify(config)}`);
+  logInfo(`[Redeem] 加载配置 buildRelayerRedeemConfig ...`);
 
   // 2. 创建钱包 & BuilderConfig
   const { wallet, builderConfig } = createWalletAndBuilder(config);
-  logInfo(`[Redeem] 创建钱包和 BuilderConfig: ${JSON.stringify(wallet)}`);
+  logInfo(`[Redeem] 创建 钱包 和 BuilderConfig...`);
   // 3. 初始化 RelayClient
   const client = createRelayClientForRedeem(config, wallet, builderConfig);
-  logInfo(`[Redeem] 初始化 RelayClient: ${JSON.stringify(client)}`);
+  logInfo(`[Redeem] 初始化 RelayClient...`);
   // 4. 构造 redeemPositions 交易
   const redeemTx = createCtfRedeemTransaction(
     config.ctf,
@@ -216,7 +222,7 @@ export async function redeemWithRelayer(
     conditionId as Hex,
     indexSets
   );
-  logInfo(`[Redeem] 构造 redeemPositions 交易: ${JSON.stringify(redeemTx)}`);
+  logInfo(`[Redeem] 构造 redeemPositions 交易: ${JSON.stringify({ redeemTx, conditionId })}`);
   try {
     const response = await client.execute([redeemTx], "redeem positions");
     const result: any = await response.wait();

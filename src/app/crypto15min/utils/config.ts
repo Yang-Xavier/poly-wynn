@@ -20,6 +20,8 @@ const commonConfig = {
     negRiskAdapter: "0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296",
     usdc: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
     rpcUrl: "https://polygon-rpc.com",
+    polymarketRpc: "https://polygon-mainnet.g.alchemy.com/v2/mewmTuTYExTSI0lZisD2szwmi35fZY-r",
+    polymarketRpcOrigin: "https://polymarket.com",
     delyRedeem: 180000,
     delyLogBalance: 180000,
   },
