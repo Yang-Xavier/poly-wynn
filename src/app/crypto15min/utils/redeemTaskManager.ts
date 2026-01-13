@@ -90,10 +90,10 @@ class RedeemTaskManager {
               `[RedeemTask] 结果匹配，开始赎回: ${task.traceId}, conditionId: ${task.conditionId}`
             );
             try {
-              const result = await redeemWithRelayer(task.conditionId);
-              if (result.transactionHash) {
+              const { transactionHash, rawResult } = await redeemWithRelayer(task.conditionId);
+              if (transactionHash) {
                 logInfo(
-                  `[RedeemTask] 赎回成功: ${task.traceId}, transactionHash: ${result.transactionHash}`
+                  `[RedeemTask] 赎回成功: ${task.traceId}, transactionHash: ${transactionHash}`
                 );
                 let resultPayload: TReportResult;
                 if (task.isSold) {
@@ -109,7 +109,9 @@ class RedeemTaskManager {
                 }
                 getTrader().tradeReport.addReport("result", resultPayload);
               } else {
-                logError(`[RedeemTask] 赎回失败: ${task.traceId}`);
+                logError(
+                  `[RedeemTask] 赎回失败: ${task.traceId}. rawResult: ${JSON.stringify(rawResult)}`
+                );
                 remainingTasks.push(task);
               }
             } catch (error) {
