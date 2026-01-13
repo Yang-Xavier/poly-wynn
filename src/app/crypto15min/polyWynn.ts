@@ -187,6 +187,9 @@ export const runPolyWynn = async () => {
     try {
       setAllTraceId(marketSlug);
 
+      logInfo(`检查并赎回所有仓位...`);
+      await redeemAllPositions({ funderAddress: config.account.funderAddress });
+
       logInfo(`开始本回合...`);
       logInfo(`初始化Trader....`);
       initTrader({
@@ -200,9 +203,6 @@ export const runPolyWynn = async () => {
       });
       logInfo(`Trader初始化完成....`);
       getTrader().setTraceId(marketSlug);
-
-      logInfo(`检查并赎回所有仓位...`);
-      await redeemAllPositions({ funderAddress: config.account.funderAddress });
 
       logInfo(`初始化数据流...`);
       dataFlow.initialize({

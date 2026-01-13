@@ -201,13 +201,14 @@ export async function redeemWithRelayer(
 }> {
   // 1. 加载配置
   const config = buildRelayerRedeemConfig();
+  logInfo(`[Redeem] 加载配置: ${JSON.stringify(config)}`);
 
   // 2. 创建钱包 & BuilderConfig
   const { wallet, builderConfig } = createWalletAndBuilder(config);
-
+  logInfo(`[Redeem] 创建钱包和 BuilderConfig: ${JSON.stringify(wallet)}`);
   // 3. 初始化 RelayClient
   const client = createRelayClientForRedeem(config, wallet, builderConfig);
-
+  logInfo(`[Redeem] 初始化 RelayClient: ${JSON.stringify(client)}`);
   // 4. 构造 redeemPositions 交易
   const redeemTx = createCtfRedeemTransaction(
     config.ctf,
@@ -215,16 +216,17 @@ export async function redeemWithRelayer(
     conditionId as Hex,
     indexSets
   );
-
+  logInfo(`[Redeem] 构造 redeemPositions 交易: ${JSON.stringify(redeemTx)}`);
   try {
     const response = await client.execute([redeemTx], "redeem positions");
     const result: any = await response.wait();
-
+    logInfo(`[Redeem] 执行 redeemPositions 交易成功: ${JSON.stringify(result)}`);
     return {
       transactionHash: result?.transactionHash,
       rawResult: result,
     };
   } catch (error: any) {
+    logInfo(`[Redeem] 执行 redeemPositions 交易失败: ${JSON.stringify(error)}`);
     throw error;
   }
 }
