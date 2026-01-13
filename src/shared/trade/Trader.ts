@@ -99,6 +99,11 @@ export default class Trader {
           outcome: order.outcome,
           fee: order.fee,
         });
+        this.logInfo(`[🙏executeTradeTask] 交易任务完成: ${JSON.stringify(task)}`);
+        this.logInfo(`[🙏executeTradeTask] 订单信息: ${JSON.stringify(order)}`);
+        this.logInfo(
+          `[🙏executeTradeTask] 当前持仓信息: ${JSON.stringify(this.position.getPosition())}`
+        );
       }
     } catch (error) {
       this.logInfo(`[🙏executeTradeTask] 执行交易任务失败: ${error}`);
