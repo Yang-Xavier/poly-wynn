@@ -9,6 +9,9 @@ import { predictSpreadChange } from "@shared/algorithm/spreadPredictor";
 import { calculateStopLoss } from "./calc";
 import { getTrader } from "./traderCtrl";
 import { waitFor } from "@shared/utils/waitFor";
+import { Aligner } from "./decision/Aligner";
+import { detectPriceChange } from "./decision/detectPriceChange";
+import { predictPrice } from "./decision/predictPrice";
 
 export interface IChance {
   assetId: string;
@@ -172,19 +175,12 @@ const findingChance = async (params: {
       }
     }
   });
-};
-
-const watchingPosition = async (params: {
-  market: TMarketResponseData;
-  slugIntervalTimestamp: number;
-}) => {
-  const { market, slugIntervalTimestamp } = params;
-  const dataFlowInstances = dataFlow.getInstances();
 
   const shouldWatching = () => {
     const tradeLimitation = getTrader().getTradeLimitation();
     return distanceToNextInterval(slugIntervalTimestamp) > 0 && tradeLimitation.canSell;
   };
+
   dataFlowInstances.polyOrderBookWs.onOrderBookChange((orderBook) => {
     if (!shouldWatching()) return;
     const position = getTrader().position.getPosition();
@@ -213,14 +209,181 @@ const watchingPosition = async (params: {
   });
 };
 
+const watchingChance = async (params: {
+  market: TMarketResponseData;
+  priceToBeat: number;
+  slugIntervalTimestamp: number;
+}) => {
+  const { market, priceToBeat, slugIntervalTimestamp } = params;
+  const tokenIds = {
+    [OUTCOMES_ENUM.Up]: getTokenIdFromMarketByOutcome(market, OUTCOMES_ENUM.Up),
+    [OUTCOMES_ENUM.Down]: getTokenIdFromMarketByOutcome(market, OUTCOMES_ENUM.Down),
+  };
+  const { polyPriceWs, bnPriceWs, polyOrderBookWs } = dataFlow.getInstances();
+  const config = getConfig();
+
+  let polyPriceAligner: Aligner | null = null;
+  let bnPriceAligner: Aligner | null = null;
+  let chance: IChance | null = null;
+
+  const isReadyToRunStrategy = () => {
+    if (
+      distanceToNextInterval(slugIntervalTimestamp) > 0 ||
+      !getTrader().getTradeLimitation().canBuy
+    ) {
+      return true;
+    }
+    const polyPriceHistory = polyPriceWs.getPriceHistory();
+    const bnPriceHistory = bnPriceWs.getPriceHistory();
+    const upBestAsk =
+      polyOrderBookWs.getLatestOrderBookData(tokenIds[OUTCOMES_ENUM.Up])?.[
+        tokenIds[OUTCOMES_ENUM.Up]
+      ]?.bestAsk ?? 0;
+    const downBestAsk =
+      polyOrderBookWs.getLatestOrderBookData(tokenIds[OUTCOMES_ENUM.Down])?.[
+        tokenIds[OUTCOMES_ENUM.Down]
+      ]?.bestAsk ?? 0;
+
+    if (
+      Math.min(bnPriceHistory.length, polyPriceHistory.length) > config.strategy.minDataPoints &&
+      Math.min(upBestAsk, downBestAsk) > 0.01
+    ) {
+      // 数据量达标
+      if (polyPriceAligner && bnPriceAligner) {
+        // 有对齐器
+        return true;
+      } else {
+        // 创建对齐器，本次也不参与计算
+        const startTimestamp = Math.max(polyPriceHistory[0].timestamp, bnPriceHistory[0].timestamp);
+        polyPriceAligner = new Aligner(startTimestamp, config.strategy.alignWindowMs);
+        bnPriceAligner = new Aligner(startTimestamp, config.strategy.alignWindowMs);
+        polyPriceAligner.align(polyPriceHistory);
+        bnPriceAligner.align(bnPriceHistory);
+      }
+    }
+    return false;
+  };
+
+  polyPriceWs.onPriceChange((polyPrice) => {
+    if (!isReadyToRunStrategy()) {
+      return;
+    }
+    polyPriceAligner?.addData(polyPrice);
+  });
+
+  bnPriceWs.onPriceChange((bnPrice) => {
+    const startTime = Date.now();
+    if (!isReadyToRunStrategy()) {
+      return;
+    }
+    bnPriceAligner?.addData(bnPrice);
+    const alignedPolyPrice = polyPriceAligner.getAlignedData();
+    const alignedBnPrice = bnPriceAligner.getAlignedData();
+    if (alignedBnPrice.length <= alignedPolyPrice.length) {
+      // 说明bn价格更新落后于poly价格，不参与计算
+      return;
+    }
+    const bnPriceChange = detectPriceChange(alignedBnPrice);
+    if (bnPriceChange.isConfirmed) {
+      const { predictedB: predictedPolyPriceList } = predictPrice(alignedBnPrice, alignedPolyPrice);
+      const { probUp, probDown, confidence } = calculateProbabilityBasedOnBSM(
+        predictedPolyPriceList,
+        priceToBeat,
+        distanceToNextInterval(slugIntervalTimestamp)
+      );
+      const upOrderbook = polyOrderBookWs.getLatestOrderBookData(tokenIds[OUTCOMES_ENUM.Up])?.[
+        tokenIds[OUTCOMES_ENUM.Up]
+      ];
+      const downOrderbook = polyOrderBookWs.getLatestOrderBookData(tokenIds[OUTCOMES_ENUM.Down])?.[
+        tokenIds[OUTCOMES_ENUM.Down]
+      ];
+      if (
+        confidence > config.strategy.bsmConfidenceThreshold &&
+        Math.abs(probUp - upOrderbook.bestAsk) > config.strategy.buyInProbMinGap
+      ) {
+        const outcome = probUp > upOrderbook.bestAsk ? OUTCOMES_ENUM.Up : OUTCOMES_ENUM.Down; // 通过 up的概率差值判断即可
+        const buyPrice = outcome === OUTCOMES_ENUM.Up ? upOrderbook.bestAsk : downOrderbook.bestAsk;
+
+        const probAdvantage =
+          outcome === OUTCOMES_ENUM.Up
+            ? probUp - upOrderbook.bestAsk
+            : probDown - downOrderbook.bestAsk;
+
+        const stopProfitPrice = Number(
+          (probAdvantage * config.strategy.stopProfitFactor + Number(buyPrice)).toFixed(2)
+        );
+
+        const stopLossPrice = calculateStopLoss({
+          bsmProbability: outcome === OUTCOMES_ENUM.Up ? probUp : probDown,
+          confidence,
+          timeToExpiryMs: distanceToNextInterval(slugIntervalTimestamp),
+          buyPrice,
+          probAdvantage:
+            outcome === OUTCOMES_ENUM.Up
+              ? probUp - upOrderbook.bestAsk
+              : probDown - downOrderbook.bestAsk,
+          outcome,
+        });
+        chance = {
+          assetId: tokenIds[outcome],
+          outcome,
+          buyPrice,
+          stopProfitPrice,
+          stopLossPrice,
+        };
+        logStrategy(`=== 💡找到机会 ===
+          ${JSON.stringify({ ...chance, calcCost: `${Date.now() - startTime}ms` })}
+        `);
+        getTrader().tradeTaskManage.addTask({
+          tokenId: tokenIds[chance.outcome],
+          action: TRADE_ACTION_ENUM.buy,
+          price: chance.buyPrice,
+          outcome: chance.outcome,
+          amount: getTrader().maxTradeAmount - getTrader().position.getPosition().amount,
+        });
+      } else {
+        logStrategy(`=== bn价格波动确认, 但未找到机会 ===
+          ${JSON.stringify({ calcCost: `${Date.now() - startTime}ms` })}
+        `);
+      }
+    }
+  });
+
+  polyOrderBookWs.onOrderBookChange(() => {
+    if (
+      distanceToNextInterval(slugIntervalTimestamp) > 0 ||
+      !getTrader().getTradeLimitation().canSell
+    ) {
+      return;
+    }
+    const position = getTrader().position.getPosition();
+    const tokenId = getTokenIdFromMarketByOutcome(market, position.outcome);
+    const bestBid = polyOrderBookWs.getLatestOrderBookData(tokenId)?.[tokenId]?.bestBid;
+    if (
+      bestBid &&
+      (Number(bestBid) <= chance.stopLossPrice || Number(bestBid) >= chance.stopProfitPrice)
+    ) {
+      logStrategy(`=== 💡卖出 ===
+        ${JSON.stringify(chance)}
+      `);
+      getTrader().tradeTaskManage.addTask({
+        tokenId: tokenId,
+        action: TRADE_ACTION_ENUM.sell,
+        price: bestBid,
+        outcome: position.outcome,
+        size: position.size,
+      });
+    }
+  });
+};
+
 export const startStrategy = async (params: {
   market: TMarketResponseData;
   priceToBeat: number;
   slugIntervalTimestamp: number;
 }) => {
   const { market, slugIntervalTimestamp, priceToBeat } = params;
-  findingChance({ market, priceToBeat, slugIntervalTimestamp });
-  watchingPosition({ market, slugIntervalTimestamp });
+  watchingChance({ market, priceToBeat, slugIntervalTimestamp });
 
   await waitFor(distanceToNextInterval(slugIntervalTimestamp));
 };

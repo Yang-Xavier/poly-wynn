@@ -168,7 +168,7 @@ export default class TradeCore {
           resolved = true;
           resolve(order);
           this.logInfo(`[waitForOrderMatched] 订单成交...${JSON.stringify(order)}`);
-          clearTimeout(timer);
+          timer && clearTimeout(timer);
         }
       });
     });
