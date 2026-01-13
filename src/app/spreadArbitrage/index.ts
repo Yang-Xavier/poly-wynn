@@ -105,14 +105,17 @@ const getOnlinePosition = async ({ marketSlug }: { marketSlug: string }) => {
     market: [marketSlug],
   });
   if (onlinePosition && onlinePosition.length > 0) {
-    const position: PositionInfo = {
-      outcome: onlinePosition[0].outcome as OUTCOMES_ENUM,
-      amount: onlinePosition[0].size * onlinePosition[0].avgPrice,
-      size: onlinePosition[0].size,
-      price: onlinePosition[0].avgPrice,
-      totalFee: 0,
-    };
-    return position;
+    const slugPosition = onlinePosition.find((position) => position.slug === marketSlug);
+    if (slugPosition) {
+      const position: PositionInfo = {
+        outcome: onlinePosition[0].outcome as OUTCOMES_ENUM,
+        amount: onlinePosition[0].size * onlinePosition[0].avgPrice,
+        size: onlinePosition[0].size,
+        price: onlinePosition[0].avgPrice,
+        totalFee: 0,
+      };
+      return position;
+    }
   }
   return null;
 };
