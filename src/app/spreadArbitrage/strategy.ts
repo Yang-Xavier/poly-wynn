@@ -279,6 +279,7 @@ const watchingChance = async (params: {
     if (!isReadyToRunStrategy()) {
       return;
     }
+    logStrategOnce("polyPriceChange", `开始执行策略`);
     polyPriceAligner?.addData(polyPrice);
   });
 
@@ -287,6 +288,7 @@ const watchingChance = async (params: {
     if (!isReadyToRunStrategy()) {
       return;
     }
+    logStrategOnce("bnPriceChange", `开始执行策略`);
     bnPriceAligner?.addData(bnPrice);
     const alignedPolyPrice = polyPriceAligner.getAlignedData();
     const alignedBnPrice = bnPriceAligner.getAlignedData();
@@ -365,6 +367,11 @@ const watchingChance = async (params: {
           ${JSON.stringify({ calcCost: `${Date.now() - startTime}ms` })}
         `);
       }
+    } else {
+      logStrategOnce(
+        "bnPriceChange",
+        `bn价格波动未确认..., bnPriceChange: ${JSON.stringify(bnPriceChange)}`
+      );
     }
   });
 
@@ -375,6 +382,7 @@ const watchingChance = async (params: {
     ) {
       return;
     }
+    logStrategOnce("onOrderBookChange", `开始执行策略`);
     const position = getTrader().position.getPosition();
     const tokenId = getTokenIdFromMarketByOutcome(market, position.outcome);
     const bestBid = polyOrderBookWs.getLatestOrderBookData(tokenId)?.[tokenId]?.bestBid;
