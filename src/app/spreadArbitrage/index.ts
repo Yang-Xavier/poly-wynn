@@ -8,12 +8,11 @@ import {
   getMarketSlug15Min,
   getTokenIdFromMarketByOutcome,
 } from "@shared/utils/market";
-import gammaApi from "@shared/api/gammaApi";
 import { TMarketResponseData } from "@typings/gammaData";
 
 import dataFlow from "./utils/dataFlow";
 import { startStrategy } from "./strategy";
-import { getPriceToBeat } from "./utils/getPriceToBeat";
+import { getPriceToBeat, getMarketBySlug } from "./utils/market";
 import { waitFor } from "@shared/utils/waitFor";
 import { OUTCOMES_ENUM, TRADE_ACTION_ENUM, USDC_ADDRESS } from "@shared/constants";
 
@@ -145,7 +144,10 @@ const main = async () => {
 
     try {
       logInfo(`获取市场信息: ${marketSlug} ...`);
-      const market: TMarketResponseData | null = await gammaApi.getMarketBySlug(marketSlug);
+      const market: TMarketResponseData | null = await getMarketBySlug(
+        marketSlug,
+        slugIntervalTimestamp
+      );
       logInfo(`获取市场信息成功!`);
 
       await subscribeData(market);
@@ -160,7 +162,8 @@ const main = async () => {
       const priceToBeat = await getPriceToBeat(
         config.marketTag,
         market.eventStartTime,
-        market.endDate
+        market.endDate,
+        slugIntervalTimestamp
       );
       logInfo(`获取对赌价格成功: ${priceToBeat}`);
 
