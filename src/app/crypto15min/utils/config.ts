@@ -45,7 +45,7 @@ const commonConfig = {
     buyPositionReduceFactorRange: [0.8, 0.5], // 实际购买仓位 1 - buyPositionReduceFactor
     buyBestAskThreshold: 0.9,
     buyMaxVolumeThreshold: 0.5, // 最大订单量阈值
-    buyMinimumAmount: 1,
+    buyMinimumAmount: 10,
 
     sellProbabilityThreshold: 0.45,
     sellPredictProbabilityThreshold: 0.35,
