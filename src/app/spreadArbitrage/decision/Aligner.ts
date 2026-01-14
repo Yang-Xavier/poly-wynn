@@ -139,9 +139,14 @@ export class Aligner {
   /**
    * 获取对齐后的聚合数据
    *
+   * @param limit 可选，返回最近 x 条数据。如果不提供，返回所有数据
    * @returns 对齐后的价格数据点数组
    */
-  getAlignedData(): PricePoint[] {
+  getAlignedData(limit?: number): PricePoint[] {
+    if (limit !== undefined && limit > 0) {
+      // 返回最近 x 条数据
+      return [...this.alignedData].slice(-limit);
+    }
     return [...this.alignedData];
   }
 
