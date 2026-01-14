@@ -209,6 +209,15 @@ const findingChance = async (params: {
   });
 };
 
+const logRecord = {};
+const logStrategOnce = (key: string, message: string) => {
+  if (logRecord[key]) {
+    return;
+  }
+  logRecord[key] = true;
+  logStrategy(message);
+};
+
 const watchingChance = async (params: {
   market: TMarketResponseData;
   priceToBeat: number;
@@ -259,6 +268,8 @@ const watchingChance = async (params: {
         bnPriceAligner = new Aligner(startTimestamp, config.strategy.alignWindowMs);
         polyPriceAligner.align(polyPriceHistory);
         bnPriceAligner.align(bnPriceHistory);
+
+        logStrategy("数据对齐完成...");
       }
     }
     return false;
@@ -279,12 +290,20 @@ const watchingChance = async (params: {
     bnPriceAligner?.addData(bnPrice);
     const alignedPolyPrice = polyPriceAligner.getAlignedData();
     const alignedBnPrice = bnPriceAligner.getAlignedData();
-    if (alignedBnPrice.length <= alignedPolyPrice.length) {
+    if (alignedBnPrice.length < alignedPolyPrice.length) {
+      logStrategy(
+        `bn价格更新落后于poly价格，不参与计算..., bnPriceLength: ${alignedBnPrice.length}, polyPriceLength: ${alignedPolyPrice.length}`
+      );
       // 说明bn价格更新落后于poly价格，不参与计算
       return;
     }
-    const bnPriceChange = detectPriceChange(alignedBnPrice);
+    const bnPriceChange = detectPriceChange(alignedBnPrice, {
+      minChangeRateThreshold: 0.1,
+      stabilityThreshold: 0.004,
+      trendWindowSize: 30,
+    });
     if (bnPriceChange.isConfirmed) {
+      logStrategy(`bn价格波动确认..., bnPriceChange: ${JSON.stringify(bnPriceChange)}`);
       const { predictedB: predictedPolyPriceList } = predictPrice(alignedBnPrice, alignedPolyPrice);
       const { probUp, probDown, confidence } = calculateProbabilityBasedOnBSM(
         predictedPolyPriceList,
