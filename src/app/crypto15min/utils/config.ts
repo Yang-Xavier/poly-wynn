@@ -40,8 +40,8 @@ const commonConfig = {
     buyingMaxAmount: 100,
     buyingAmountFactor: 1,
     buyLimitCountInARoundOf15min: 1,
-    buyAcceptableWinProbabilityRange: [0.995, 0.9],
-    buyPositionReduceFactorRange: [0.8, 0.5],
+    buyAcceptableWinProbabilityRange: [0.995, 0.95],
+    buyPositionReduceFactorRange: [0.8, 0.5], // 实际购买仓位 1 - buyPositionReduceFactor
     buyBestAskThreshold: 0.9,
     buyMaxVolumeThreshold: 0.5, // 最大订单量阈值
     buyMinimumAmount: 1,
