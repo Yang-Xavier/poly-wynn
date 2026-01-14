@@ -1,4 +1,3 @@
-import gammaApi from "@shared/api/gammaApi";
 import dataApi from "@shared/api/dataApi";
 import { OUTCOMES_ENUM, TRADE_ACTION_ENUM } from "@shared/constants";
 import { PositionInfo } from "@shared/trade/Position";
@@ -14,7 +13,7 @@ import { TMarketResponseData } from "@typings/gammaData";
 
 import { startStrategy } from "@crypto15min/utils/strategy";
 import { getConfig } from "@crypto15min/utils/config";
-import { getPriceToBeat } from "@crypto15min/utils/getPriceToBeat";
+import { getPriceToBeat, getMarketBySlug } from "@crypto15min/utils/market";
 
 import { APP_NAME } from "./constants";
 import {
@@ -127,7 +126,12 @@ const waitToGetPriceToBeat = async ({
   await waitFor(waitTimeToGetPriceToBeat > 0 ? waitTimeToGetPriceToBeat : 0);
 
   logInfo(`获取对赌价格...`);
-  const priceToBeat = await getPriceToBeat(config.marketTag, market.eventStartTime, market.endDate);
+  const priceToBeat = await getPriceToBeat(
+    config.marketTag,
+    market.eventStartTime,
+    market.endDate,
+    slugIntervalTimestamp
+  );
   logInfo(`对赌价格: ${priceToBeat}, market: ${marketSlug}`);
   return priceToBeat;
 };
@@ -222,7 +226,7 @@ export const runPolyWynn = async () => {
       await connectWsBeforeStrategy();
 
       logInfo(`获取市场数据...`);
-      const market = await gammaApi.getMarketBySlug(marketSlug);
+      const market = await getMarketBySlug(marketSlug, slugIntervalTimestamp);
 
       const priceToBeat = await waitToGetPriceToBeat({ slugIntervalTimestamp, market, marketSlug });
 

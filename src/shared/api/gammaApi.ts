@@ -13,7 +13,7 @@ export default {
     const url = `${GAMMA_HOST}/markets/slug/${slug}`;
     const [error, data] = await awaitAxiosDataTo(proxy.get(url));
     if (error) {
-      return null;
+      throw error;
     }
 
     return data as TMarketResponseData;

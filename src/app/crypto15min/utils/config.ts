@@ -43,7 +43,7 @@ const ethConfig = {
     buyingMaxAmount: 100,
     buyingAmountFactor: 0.2,
     buyLimitCountInARoundOf15min: 1,
-    buyAcceptableWinProbabilityRange: [0.995, 0.95],
+    buyAcceptableWinProbabilityRange: [0.995, 0.9],
     buyBestAskThreshold: 0.9,
     buyMaxVolumeThreshold: 0.5, // 最大订单量阈值
     buyMinimumAmount: 1,
