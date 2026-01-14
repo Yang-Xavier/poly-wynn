@@ -137,13 +137,29 @@ const findingChanceAndBuying = ({
         const bestAsk = Number(orderBookOfOutcomes[decisionResult.side].bestAsk.toFixed(2));
         const asksVolume = orderBookOfOutcomes[decisionResult.side].asksVolume;
 
-        const buyAmount = Math.min(
-          asksVolume * config.stratgegy.buyMaxVolumeThreshold,
-          getTrader().remainAmount
+        const acceptMaxPositionAmountFactor = calcAttenuation(
+          [
+            [...config.stratgegy.buyPositionReduceFactorRange].sort((a, b) => a - b), // 从小到大
+            [config.stratgegy.startStrategyBefore, 0].sort((a, b) => a - b), // 从小到大
+          ],
+          distanceToNextInterval(slugIntervalTimestamp),
+          2,
+          0.8
+        );
+        const acceptMaxPositionAmount = Number(
+          (getTrader().getBalance() * (1 - acceptMaxPositionAmountFactor)).toFixed(2)
         );
 
-        logStrategy(
-          `[✅Buy][🧐findingChanceAndBuying][polyOrderBookWs.onOrderBookChange]
+        getTrader().setMaxTradeAmount(acceptMaxPositionAmount);
+
+        if (getTrader().remainAmount > config.stratgegy.buyMinimumAmount) {
+          const buyAmount = Math.min(
+            asksVolume * config.stratgegy.buyMaxVolumeThreshold,
+            getTrader().remainAmount
+          );
+
+          logStrategy(
+            `[✅Buy][🧐findingChanceAndBuying][polyOrderBookWs.onOrderBookChange]
           ${JSON.stringify({
             side: decisionResult.side,
             acceptableWinProbability,
@@ -153,19 +169,30 @@ const findingChanceAndBuying = ({
             priceToBeat,
             currentPrice: currentPrice?.value,
             asksVolume: orderBookOfOutcomes[decisionResult.side].asksVolume,
+            acceptMaxPositionAmount,
             probabilityBasedOnGBM: decisionResult.probabilityBasedOnGBM,
             probabilityBasedOnBSM: decisionResult.probabilityBasedOnBSM,
             cost: Date.now() - orderBookOfOutcomes[decisionResult.side].receivedAt,
           })}
           `
-        );
-        getTrader().tradeTaskManage.addTask({
-          tokenId: outcomes[decisionResult.side],
-          action: TRADE_ACTION_ENUM.buy,
-          price: bestAsk,
-          amount: buyAmount,
-          outcome: decisionResult.side,
-        });
+          );
+          getTrader().tradeTaskManage.addTask({
+            tokenId: outcomes[decisionResult.side],
+            action: TRADE_ACTION_ENUM.buy,
+            price: bestAsk,
+            amount: buyAmount,
+            outcome: decisionResult.side,
+          });
+        } else {
+          logStrategy(
+            `[⏩Wait][🧐findingChanceAndBuying][polyOrderBookWs.onOrderBookChange] 最大购买额度不足, 跳过买入... 
+            ${JSON.stringify({
+              acceptMaxPositionAmount,
+              remainAmount: getTrader().remainAmount,
+            })}
+            `
+          );
+        }
       } else {
         logStrategy(
           `[⏩Wait][🧐findingChanceAndBuying][polyOrderBookWs.onOrderBookChange]

@@ -23,6 +23,7 @@ export default class Trader {
   public position: Position;
   public tradeReport: TradeReport;
   public tradeCore: TradeCore;
+  public balance: number = 0;
   public maxTradeAmount: number = 100;
   public traceId: string;
 
@@ -135,6 +136,14 @@ export default class Trader {
 
   setMaxTradeAmount(maxTradeAmount: number) {
     this.maxTradeAmount = maxTradeAmount;
+  }
+
+  getBalance() {
+    return this.balance;
+  }
+
+  setBalance(balance: number) {
+    this.balance = balance;
   }
 
   clear() {

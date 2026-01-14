@@ -43,6 +43,7 @@ const getBuyMaxAmount = async () => {
     config.account.funderAddress,
     config.collateralAddress
   );
+
   const buyMaxAmount = Math.min(
     config.stratgegy.buyingMaxAmount,
     Number(balance) * config.stratgegy.buyingAmountFactor
@@ -267,6 +268,7 @@ export const runPolyWynn = async () => {
             return;
           } else {
             getTrader().setMaxTradeAmount(buyMaxAmount);
+            getTrader().setBalance(balance);
 
             await connectWsOnStrategy(market);
 

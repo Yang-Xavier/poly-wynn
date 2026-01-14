@@ -1,7 +1,7 @@
 import { getEncryptedConfig, TAccountConfig } from "@shared/encryptConfig";
 
 const commonConfig = {
-  marketTag: "",
+  marketTag: "eth",
   clobHost: "https://clob.polymarket.com",
   gammaHost: "https://gamma-api.polymarket.com",
   dataHost: "https://data-api.polymarket.com",
@@ -29,10 +29,7 @@ const commonConfig = {
   logger: {
     logDir: "./logs",
   },
-};
 
-const ethConfig = {
-  accountId: "account3",
   stratgegy: {
     startCollectDataBefore: 600000,
     startStrategyBefore: 180000,
@@ -41,9 +38,10 @@ const ethConfig = {
     buyingRetryCount: 5,
     buyingMaxSplit: 3,
     buyingMaxAmount: 100,
-    buyingAmountFactor: 0.2,
+    buyingAmountFactor: 1,
     buyLimitCountInARoundOf15min: 1,
     buyAcceptableWinProbabilityRange: [0.995, 0.9],
+    buyPositionReduceFactorRange: [0.8, 0.5],
     buyBestAskThreshold: 0.9,
     buyMaxVolumeThreshold: 0.5, // 最大订单量阈值
     buyMinimumAmount: 1,
@@ -54,26 +52,14 @@ const ethConfig = {
   },
 };
 
+const ethConfig = {
+  accountId: "account3",
+};
+
 const btcConfig = {
   accountId: "account2",
   stratgegy: {
-    startCollectDataBefore: 600000,
-    startStrategyBefore: 180000,
-    startGetPriceToBeatBefore: 360000,
-
-    buyingRetryCount: 5,
-    buyingMaxSplit: 3,
-    buyingMaxAmount: 100,
-    buyingAmountFactor: 0.5,
-    buyLimitCountInARoundOf15min: 1,
     buyAcceptableWinProbabilityRange: [0.995, 0.95],
-    buyBestAskThreshold: 0.9,
-    buyMaxVolumeThreshold: 0.5, // 最大订单量阈值
-    buyMinimumAmount: 1,
-
-    sellProbabilityThreshold: 0.4,
-    sellPredictProbabilityThreshold: 0.35,
-    sellMinimumSize: 1,
   },
 };
 
@@ -88,14 +74,39 @@ export function getGlobalConfig(): TGlobalConfig {
   return getConfig();
 }
 
+const deepMerge = (obj1: Record<string, any>, obj2: Record<string, any>) => {
+  return Object.keys(obj2).reduce((acc, key) => {
+    if (typeof obj2[key] === "object" && obj2[key] !== null) {
+      acc[key] = deepMerge(obj1[key], obj2[key]);
+    } else {
+      acc[key] = obj2[key];
+    }
+    return acc;
+  }, obj1);
+};
+
+let computedConfig: TGlobalConfig | null = null;
+
 export const getConfig = () => {
-  if (process && process.env && process.env.MARKET) {
+  if (computedConfig) {
+    return computedConfig;
+  }
+  if (process && process.env) {
     if (process.env.MARKET === "eth") {
       const accountConfig = getEncryptedConfig(ethConfig.accountId) as TAccountConfig;
-      return { ...commonConfig, ...ethConfig, marketTag: "eth", account: accountConfig };
+      computedConfig = {
+        ...(deepMerge(commonConfig, ethConfig) as TGlobalConfig),
+        marketTag: "eth",
+        account: accountConfig,
+      };
     } else if (process.env.MARKET === "btc") {
       const accountConfig = getEncryptedConfig(btcConfig.accountId) as TAccountConfig;
-      return { ...commonConfig, ...btcConfig, marketTag: "btc", account: accountConfig };
+      computedConfig = {
+        ...(deepMerge(commonConfig, btcConfig) as TGlobalConfig),
+        marketTag: "btc",
+        account: accountConfig,
+      };
     }
+    return computedConfig;
   }
 };
