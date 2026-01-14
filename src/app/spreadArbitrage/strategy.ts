@@ -237,10 +237,10 @@ const watchingChance = async (params: {
 
   const isReadyToRunStrategy = () => {
     if (
-      distanceToNextInterval(slugIntervalTimestamp) > 0 ||
+      distanceToNextInterval(slugIntervalTimestamp) < 0 ||
       !getTrader().getTradeLimitation().canBuy
     ) {
-      return true;
+      return false;
     }
     const polyPriceHistory = polyPriceWs.getPriceHistory();
     const bnPriceHistory = bnPriceWs.getPriceHistory();
