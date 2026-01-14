@@ -87,7 +87,9 @@ const findingChanceAndBuying = ({
         return;
       }
 
-      const tradeLimitation = getTrader().getTradeLimitation();
+      const trader = getTrader();
+      trader.calcBuyMaxAmountWithTimeFactor(slugIntervalTimestamp);
+      const tradeLimitation = trader.getTradeLimitation();
 
       if (!tradeLimitation.canBuy) {
         return;
@@ -136,26 +138,11 @@ const findingChanceAndBuying = ({
       ) {
         const bestAsk = Number(orderBookOfOutcomes[decisionResult.side].bestAsk.toFixed(2));
         const asksVolume = orderBookOfOutcomes[decisionResult.side].asksVolume;
-
-        const acceptMaxPositionAmountFactor = calcAttenuation(
-          [
-            [...config.stratgegy.buyPositionReduceFactorRange].sort((a, b) => a - b), // 从小到大
-            [config.stratgegy.startStrategyBefore, 0].sort((a, b) => a - b), // 从小到大
-          ],
-          distanceToNextInterval(slugIntervalTimestamp),
-          2,
-          0.8
-        );
-        const acceptMaxPositionAmount = Number(
-          (getTrader().getBalance() * (1 - acceptMaxPositionAmountFactor)).toFixed(2)
-        );
-
-        getTrader().setMaxTradeAmount(acceptMaxPositionAmount);
-
-        if (getTrader().remainAmount > config.stratgegy.buyMinimumAmount) {
+        const evalAsksAmountVolume = bestAsk * asksVolume; // 估算全部吃完的需要多少价格，按最小出价来估算，得到的值是最小值
+        if (trader.remainAmount > config.stratgegy.buyMinimumAmount) {
           const buyAmount = Math.min(
-            asksVolume * config.stratgegy.buyMaxVolumeThreshold,
-            getTrader().remainAmount
+            evalAsksAmountVolume * config.stratgegy.buyMaxVolumeThreshold,
+            trader.remainAmount
           );
 
           logStrategy(
@@ -169,14 +156,14 @@ const findingChanceAndBuying = ({
             priceToBeat,
             currentPrice: currentPrice?.value,
             asksVolume: orderBookOfOutcomes[decisionResult.side].asksVolume,
-            acceptMaxPositionAmount,
+            acceptMaxPositionAmount: trader.getMaxTradeAmount(),
             probabilityBasedOnGBM: decisionResult.probabilityBasedOnGBM,
             probabilityBasedOnBSM: decisionResult.probabilityBasedOnBSM,
             cost: Date.now() - orderBookOfOutcomes[decisionResult.side].receivedAt,
           })}
           `
           );
-          getTrader().tradeTaskManage.addTask({
+          trader.tradeTaskManage.addTask({
             tokenId: outcomes[decisionResult.side],
             action: TRADE_ACTION_ENUM.buy,
             price: bestAsk,
@@ -187,8 +174,8 @@ const findingChanceAndBuying = ({
           logStrategy(
             `[⏩Wait][🧐findingChanceAndBuying][polyOrderBookWs.onOrderBookChange] 最大购买额度不足, 跳过买入... 
             ${JSON.stringify({
-              acceptMaxPositionAmount,
-              remainAmount: getTrader().remainAmount,
+              acceptMaxPositionAmount: trader.getMaxTradeAmount(),
+              remainAmount: trader.remainAmount,
             })}
             `
           );
@@ -232,6 +219,7 @@ const watchingPosition = ({
 
   let predictPriceHistory: PriceData[] = [];
   let skipped = false;
+  const trader = getTrader();
 
   const getPositionToWatch = () => {
     if (skipped) {
@@ -241,11 +229,11 @@ const watchingPosition = ({
       skipped = true;
       return;
     }
-    const tradeLimitation = getTrader().getTradeLimitation();
+    const tradeLimitation = trader.getTradeLimitation();
     if (!tradeLimitation.canSell) {
       return;
     }
-    const currentPosition = getTrader().position.getPosition();
+    const currentPosition = trader.position.getPosition();
 
     return currentPosition;
   };
@@ -296,7 +284,7 @@ const watchingPosition = ({
         })}
         `
       );
-      getTrader().tradeTaskManage.addTask({
+      trader.tradeTaskManage.addTask({
         tokenId: outcomes[position.outcome],
         action: TRADE_ACTION_ENUM.sell,
         price: bestBid,
@@ -400,7 +388,7 @@ const watchingPosition = ({
         })}
         `
       );
-      getTrader().tradeTaskManage.addTask({
+      trader.tradeTaskManage.addTask({
         tokenId: outcomes[position.outcome],
         action: TRADE_ACTION_ENUM.sell,
         price: bestBid,

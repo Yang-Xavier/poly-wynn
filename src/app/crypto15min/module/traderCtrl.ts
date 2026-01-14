@@ -1,7 +1,9 @@
 import { getConfig } from "@crypto15min/utils/config";
+import { calcAttenuation } from "@shared/algorithm/calcAttenuation";
 import { TRADE_ACTION_ENUM } from "@shared/constants";
 import Trader, { TraderConfig } from "@shared/trade/Trader";
 import { TradeTask } from "@shared/trade/TradeTaskManage";
+import { distanceToNextInterval } from "@shared/utils/market";
 
 class TraderCtrl extends Trader {
   isSold: boolean = false;
@@ -31,6 +33,26 @@ class TraderCtrl extends Trader {
     if (task.action === TRADE_ACTION_ENUM.sell) {
       this.isSold = true;
     }
+  }
+
+  calcBuyMaxAmountWithTimeFactor(slugIntervalTimestamp: number) {
+    const config = getConfig();
+    const balance = this.getBalance();
+    const acceptMaxPositionAmountFactor = calcAttenuation(
+      [
+        [...config.stratgegy.buyPositionReduceFactorRange].sort((a, b) => a - b), // 从小到大
+        [config.stratgegy.startStrategyBefore, 0].sort((a, b) => a - b), // 从小到大
+      ],
+      Math.min(distanceToNextInterval(slugIntervalTimestamp), config.stratgegy.startStrategyBefore),
+      2,
+      0.8
+    );
+    const maxBuyAmount = Math.min(
+      Number((balance * (1 - acceptMaxPositionAmountFactor)).toFixed(2)),
+      config.stratgegy.buyingMaxAmount
+    );
+    this.setMaxTradeAmount(maxBuyAmount);
+    return maxBuyAmount;
   }
 }
 

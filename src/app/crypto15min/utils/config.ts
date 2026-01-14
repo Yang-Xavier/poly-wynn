@@ -34,10 +34,11 @@ const commonConfig = {
     startCollectDataBefore: 600000,
     startStrategyBefore: 180000,
     startGetPriceToBeatBefore: 360000,
+    updateBalanceInterval: 180000,
 
     buyingRetryCount: 5,
     buyingMaxSplit: 3,
-    buyingMaxAmount: 100,
+    buyingMaxAmount: 200,
     buyingAmountFactor: 1,
     buyLimitCountInARoundOf15min: 1,
     buyAcceptableWinProbabilityRange: [0.995, 0.95],
@@ -58,9 +59,6 @@ const ethConfig = {
 
 const btcConfig = {
   accountId: "account2",
-  stratgegy: {
-    buyAcceptableWinProbabilityRange: [0.995, 0.95],
-  },
 };
 
 type TGlobalConfig = typeof commonConfig &

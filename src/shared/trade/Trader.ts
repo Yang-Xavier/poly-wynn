@@ -138,6 +138,10 @@ export default class Trader {
     this.maxTradeAmount = maxTradeAmount;
   }
 
+  getMaxTradeAmount() {
+    return this.maxTradeAmount;
+  }
+
   getBalance() {
     return this.balance;
   }

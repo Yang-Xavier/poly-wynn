@@ -30,26 +30,11 @@ import redeemTaskManager from "./utils/redeemTaskManager";
 import { redeemAllPositions } from "./utils/relayerRedeem";
 
 import { getTrader, initTrader } from "./module/traderCtrl";
+import { startBalancePolling } from "./utils/updateBalance";
 
 const setAllTraceId = (marketSlug: string) => {
   setTraceId(marketSlug);
   dataRecord.setTraceId(marketSlug);
-};
-
-const getBuyMaxAmount = async () => {
-  const config = getConfig();
-
-  const { balance } = await getAccountBalance(
-    config.account.funderAddress,
-    config.collateralAddress
-  );
-
-  const buyMaxAmount = Math.min(
-    config.stratgegy.buyingMaxAmount,
-    Number(balance) * config.stratgegy.buyingAmountFactor
-  );
-
-  return { buyMaxAmount, balance };
 };
 
 const connectWsBeforeStrategy = async () => {
@@ -189,6 +174,8 @@ export const runPolyWynn = async () => {
     const slugIntervalTimestamp = get15MinIntervalTimestamp();
     const roundEndTimestampMs = get15MinIntervalTimestamp(1) * 1000;
     const marketSlug = getMarketSlug15Min(config.marketTag, slugIntervalTimestamp);
+    let stopBalancePolling: () => void;
+
     try {
       setAllTraceId(marketSlug);
 
@@ -223,6 +210,14 @@ export const runPolyWynn = async () => {
 
       getTrader().setUserWs(dataFlow.getInstances()?.userWs);
 
+      // 监控余额
+      stopBalancePolling = startBalancePolling((balance) => {
+        getTrader().setBalance(balance);
+        getTrader().tradeReport.addReport("balance", {
+          balance: Number(balance),
+        });
+      }, config.stratgegy.updateBalanceInterval);
+
       await waitToStart(slugIntervalTimestamp);
       await connectWsBeforeStrategy();
 
@@ -256,22 +251,18 @@ export const runPolyWynn = async () => {
           }
 
           logInfo(`获取账户余额, 购买金额...`);
-          const { buyMaxAmount, balance } = await getBuyMaxAmount();
-          logInfo(`💰账户余额: ${balance}, 购买金额: ${buyMaxAmount}`);
-          getTrader().tradeReport.addReport("balance", {
-            balance: Number(balance),
-          });
+          const balance = getTrader().getBalance();
+          logInfo(`💰账户余额: ${balance} `);
+          const maxBuyAmount = getTrader().calcBuyMaxAmountWithTimeFactor(slugIntervalTimestamp);
 
-          if (Number(buyMaxAmount) <= 1) {
-            logInfo(`账户余额小于1, 跳过本局购买,等待下一轮开始...`);
+          if (Number(maxBuyAmount) < config.stratgegy.buyMinimumAmount) {
+            logInfo(
+              `可购买金额小于${config.stratgegy.buyMinimumAmount}, 跳过本局购买,等待下一轮开始...`
+            );
             await waitFor(distanceToNextInterval(slugIntervalTimestamp));
             return;
           } else {
-            getTrader().setMaxTradeAmount(buyMaxAmount);
-            getTrader().setBalance(balance);
-
             await connectWsOnStrategy(market);
-
             logInfo(`开始执行策略...`);
             await startStrategy({ market, priceToBeat, slugIntervalTimestamp });
           }
@@ -357,7 +348,7 @@ export const runPolyWynn = async () => {
         result: "error",
       });
     }
-
+    stopBalancePolling?.();
     cleanAtEndOfRound();
     await waitFor(1000);
   });
