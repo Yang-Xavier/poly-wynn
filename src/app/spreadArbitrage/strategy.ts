@@ -253,12 +253,19 @@ const watchingChance = async (params: {
         tokenIds[OUTCOMES_ENUM.Down]
       ]?.bestAsk ?? 0;
 
+    logStrategy(`=== watchingChance === 订单簿价格
+        ${JSON.stringify({
+          upBestAsk,
+          downBestAsk,
+        })}
+      `);
     if (
       Math.min(bnPriceHistory.length, polyPriceHistory.length) > config.strategy.minDataPoints &&
       Math.min(upBestAsk, downBestAsk) > 0.01
     ) {
       // 数据量达标
       if (polyPriceAligner && bnPriceAligner) {
+        logStrategOnce("watchingChance", "数据已对齐，可以开始执行策略");
         // 有对齐器
         return true;
       } else {
@@ -410,6 +417,7 @@ export const startStrategy = async (params: {
   slugIntervalTimestamp: number;
 }) => {
   const { market, slugIntervalTimestamp, priceToBeat } = params;
+
   watchingChance({ market, priceToBeat, slugIntervalTimestamp });
 
   await waitFor(distanceToNextInterval(slugIntervalTimestamp));
