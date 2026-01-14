@@ -94,10 +94,10 @@ export default class Trader {
         });
         this.tradeReport.addReport("trade", {
           action: task.action,
-          timestamp: order.timestamp,
-          price: order.price,
-          size: order.size,
-          outcome: order.outcome,
+          timestamp: order.timestamp ?? Date.now(),
+          price: order.price ?? task.price,
+          size: order.size ?? task.size,
+          outcome: order.outcome ?? task.outcome,
           fee: order.fee,
         });
         this.logInfo(`[🙏executeTradeTask] 交易任务完成: ${JSON.stringify(task)}`);

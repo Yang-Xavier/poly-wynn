@@ -117,8 +117,11 @@ export default class TradeCore {
     return new Promise((resolve) => {
       const timer = setTimeout(async () => {
         if (resolved) return;
-        this.logInfo(`[waitForOrderMatched] 监听推送订单成交超时, API查询...`);
+
         const resp = await this.clobApi.getOrder({ orderId });
+        this.logInfo(
+          `[waitForOrderMatched] 监听推送订单成交超时, API查询结果: ${JSON.stringify(resp)}`
+        );
         const { feeAmount, actualSize, actualAmount } = this.calculateFeeAndActuals(
           TRADE_ACTION_ENUM.buy,
           Number(resp.size_matched),
@@ -133,17 +136,16 @@ export default class TradeCore {
           outcome: resp.outcome as OUTCOMES_ENUM,
           fee: feeAmount,
           status: resp.status,
-          timestamp: resp.created_at,
+          timestamp: resp.created_at > 1e12 ? resp.created_at : resp.created_at * 1000,
         };
-        this.logInfo(`[waitForOrderMatched] 订单成交...${JSON.stringify(order)}`);
         resolve(order);
         clearTimeout(timer);
       }, timeout);
 
       this.userWs.onUserTrade((trade) => {
         if (resolved) return;
-        this.logInfo(`[waitForOrderMatched] 监听到有订单推送...${JSON.stringify(trade)}`);
         if (trade.taker_order_id === orderId) {
+          this.logInfo(`[waitForOrderMatched] 监听到有订单推送...${JSON.stringify(trade)}`);
           const sizeMatched = trade.maker_orders.reduce(
             (acc, curr) => acc + Number(curr.matched_amount),
             0
@@ -167,7 +169,6 @@ export default class TradeCore {
           };
           resolved = true;
           resolve(order);
-          this.logInfo(`[waitForOrderMatched] 订单成交...${JSON.stringify(order)}`);
           timer && clearTimeout(timer);
         }
       });
