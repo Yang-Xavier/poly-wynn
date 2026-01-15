@@ -1,4 +1,5 @@
 import { OUTCOMES_ENUM, TRADE_ACTION_ENUM } from "@shared/constants";
+import { TBriefOrder } from "./TradeCore";
 
 /**
  * 交易任务接口
@@ -13,7 +14,11 @@ export interface TradeTask {
 }
 
 export interface TradeTaskExecutor {
-  (task: TradeTask): Promise<void>;
+  (task: TradeTask): Promise<TBriefOrder | null>;
+}
+
+export interface IOnTradeFinished {
+  (task: TradeTask, order: TBriefOrder): void;
 }
 
 /**
@@ -25,19 +30,19 @@ export class TradeTaskManage {
   private tradeTaskExecutor: TradeTaskExecutor;
   private runningTaskAction: TRADE_ACTION_ENUM | null = null;
   private taskEndTimestamp: number | null = null;
-  private onTrade: (task: TradeTask, remainTasks: TradeTask[]) => void;
+  private onTradeFinished: IOnTradeFinished;
   constructor({
-    tradeTaskExecutor,
     taskEndTimestamp,
-    onTrade,
+    tradeTaskExecutor,
+    onTradeFinished,
   }: {
     tradeTaskExecutor: TradeTaskExecutor;
     taskEndTimestamp: number;
-    onTrade?: (task: TradeTask, remainTasks: TradeTask[]) => void;
+    onTradeFinished?: IOnTradeFinished;
   }) {
     this.tradeTaskExecutor = tradeTaskExecutor;
     this.taskEndTimestamp = taskEndTimestamp;
-    this.onTrade = onTrade;
+    this.onTradeFinished = onTradeFinished;
   }
 
   getRunningTaskAction(): TRADE_ACTION_ENUM | null {
@@ -65,9 +70,9 @@ export class TradeTaskManage {
 
     const task = this.taskList.shift()!;
     this.runningTaskAction = task.action;
-    await this.tradeTaskExecutor(task);
+    const order = await this.tradeTaskExecutor(task);
     this.runningTaskAction = null;
-    this.onTrade?.(task, this.taskList);
+    this.onTradeFinished?.(task, order);
     this.autoRunNextTask();
   }
 

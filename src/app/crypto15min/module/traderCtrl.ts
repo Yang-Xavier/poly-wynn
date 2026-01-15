@@ -1,6 +1,7 @@
 import { getConfig } from "@crypto15min/utils/config";
 import { calcAttenuation } from "@shared/algorithm/calcAttenuation";
 import { TRADE_ACTION_ENUM } from "@shared/constants";
+import { TBriefOrder } from "@shared/trade/TradeCore";
 import Trader, { TraderConfig } from "@shared/trade/Trader";
 import { TradeTask } from "@shared/trade/TradeTaskManage";
 import { distanceToNextInterval } from "@shared/utils/market";
@@ -9,30 +10,30 @@ class TraderCtrl extends Trader {
   isSold: boolean = false;
 
   constructor(config: TraderConfig) {
-    super(config);
-  }
+    super({
+      ...config,
+      calcTradeLimitation: () => {
+        const config = getConfig();
+        const positionSize = this.position.getPosition().size;
 
-  getTradeLimitation() {
-    const config = getConfig();
-    const positionSize = this.position.getPosition().size;
+        const canBuy =
+          this.remainAmount >= config.stratgegy.buyMinimumAmount &&
+          this.tradeTaskManage.getRunningTaskAction() === null &&
+          !this.isSold;
 
-    const canBuy =
-      this.remainAmount >= config.stratgegy.buyMinimumAmount &&
-      this.tradeTaskManage.getRunningTaskAction() === null &&
-      !this.isSold;
+        const canSell =
+          positionSize >= config.stratgegy.sellMinimumSize &&
+          this.tradeTaskManage.getRunningTaskAction() === null &&
+          !!this.position.getPosition().outcome;
 
-    const canSell =
-      positionSize >= config.stratgegy.sellMinimumSize &&
-      this.tradeTaskManage.getRunningTaskAction() === null &&
-      !!this.position.getPosition().outcome;
-
-    return { canBuy, canSell };
-  }
-
-  onTrade(task: TradeTask) {
-    if (task.action === TRADE_ACTION_ENUM.sell) {
-      this.isSold = true;
-    }
+        return { canBuy, canSell };
+      },
+      onTradeTaskFinished: (task: TradeTask) => {
+        if (task.action === TRADE_ACTION_ENUM.sell) {
+          this.isSold = true;
+        }
+      },
+    });
   }
 
   calcBuyMaxAmountWithTimeFactor(slugIntervalTimestamp: number) {

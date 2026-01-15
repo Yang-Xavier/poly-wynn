@@ -4,8 +4,12 @@ import { TCreds } from "@shared/encryptConfig";
 import { Position } from "@shared/trade/Position";
 import TradeCore, { TBriefOrder } from "@shared/trade/TradeCore";
 import TradeReport from "@shared/trade/TradeReport";
-import { TradeTask, TradeTaskManage } from "@shared/trade/TradeTaskManage";
+import { IOnTradeFinished, TradeTask, TradeTaskManage } from "@shared/trade/TradeTaskManage";
 import { UserWs } from "@shared/ws/UserWs";
+
+export interface ICalcTradeLimitation {
+  (): { canBuy: boolean; canSell: boolean };
+}
 
 export interface TraderConfig {
   appName: string;
@@ -16,6 +20,8 @@ export interface TraderConfig {
   signatureType?: number;
   roundEndTimestamp: number;
   logInfo: (message: string) => void;
+  calcTradeLimitation?: ICalcTradeLimitation;
+  onTradeTaskFinished?: IOnTradeFinished;
 }
 
 export default class Trader {
@@ -26,6 +32,8 @@ export default class Trader {
   public balance: number = 0;
   public maxTradeAmount: number = 100;
   public traceId: string;
+  public calcTradeLimitation: ICalcTradeLimitation;
+  public onTradeTaskFinished: IOnTradeFinished;
 
   private logInfo: (message: string) => void;
 
@@ -37,13 +45,18 @@ export default class Trader {
     funderAddress,
     userWs,
     roundEndTimestamp,
+    calcTradeLimitation,
+    onTradeTaskFinished,
     logInfo,
   }: TraderConfig) {
     this.logInfo = logInfo;
+    this.calcTradeLimitation = calcTradeLimitation;
+    this.onTradeTaskFinished = onTradeTaskFinished;
     this.tradeTaskManage = new TradeTaskManage({
-      tradeTaskExecutor: (task: TradeTask) => this.executeTradeTask(task),
       taskEndTimestamp: roundEndTimestamp,
-      onTrade: (task: TradeTask, remainTasks: TradeTask[]) => this.onTrade(task, remainTasks),
+      tradeTaskExecutor: (task: TradeTask) => this.executeTradeTask(task),
+      onTradeFinished: (task: TradeTask, order: TBriefOrder) =>
+        this.onTradeTaskFinished?.(task, order),
     });
     this.tradeReport = new TradeReport({ appName });
     this.position = new Position();
@@ -58,8 +71,8 @@ export default class Trader {
   }
 
   private async executeTradeTask(task: TradeTask) {
+    let order: TBriefOrder | null = null;
     try {
-      let order: TBriefOrder | null = null;
       if (task.action === TRADE_ACTION_ENUM.buy) {
         if (this.getTradeLimitation().canBuy) {
           this.tradeTaskManage.clearTasks(task.action, task.outcome);
@@ -109,16 +122,11 @@ export default class Trader {
     } catch (error) {
       this.logInfo(`[🙏executeTradeTask] 执行交易任务失败: ${error}`);
     }
+    return order;
   }
 
-  // 继承,重写
-  onTrade(task: TradeTask, remainTasks: TradeTask[]) {
-    return;
-  }
-
-  // 继承,重写
   getTradeLimitation() {
-    return { canBuy: true, canSell: true };
+    return this.calcTradeLimitation?.() ?? { canBuy: true, canSell: true };
   }
 
   get remainAmount() {

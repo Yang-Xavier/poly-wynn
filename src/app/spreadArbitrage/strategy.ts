@@ -3,14 +3,12 @@ import { TMarketResponseData } from "@typings/gammaData";
 import dataFlow from "./utils/dataFlow";
 import { getConfig } from "./config";
 import { calculateProbabilityBasedOnBSM } from "@shared/algorithm/bsm";
-import { logInfo, logStrategy } from "./logger";
+import { logStrategy } from "./logger";
 import { OUTCOMES_ENUM, TRADE_ACTION_ENUM } from "@shared/constants";
-import { predictSpreadChange } from "@shared/algorithm/spreadPredictor";
 import { calculateStopLoss } from "./calc";
 import { getTrader } from "./traderCtrl";
 import { waitFor } from "@shared/utils/waitFor";
 import { Aligner } from "./decision/Aligner";
-import { detectPriceChange } from "./decision/detectPriceChange";
 import { predictPrice } from "./decision/predictPrice";
 
 export interface IChance {
@@ -45,7 +43,6 @@ const watchingChance = async (params: {
 
   let polyPriceAligner: Aligner | null = null;
   let bnPriceAligner: Aligner | null = null;
-  let chance: IChance | null = null;
 
   const isReadyToRunStrategy = () => {
     if (
@@ -156,13 +153,16 @@ const watchingChance = async (params: {
             : probDown - downOrderbook.bestAsk,
         outcome,
       });
-      chance = {
+
+      const chance = {
         assetId: tokenIds[outcome],
         outcome,
         buyPrice,
         stopProfitPrice,
         stopLossPrice,
+        isBought: false,
       };
+
       logStrategy(`=== 💡找到机会 ===
           ${JSON.stringify({ ...chance, calcCost: `${Date.now() - startTime}ms` })}
         `);
@@ -173,6 +173,7 @@ const watchingChance = async (params: {
         outcome: chance.outcome,
         amount: getTrader().maxTradeAmount - getTrader().position.getPosition().amount,
       });
+      getTrader().setChance(chance);
     } else {
       logStrategy(`=== bn价格波动确认, 但未找到机会 ===
           ${JSON.stringify({ calcCost: `${Date.now() - startTime}ms` })}
@@ -182,7 +183,7 @@ const watchingChance = async (params: {
 
   polyOrderBookWs.onOrderBookChange(() => {
     if (
-      distanceToNextInterval(slugIntervalTimestamp) > 0 ||
+      distanceToNextInterval(slugIntervalTimestamp) < 0 ||
       !getTrader().getTradeLimitation().canSell
     ) {
       return;
@@ -191,6 +192,8 @@ const watchingChance = async (params: {
     const position = getTrader().position.getPosition();
     const tokenId = getTokenIdFromMarketByOutcome(market, position.outcome);
     const bestBid = polyOrderBookWs.getLatestOrderBookData(tokenId)?.[tokenId]?.bestBid;
+    const chance = getTrader().getChance();
+
     if (
       bestBid &&
       (Number(bestBid) <= chance.stopLossPrice || Number(bestBid) >= chance.stopProfitPrice)
