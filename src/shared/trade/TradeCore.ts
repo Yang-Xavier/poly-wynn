@@ -191,7 +191,7 @@ export default class TradeCore {
     const resp = await this.clobApi.postMarketOrder({
       tokenId,
       side: Side.SELL,
-      amount: size,
+      amount: Math.floor(size * 100) / 100,
       price,
     });
     return resp;
