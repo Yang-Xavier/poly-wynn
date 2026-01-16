@@ -64,7 +64,7 @@ export default class TradeCore {
    * @returns 手续费金额、实际size、实际amount
    */
   private calculateFeeAndActuals(
-    action: TRADE_ACTION_ENUM,
+    action: Side,
     size: number,
     price: number
   ): {
@@ -79,7 +79,7 @@ export default class TradeCore {
     let actualSize: number; // 扣减手续费后的实际 size
     let actualAmount: number; // 扣减手续费后的实际 amount
 
-    if (action === TRADE_ACTION_ENUM.buy) {
+    if (action === Side.BUY) {
       // buy 方向：收取 size，手续费 = baseFeeRate * size
       // 实际得到的 size = size * (1 - baseFeeRate)
       actualSize = size * (1 - baseFeeRate);
@@ -105,9 +105,11 @@ export default class TradeCore {
   }
 
   private async waitForOrderMatched({
+    side,
     orderId,
     timeout = 5 * 1000,
   }: {
+    side: Side;
     orderId: string;
     timeout?: number;
   }): Promise<TBriefOrder | null> {
@@ -123,7 +125,7 @@ export default class TradeCore {
           `[waitForOrderMatched] 监听推送订单成交超时, API查询结果: ${JSON.stringify(resp)}`
         );
         const { feeAmount, actualSize, actualAmount } = this.calculateFeeAndActuals(
-          TRADE_ACTION_ENUM.buy,
+          side,
           Number(resp.size_matched),
           Number(resp.price)
         );
@@ -151,7 +153,7 @@ export default class TradeCore {
             0
           );
           const { feeAmount, actualSize, actualAmount } = this.calculateFeeAndActuals(
-            TRADE_ACTION_ENUM.buy,
+            side,
             sizeMatched,
             Number(trade.price)
           );
@@ -216,6 +218,7 @@ export default class TradeCore {
       this.logInfo(`[🙏marketBuyAndWaitFill] 市场买入响应...${JSON.stringify(resp)}`);
       if (resp.orderID) {
         const order = await this.waitForOrderMatched({
+          side: Side.BUY,
           orderId: resp.orderID,
           timeout: 5 * 1000,
         });
@@ -251,6 +254,7 @@ export default class TradeCore {
 
       if (resp.orderID) {
         const order = await this.waitForOrderMatched({
+          side: Side.SELL,
           orderId: resp.orderID,
           timeout: 5 * 1000,
         });
