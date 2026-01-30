@@ -31,7 +31,7 @@ async function getEventAndMarket(eventEvent: string) {
     throw new Error(`Event has no markets: ${eventEvent}`);
   }
 
-  const market = event.markets[0];
+  const market = event.markets[event.markets.length - 1];
   console.log(`[speedTest] 使用第一个 market: ${market.question || market.id}`);
 
   // 获取 bestBid
