@@ -31,7 +31,7 @@ async function getEventAndMarket(eventEvent: string) {
     throw new Error(`Event has no markets: ${eventEvent}`);
   }
 
-  const market = event.markets[event.markets.length - 1];
+  const market = event.markets[0];
   console.log(`[speedTest] 使用第一个 market: ${market.question || market.id}`);
 
   // 获取 bestBid
@@ -40,7 +40,8 @@ async function getEventAndMarket(eventEvent: string) {
   }
 
   const bestBid = market.bestBid;
-  console.log(`[speedTest] Market bestBid: ${bestBid}`);
+  const bestAsk = market.bestAsk;
+  console.log(`[speedTest] Market bestBid: ${bestBid}, bestAsk: ${bestAsk}`);
 
   // 获取第一个 outcome 的 tokenId
   if (!market.clobTokenIds || !market.outcomes) {
@@ -65,6 +66,7 @@ async function getEventAndMarket(eventEvent: string) {
     tokenId,
     firstOutcome,
     bestBid,
+    bestAsk,
   };
 }
 
@@ -144,7 +146,7 @@ async function testLimitOrder(eventEvent: string) {
  */
 async function testMarketOrder(eventEvent: string) {
   try {
-    const { event, market, tokenId, firstOutcome, bestBid } = await getEventAndMarket(eventEvent);
+    const { event, market, tokenId, firstOutcome,  bestAsk } = await getEventAndMarket(eventEvent);
 
     // 初始化 ClobApi
     const config = getConfig();
@@ -157,7 +159,7 @@ async function testMarketOrder(eventEvent: string) {
 
     // 下市价单，数量为配置的金额
     const orderAmount = ORDER_AMOUNT;
-    const orderPrice = bestBid; // 使用 bestBid 作为参考价格
+    const orderPrice = bestAsk; // 使用 bestAsk 作为参考价格
 
     console.log(`[speedTest] 下市价单: tokenId=${tokenId}, amount=${orderAmount}, price=${orderPrice}, side=BUY`);
     
