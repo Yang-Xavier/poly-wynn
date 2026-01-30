@@ -85,6 +85,221 @@ interface TEvent {
 }
 
 /**
+ * Event 中的 Market 类型
+ * 用于 Event 响应数据中的 markets 数组
+ */
+export interface TEventMarket {
+  id: string;
+  question: string | null;
+  conditionId: string;
+  slug: string | null;
+  resolutionSource: string | null;
+  endDate: string | null;
+  liquidity: string | null;
+  startDate: string | null;
+  image: string | null;
+  icon: string | null;
+  description: string | null;
+  outcomes: string | null;
+  outcomePrices: string | null;
+  volume: string | null;
+  active: boolean | null;
+  closed: boolean | null;
+  marketMakerAddress: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  new: boolean | null;
+  featured: boolean | null;
+  submitted_by: string | null;
+  archived: boolean | null;
+  resolvedBy: string | null;
+  restricted: boolean | null;
+  groupItemTitle: string | null;
+  groupItemThreshold: string | null;
+  questionID: string | null;
+  enableOrderBook: boolean | null;
+  orderPriceMinTickSize: number | null;
+  orderMinSize: number | null;
+  volumeNum: number | null;
+  liquidityNum: number | null;
+  endDateIso: string | null;
+  startDateIso: string | null;
+  hasReviewedDates: boolean | null;
+  volume24hr: number | null;
+  volume1wk: number | null;
+  volume1mo: number | null;
+  volume1yr: number | null;
+  gameStartTime: string | null;
+  secondsDelay: number | null;
+  clobTokenIds: string | null;
+  umaBond: string | null;
+  umaReward: string | null;
+  volume24hrClob: number | null;
+  volume1wkClob: number | null;
+  volume1moClob: number | null;
+  volume1yrClob: number | null;
+  volumeClob: number | null;
+  liquidityClob: number | null;
+  customLiveness: number | null;
+  acceptingOrders: boolean | null;
+  negRisk: boolean | null;
+  negRiskRequestID: string | null;
+  ready: boolean | null;
+  funded: boolean | null;
+  acceptingOrdersTimestamp: string | null;
+  cyom: boolean | null;
+  competitive: number | null;
+  pagerDutyNotificationEnabled: boolean | null;
+  approved: boolean | null;
+  rewardsMinSize: number | null;
+  rewardsMaxSpread: number | null;
+  spread: number | null;
+  oneDayPriceChange: number | null;
+  oneHourPriceChange: number | null;
+  lastTradePrice: number | null;
+  bestBid: number | null;
+  bestAsk: number | null;
+  automaticallyActive: boolean | null;
+  clearBookOnStart: boolean | null;
+  manualActivation: boolean | null;
+  negRiskOther: boolean | null;
+  sportsMarketType: string | null;
+  line: number | null;
+  umaResolutionStatuses: string | null;
+  pendingDeployment: boolean | null;
+  deploying: boolean | null;
+  deployingTimestamp: string | null;
+  rfqEnabled: boolean | null;
+  holdingRewardsEnabled: boolean | null;
+  feesEnabled: boolean | null;
+  requiresTranslation: boolean | null;
+}
+
+/**
+ * Event 中的 Series 类型
+ * 用于 Event 响应数据中的 series 数组
+ */
+export interface TEventSeries {
+  id: string;
+  ticker: string | null;
+  slug: string | null;
+  title: string | null;
+  seriesType: string | null;
+  recurrence: string | null;
+  image: string | null;
+  icon: string | null;
+  active: boolean | null;
+  closed: boolean | null;
+  archived: boolean | null;
+  featured: boolean | null;
+  restricted: boolean | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  volume: number | null;
+  liquidity: number | null;
+  commentCount: number | null;
+  requiresTranslation: boolean | null;
+}
+
+/**
+ * Event 响应数据类型
+ * 对应 Polymarket API: GET /events/slug/{slug}
+ * 文档: https://docs.polymarket.com/api-reference/events/get-event-by-slug
+ */
+export interface TEventResponseData {
+  id: string;
+  ticker: string | null;
+  slug: string | null;
+  title: string | null;
+  subtitle: string | null;
+  description: string | null;
+  resolutionSource: string | null;
+  startDate: string | null;
+  creationDate: string | null;
+  endDate: string | null;
+  image: string | null;
+  icon: string | null;
+  active: boolean | null;
+  closed: boolean | null;
+  archived: boolean | null;
+  new: boolean | null;
+  featured: boolean | null;
+  restricted: boolean | null;
+  liquidity: number | null;
+  volume: number | null;
+  openInterest: number | null;
+  sortBy: string | null;
+  category: string | null;
+  subcategory: string | null;
+  isTemplate: boolean | null;
+  templateVariables: string | null;
+  published_at: string | null;
+  createdBy: string | null;
+  updatedBy: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  commentsEnabled: boolean | null;
+  competitive: number | null;
+  volume24hr: number | null;
+  volume1wk: number | null;
+  volume1mo: number | null;
+  volume1yr: number | null;
+  featuredImage: string | null;
+  disqusThread: string | null;
+  parentEvent: string | null;
+  enableOrderBook: boolean | null;
+  liquidityAmm: number | null;
+  liquidityClob: number | null;
+  negRisk: boolean | null;
+  negRiskMarketID: string | null;
+  negRiskFeeBips: number | null;
+  commentCount: number | null;
+  imageOptimized: TImageOptimized | null;
+  iconOptimized: TImageOptimized | null;
+  featuredImageOptimized: TImageOptimized | null;
+  subEvents: string[] | null;
+  markets: TEventMarket[] | null;
+  series: TEventSeries[] | null;
+  categories: any[] | null;
+  collections: any[] | null;
+  tags: TTag[] | null;
+  cyom: boolean | null;
+  closedTime: string | null;
+  showAllOutcomes: boolean | null;
+  showMarketImages: boolean | null;
+  automaticallyResolved: boolean | null;
+  enableNegRisk: boolean | null;
+  automaticallyActive: boolean | null;
+  eventDate: string | null;
+  startTime: string | null;
+  eventWeek: number | null;
+  seriesSlug: string | null;
+  score: string | null;
+  elapsed: string | null;
+  period: string | null;
+  live: boolean | null;
+  ended: boolean | null;
+  finishedTimestamp: string | null;
+  gmpChartMode: string | null;
+  eventCreators: any[] | null;
+  tweetCount: number | null;
+  chats: any[] | null;
+  featuredOrder: number | null;
+  estimateValue: boolean | null;
+  cantEstimate: boolean | null;
+  estimatedValue: string | null;
+  templates: any[] | null;
+  spreadsMainLine: number | null;
+  totalsMainLine: number | null;
+  carouselMap: string | null;
+  pendingDeployment: boolean | null;
+  deploying: boolean | null;
+  deployingTimestamp: string | null;
+  scheduledDeploymentTimestamp: string | null;
+  gameStatus: string | null;
+}
+
+/**
  * Market 响应数据类型
  * 对应 Polymarket API: GET /markets/slug/{slug}
  * 文档: https://docs.polymarket.com/api-reference/markets/get-market-by-slug

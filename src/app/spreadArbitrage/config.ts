@@ -22,7 +22,7 @@ const config = {
   minBuyAmount: 1, // 最小购买金额
   minSellSize: 1, // 最小卖出数量
 
-  accountId: "account2",
+  accountId: "account3",
 };
 
 export const getConfig = () => {

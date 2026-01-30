@@ -83,4 +83,10 @@ export default class ClobApi {
     const resp = await this.clobClient.getOrder(orderId);
     return resp;
   }
+
+  async cancelOrder({ orderId }: { orderId: string }) {
+    const resp = await this.clobClient.cancelOrder({ orderID: orderId });
+    return resp;
+  }
+  
 }
